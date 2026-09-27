@@ -1,8 +1,9 @@
 """make screens (#55): the dashboard against the fixtures, headless, at projector sizes.
 
 Serves the repo root on a free port, opens ui/index.html?state=<fixture> in Chromium (Playwright) and saves
-docs/screens/<fixture>-<view>-<size>.png. Fails on console errors, failed requests, horizontal overflow, and on
-text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), and on the presenter showcase also on vertical overflow or a wrong 5-of-5 count.
+docs/screens/<fixture>-<view>-<size>.png. Fails on console errors, failed requests, horizontal overflow, a view
+cut off at the bottom, text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), and on the presenter showcase
+a wrong 5-of-5 count.
 Offline; needs `pip install playwright && playwright install chromium`.
 """
 
@@ -19,10 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "screens"
 FIXTURES = ["state.example", "state.graduated"]
 SIZES = [(1920, 1080), (1280, 720)]
-VIEWS = [("show", "#/show", ""), ("show-present", "#/show", "&present"), ("overview-present", "#/", "&present"), ("system-present", "#/system", "&present")]
+# (name, hash, query, what must sit fully on screen: the whole view, or on Under the hood the diagram; its logs scroll below)
+VIEWS = [("show", "#/show", "", ".show"), ("show-present", "#/show", "&present", "#app"),
+         ("overview-present", "#/", "&present", "#app"), ("system-present", "#/system", "&present", "figure.arch")]
 
-# [overflow-x (page or a box its content spills out of), overflow-y, smallest text px and its text]; SVG text is measured on screen, not in user units.
-MEASURE = """() => {
+# [overflow-x (page or a box its content spills out of), cut off at the bottom, smallest text px and its text]; SVG text is measured on screen, not in user units.
+MEASURE = """(fold) => {
   const d = document.documentElement, texts = [];
   const w = document.createTreeWalker(document.getElementById("app"), NodeFilter.SHOW_TEXT);
   for (let n; (n = w.nextNode());) {
@@ -34,7 +37,7 @@ MEASURE = """() => {
   texts.sort((a, b) => a[0] - b[0]);
   const spill = [...document.querySelectorAll("#app *")].some((el) =>
     !el.closest("svg") && el.scrollWidth > el.clientWidth + 1 && el.clientWidth && getComputedStyle(el).overflowX === "visible");
-  return [d.scrollWidth > innerWidth || spill, d.scrollHeight > innerHeight, texts[0]];
+  return [d.scrollWidth > innerWidth || spill, document.querySelector(fold).getBoundingClientRect().bottom > innerHeight, texts[0]];
 }"""
 
 
@@ -55,7 +58,7 @@ def main():
         for fx in FIXTURES:
             state = json.loads((ROOT / "fixtures" / f"{fx}.json").read_text())
             for w, h in SIZES:
-                for view, hash_, flag in VIEWS:
+                for view, hash_, flag, fold in VIEWS:
                     name = f"{fx.removeprefix('state.')}-{view}-{w}x{h}"
                     page = browser.new_page(viewport={"width": w, "height": h})
                     errors = []
@@ -67,14 +70,14 @@ def main():
                     page.wait_for_selector("#app > :not(.lede)")  # rendered past "Loading…"
                     page.evaluate("document.fonts.ready")
                     page.wait_for_timeout(600)  # let the stamp animation settle
-                    over_x, over_y, (px, text) = page.evaluate(MEASURE)
+                    over_x, over_y, (px, text) = page.evaluate(MEASURE, fold)
                     page.screenshot(path=OUT / f"{name}.png")
-                    problems = errors + ["horizontal overflow"] * over_x + [f"text {px}px < {h / 45}px: {text!r}"] * (px < h / 45)
+                    problems = errors + ["horizontal overflow"] * over_x + [f"{fold} cut off at the bottom"] * over_y
+                    problems += [f"text {px}px < {h / 45}px: {text!r}"] * (px < h / 45)
                     if view == "show-present":
                         k = page.get_attribute("[data-qa=state]", "class").split()[-1]
                         t = next(t for t in state["registry"]["task_types"].values() if t["state"] == k)
                         want = str(min(t["verified_runs"], state["config"]["n"]))
-                        problems += ["vertical overflow"] * over_y
                         problems += [f"verified {page.inner_text('[data-qa=verified]')} != {want}"] * (page.inner_text("[data-qa=verified]") != want)
                     print(f"{'FAIL' if problems else 'ok  '} {name:38} smallest text {px}px", *problems, sep="\n     " if problems else "")
                     failures += problems
