@@ -56,13 +56,9 @@ FIELDS = (
 
 
 def price(model, upstream):
-    return (
-        PRICES["owned"]
-        if upstream == "owned"
-        else SMALL
-        if model == SMALL["model"]
-        else PRICES["frontier"]
-    )
+    if upstream == "owned":
+        return PRICES["owned"]
+    return SMALL if model == SMALL["model"] else PRICES["frontier"]
 
 
 def cost(rec, upstream):
