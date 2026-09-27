@@ -1,7 +1,7 @@
 GRADUATE: product specification
 ===============================
 
-What GRADUATE does, who it is for, the lifecycle every task type goes through, what it will not do, and what may be claimed about it. Every statement about current behaviour cites the code (`file:line`, on `main` at `e723076`). Where this file and the code disagree, the code is what runs; the disagreement is listed in [ARCHITECTURE.md § Where the docs disagree with the code](ARCHITECTURE.md#where-the-docs-disagree-with-the-code).
+What GRADUATE does, who it is for, the lifecycle every task type goes through, what it will not do, and what may be claimed about it. Every statement about current behaviour cites the code (`file:line`, on `main` at `e723076`). Which source wins when docs and code disagree is stated once, in [ARCHITECTURE.md § Source of truth](ARCHITECTURE.md#source-of-truth).
 
 Companion files: [ARCHITECTURE.md](ARCHITECTURE.md) (components, data flow, failure modes, tradeoffs) and [TEST-PLAN.md](TEST-PLAN.md) (the acceptance tests, keyed to the requirement ids below).
 
@@ -52,16 +52,11 @@ Each requirement has an id. [TEST-PLAN.md](TEST-PLAN.md) proves each one; a new 
 | R18 | Honesty: every claim is labelled with what it rests on (see Honesty rules) |
 | R19 | Claude Code can use the router through Anthropic `/v1/messages` |
 | R20 | Portability: the demo path runs on macOS (the demo machine) and Linux (CI) |
+| R21 | After graduation, the task type's sessions take fewer turns and tool calls than its caching-on frontier baseline, with the result still verified (graduate-spec §8 criterion 2; the #118 bar) |
 
 ## The lifecycle
 
-States and the legal-transition table are canonical in [contracts §1](../../graduate/contracts.md#1-states-and-transitions); the code's table is `graduate/registry.py:40-59`, and any other move raises `IllegalTransition` (`graduate/registry.py:134-136`). This section adds, per transition, what triggers it in the running system, what it guarantees, and what happens when it fails.
-
-```
-(first ledger row) → LEARNING → READY → TRAINING → GRADUATED → PROBATION
-                                  ↑         │                       │
-                                  └─ fail ──┘                       └→ TRAINING (retrain, consent)
-```
+The states, the diagram and the legal-transition table are in [contracts §1](../../graduate/contracts.md#1-states-and-transitions) (the pitch version is [graduate-spec §4](../../02-project/graduate-spec.md#4-the-graduation-lifecycle)); the code's table is `graduate/registry.py:40-59`, and any other move raises `IllegalTransition` (`graduate/registry.py:134-136`). This section adds, per transition, what triggers it in the running system, what it guarantees, and what happens when it fails.
 
 | Transition | Trigger (code) | Guarantee | Failure behaviour |
 |---|---|---|---|
@@ -71,8 +66,8 @@ States and the legal-transition table are canonical in [contracts §1](../../gra
 | TRAINING → GRADUATED | The trainer saves a checkpoint (`graduate/registrar/train.py:435-445`), or `--use-checkpoint` points at an existing adapter (`train.py:392-403`) | Same write sets `model`, `serving: checkpoint`, `trained_on_runs`, `graduated_at`, and resets `verified_since_graduation` and `failures_since_graduation` to 0 (`train.py:435-445`). GBrain publish runs after (`graduate/registry.py:159-163`) and can't block it (`graduate/gbrain.py:36-37`) | Any Python exception, and SIGTERM (`train.py:387-389`), sends it back to READY with an `error` event (`train.py:453-463`) |
 | TRAINING → READY | Trainer failure (above), or `reset_stale()` finding a TRAINING whose `training` event is over an hour old (`train.py:341-360`) | The frontier keeps serving throughout: only GRADUATED routes to the owned model (`graduate/router/route.py:43`) | `reset_stale()` runs only when a trainer starts (`train.py:378`). A trainer killed by SIGKILL or the OOM killer leaves TRAINING until some later training run starts (#116; PR #123 open) |
 | GRADUATED (steady) | Router routes the task type's calls to the owned model (`route.py:43`, `graduate/router/river.py:46-123`) | Every owned session is verified by the runner (`graduate/runner/__init__.py:115`). An owned call that errors is served by the frontier (`river.py:60-75`) | Per call, not per session: a session can mix owned and frontier calls, and its ledger `routed_to` is the upstream of its **last** call (`graduate/runner/__init__.py:51,131`) |
-| GRADUATED → PROBATION | The escalator, after a failed owned session, when `failures_since_graduation >= GRADUATE_FAIL_LIMIT` (default 3) (`graduate/escalator/__init__.py:22,92-114`) | Forced demo failures count too (`escalator/__init__.py:91-95`). The next call goes to the frontier without a router restart (registry re-read on mtime, `route.py:18-26`) | There is no owner "demote" action in the code, although contracts §1 names one |
-| PROBATION → TRAINING | `POST /api/consent/<t>` again (`consent.py:13,83`) | Consent can still be revoked in PROBATION and holds (`consent.py:99-108`; `tests/test_owned.py::test_revoked_consent_stops_a_retrain_before_anything_is_sent`) | The retrain trains on `data/<t>.chat.jsonl` only (`train.py:405-413`): negatives in `.neg.jsonl` are kept but **not** trained on, so "retrain includes the negatives" (contracts §1) is not what happens |
+| GRADUATED → PROBATION | The escalator, after a failed owned session, when `failures_since_graduation >= GRADUATE_FAIL_LIMIT` (default 3) (`graduate/escalator/__init__.py:22,92-114`). graduate-spec §4 says one failure demotes; the code needs three (C16) | Forced demo failures count too (`escalator/__init__.py:91-95`). The next call goes to the frontier without a router restart (registry re-read on mtime, `route.py:18-26`) | There is no owner "demote" action in the code, although contracts §1 names one |
+| PROBATION → TRAINING | `POST /api/consent/<t>` again (`consent.py:13,83`), or `graduate train <t>` by hand while consent is still true from the first approval (`train.py:382-386`) | Consent can still be revoked in PROBATION and holds (`consent.py:99-108`; `tests/test_owned.py::test_revoked_consent_stops_a_retrain_before_anything_is_sent`) | The retrain trains on `data/<t>.chat.jsonl` only (`train.py:405-413`): negatives in `.neg.jsonl` are kept but **not** trained on, so "retrain includes the negatives" (contracts §1) is not what happens |
 
 No path exists from GRADUATED straight to TRAINING (a retrain of a healthy model) or from PROBATION back to GRADUATED.
 
@@ -89,25 +84,8 @@ No path exists from GRADUATED straight to TRAINING (a retrain of a healthy model
 
 ## Honesty rules
 
-What may be claimed, what may not, and what each allowed claim must carry. These restate [AGENTS.md](../../AGENTS.md) ("Owned-model claims", "Honesty"), [`03-build/risks.md`](../../03-build/risks.md) §8 and [SUBMISSION.md § Honest limits](../../SUBMISSION.md#honest-limits); those stay canonical, this is the checklist a test or a slide is held to.
+The rules for what may be claimed are in [AGENTS.md](../../AGENTS.md) ("Owned-model claims" and "Honesty"), [`03-build/risks.md`](../../03-build/risks.md) §8 and [SUBMISSION.md § Honest limits](../../SUBMISSION.md#honest-limits). They are canonical; this file doesn't copy them. Three rules follow from the code and are not written down anywhere else:
 
-| May claim | Only with | Evidence today |
-|---|---|---|
-| "Records and verifies agent sessions through the proxy" | The session ids and their ledger rows | Proven on real gpt-5-mini sessions (test report §4) |
-| "Flips to READY at N verified runs" | The N used (`GRADUATE_N`) | Proven live at N=3, offline at N=5 |
-| "Shows exactly what will be trained, and where" | The consent screen's record count, tokens and destination | Proven: 3 records, 51,762 tokens, "this machine" |
-| "Trains a small model you own" | Base model, steps, loss first → last, wall time, backend (local CPU or River) | Proven locally: Qwen2.5-Coder-0.5B, 15 steps, 76.6 s. Not on River (no credit) |
-| "The owned model fixed state X" | Whether X was in its training data: **repeat** or **held-out**. On the shipped checkpoints 01–08 are training data, only 09 and 10 are held out | Repeat 07 passes; held-out 09 and 10 fail ([docs/results.md](../results.md)) |
-| "Escalates on failure and keeps the failed row" | The failed and rerun session ids, linked by `escalated_from` | Proven (mechanism) |
-| Savings, fewer turns, lower cost | A real frontier baseline with caching on, from passing owned rows only, via `scripts/compare.py` | **Not proven** (#118). Offline it is n/a |
-
-| May not claim | Why |
-|---|---|
-| Any savings ratio against `scripts/stub-upstream.py` | The stub's token counts are scripted; `scripts/compare.py` refuses such ledgers (`scripts/compare.py:12`) |
-| An owned pass on 01–08 as "held-out" | Those states trained the shipped checkpoints |
-| "Lossless", or "quality never drops" | The verifier is a test suite and can be gamed (#110); live escalations were blocked by the account's daily cap (#114) |
-| RL-trained | No RL run feeds the owned model; River RL refused with `insufficient_funds` |
-| Harvey's, Memorable's or anyone else's numbers as ours | [risks.md §8](../../03-build/risks.md) |
-| Training "on River" when the backend was local | The consent screen and events name the backend actually used (`graduate/router/consent.py:18-25`) |
-| A local model's cost as "River cost" without saying so | Owned rows are priced at the `owned` block of `prices.json` (River list prices) even when served on local CPU at $0 marginal (`graduate/router/metrics.py:73`); `scripts/compare.py` prints both bases |
-| A classification result as learned | In the demo the task type comes from the task file's `task_type` (`demo-repo/tasks/*.json`, `graduate/router/classify.py:49-50`), not from Memorable |
+- **Name the training backend actually used.** Say "on River" only when `RiverBackend` trained it. The consent screen and the events name the backend `train.backend()` picks (`graduate/router/consent.py:18-25`).
+- **Say which price basis an owned cost uses.** Owned rows are priced at the `owned` block of `prices.json` (River list prices) even when the model ran on local CPU at $0 marginal (`graduate/router/metrics.py:73`). `scripts/compare.py` prints both bases.
+- **Don't present the demo's task type as learned.** In the demo the task type comes from the task file's `task_type` (`demo-repo/tasks/*.json`, `graduate/router/classify.py:49-50`), not from Memorable.
