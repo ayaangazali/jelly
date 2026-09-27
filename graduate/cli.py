@@ -39,6 +39,7 @@ COMMANDS = {
     "bench": ("graduate.bench:main", "frontier vs small vs owned on the demo tasks: output tokens, cost, turns, pass rate"),
     "results": ("graduate.results:main", "freeze the dashboard state to results/state.json; view it with ?state= (no key)"),
     "train": ("graduate.registrar.train:main", "LoRA-train a task type's model, then TRAINING -> GRADUATED"),
+    "swarm": ("graduate.swarm:main", "run tasks in parallel, one agent each in its own demo-repo copy (--offline: stub)"),
 }
 
 # The repo root in a checkout; site-packages in a wheel, where ui/ and fixtures/ ship beside graduate/.

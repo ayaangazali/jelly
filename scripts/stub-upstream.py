@@ -27,8 +27,11 @@ def turn(body):
     """(text, tool_call) for the next assistant message."""
     if not body.get("tools"):
         return "Fix failing test", None
-    n = re.search(r"test_mod_(\d\d)", json.dumps(body["messages"])).group(1)
-    path = str(ROOT / f"demo-repo/calc/mod_{n}.py")
+    msgs = json.dumps(body["messages"])
+    n = re.search(r"test_mod_(\d\d)", msgs).group(1)
+    # The repo OpenCode runs in (a `graduate swarm` agent's own copy), else the checkout's demo-repo.
+    repo = re.search(r"Working directory: ([^\\\s\"]+)", msgs)
+    path = str(Path(repo.group(1) if repo else ROOT / "demo-repo") / f"calc/mod_{n}.py")
     done = sum(m["role"] == "tool" for m in body["messages"])
     if done == 0:
         return "", ("read", {"filePath": path})
