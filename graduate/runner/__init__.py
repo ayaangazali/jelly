@@ -10,10 +10,12 @@ command in the repo, and appends one ledger row (contracts §2).
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -52,6 +54,24 @@ def _session_totals(session_id):
     return out
 
 
+def _tree(repo):
+    with tempfile.TemporaryDirectory() as d:
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(d, "index")}
+        subprocess.run(["git", "add", "-A", "."], cwd=repo, env=env, capture_output=True)
+        return subprocess.run(["git", "write-tree"], cwd=repo, env=env, capture_output=True, text=True).stdout.strip()
+
+
+def _tests_changed(repo, before):
+    out = subprocess.run(
+        ["git", "diff-tree", "-r", "-z", "--name-only", "--no-renames", before, _tree(repo)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    ).stdout
+    parts = [Path(p).parts for p in out.split("\0") if p]
+    return any(("tests" in d[:-1] or d[-1] == "conftest.py") and "__pycache__" not in d for d in parts)
+
+
 def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None):
     session_id = "sess-" + uuid.uuid4().hex[:12]
     start_commit = subprocess.run(
@@ -61,6 +81,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         text=True,
     ).stdout.strip()
     pre_task = escalator.snapshot(repo)  # #23 resets to this
+    before = _tree(repo)
     _router(
         "POST",
         "/api/sessions",
@@ -111,10 +132,16 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     proc.wait()
     timer.cancel()
 
+    tampered = _tests_changed(repo, before)
+    for p in [*Path(repo).rglob("__pycache__"), Path(repo, ".pytest_cache")]:
+        if ".venv" not in p.parts:
+            shutil.rmtree(p, ignore_errors=True)
     # Always verify, even after a crash or timeout, and only inside the task repo.
     v = subprocess.run(verify, shell=True, cwd=repo, capture_output=True, text=True)
     passed, total = parse_pytest_summary(v.stdout)
-    exit_code = 124 if timed_out else v.returncode
+    summary_ok = (total and passed == total) or not re.search(r"\bpytest\b", verify)
+    verified = v.returncode == 0 and summary_ok and not tampered
+    exit_code = 124 if timed_out else v.returncode or (0 if verified else 1)
     for line in (v.stdout + v.stderr).splitlines():
         trace.terminal(f"[{session_id}] {line}")
     trace.emit(
@@ -153,6 +180,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         "ended_at": _now(),
         "escalated_from": escalated_from,
         "forced_failure": False,
+        "tampered": tampered,
     }
     if routed_to == "frontier" and exit_code == 0:
         row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)
