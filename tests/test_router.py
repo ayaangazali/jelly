@@ -52,6 +52,21 @@ def test_bearer_never_forwarded(router, stub, sid, workdir):
 
 
 @pytest.mark.parametrize("stream", [False, True])
+def test_max_tokens_sent_as_max_completion_tokens(router, stub, sid, stream):
+    """GPT-5 models reject `max_tokens` on turn 1, and OpenCode sends it (#115)."""
+    assert post(router, sid, stream=stream, max_tokens=100).status_code == 200
+    sent = stub.requests[-1][1]
+    assert sent["max_completion_tokens"] == 100 and "max_tokens" not in sent
+
+
+@pytest.mark.parametrize("extra", [{}, {"max_tokens": 100}])
+def test_max_completion_tokens_kept(router, stub, sid, extra):
+    post(router, sid, max_completion_tokens=50, **extra)
+    sent = stub.requests[-1][1]
+    assert sent["max_completion_tokens"] == 50 and "max_tokens" not in sent
+
+
+@pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("status", [400, 429, 500, 503])
 def test_upstream_errors_unchanged_and_unlogged(
     router, stub, sid, workdir, status, stream
