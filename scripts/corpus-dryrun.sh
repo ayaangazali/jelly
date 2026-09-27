@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Offline dry run of #13 and #6 end to end, zero OpenAI calls: stub upstream (scripts/stub-upstream.py) -> router ->
 # OpenCode -> runner -> ledger, session logs, stage split, registry, backup, durable copy, restore.
-# Run from an activated .venv with ports 4141 and 4199 free and no corpus data in the repo root.
+# Run from an activated .venv with no corpus data in the repo root. Ports: PORT (router, 4141), STUB_PORT (4199).
 # Everything it writes ends in backups/dryrun-<time>/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -11,6 +11,8 @@ for f in ledger.jsonl metrics.jsonl sessions registry.json; do
     exit 1
   }
 done
+PORT=${PORT:-4141} STUB_PORT=${STUB_PORT:-4199}
+export GRADUATE_ROUTER=http://localhost:$PORT OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"http://localhost:'$PORT'/v1"}}}}'
 out=backups/dryrun-$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$out"
 own_prices=
@@ -18,12 +20,12 @@ own_prices=
   cp fixtures/prices.example.json prices.json
   own_prices=1
 }
-python3 scripts/stub-upstream.py 4199 "$out/upstream-auth.log" &
+python3 scripts/stub-upstream.py $STUB_PORT "$out/upstream-auth.log" &
 stub=$!
-OPENAI_BASE_URL=http://127.0.0.1:4199/v1 OPENAI_API_KEY=sk-stub uvicorn graduate.router.app:app --port 4141 2>"$out/router.log" &
+OPENAI_BASE_URL=http://127.0.0.1:$STUB_PORT/v1 OPENAI_API_KEY=sk-stub uvicorn graduate.router.app:app --port $PORT 2>"$out/router.log" &
 router=$!
 trap 'kill $stub $router; [ -z "$own_prices" ] || rm prices.json' EXIT
-until curl -sf localhost:4141/healthz >/dev/null; do sleep 0.2; done
+until curl -sf localhost:$PORT/healthz >/dev/null; do sleep 0.2; done
 check() { "$@" >/dev/null || {
   echo "FAIL: $*" >&2
   exit 1
