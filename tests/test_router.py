@@ -59,9 +59,11 @@ def test_max_tokens_sent_as_max_completion_tokens(router, stub, sid, stream):
     assert sent["max_completion_tokens"] == 100 and "max_tokens" not in sent
 
 
-def test_max_completion_tokens_kept(router, stub, sid):
-    post(router, sid, max_completion_tokens=50)
-    assert stub.requests[-1][1]["max_completion_tokens"] == 50
+@pytest.mark.parametrize("extra", [{}, {"max_tokens": 100}])
+def test_max_completion_tokens_kept(router, stub, sid, extra):
+    post(router, sid, max_completion_tokens=50, **extra)
+    sent = stub.requests[-1][1]
+    assert sent["max_completion_tokens"] == 50 and "max_tokens" not in sent
 
 
 @pytest.mark.parametrize("stream", [False, True])
