@@ -18,8 +18,8 @@ under() { read -r c u <<<"$(spent)" && [ "$c" -lt "$CAP_CALLS" ] && jq -en "$u <
 jq -rn --slurpfile m metrics.jsonl --slurpfile p prices.json --argjson n "$(wc -w <<<"$STATES")" '
   ($m | map(select(.upstream == "frontier"))) as $f | $p[0].frontier as $r
   | if ($f | length) > 0
-    then {src: "measured", calls: ($f | length) / ($f | map(.session_id) | unique | length), usd: ($f | map(.cost_usd) | add) / ($f | length)}
-    else {src: "assumed", calls: 12, usd: (5000 * $r.input + 20000 * $r.cached_input + 400 * $r.output) / 1e6} end
+    then {src: "measured", calls: (($f | length) / ($f | map(.session_id) | unique | length)), usd: (($f | map(.cost_usd) | add) / ($f | length))}
+    else {src: "assumed", calls: 12, usd: ((5000 * $r.input + 20000 * $r.cached_input + 400 * $r.output) / 1e6)} end
   | "estimate (\(.src), \($r.model)): \($n) sessions x \(.calls | ceil) calls = \($n * .calls | ceil) calls, USD \($n * .calls * .usd * 1000 | round / 1000)"'
 echo "caps: $CAP_CALLS calls, USD $CAP_USD"
 
