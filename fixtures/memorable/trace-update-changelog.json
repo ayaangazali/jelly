@@ -1,0 +1,43 @@
+{
+  "session_id": "sess-sample00101",
+  "harness": "opencode",
+  "task_description": "Add a CHANGELOG entry for version 0.4.2.",
+  "tool_calls": [
+    {
+      "name": "read",
+      "input": {
+        "file_path": "CHANGELOG.md"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "name": "bash",
+      "input": {
+        "command": "git log --oneline v0.4.1..HEAD"
+      },
+      "result": {
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "edit",
+      "input": {
+        "file_path": "CHANGELOG.md"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "name": "bash",
+      "input": {
+        "command": "python scripts/check_changelog.py"
+      },
+      "result": {
+        "exit_code": 0
+      }
+    }
+  ]
+}
