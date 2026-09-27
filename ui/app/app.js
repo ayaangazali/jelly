@@ -24,9 +24,22 @@ function render() {
   document.body.classList.toggle("on-live", p === "live");
   document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === p ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const html = data.state ? PAGES[p]() : `<p class="lede">Loading /state…</p>`;
-  if ($("#view").dataset.html !== html) { $("#view").innerHTML = html; $("#view").dataset.html = html; }
+  swap($("#view"), html);
   tick();
   if (p === "live" && !sim.on) { sim.on = true; sim.last = performance.now(); requestAnimationFrame(frame); }
+}
+
+// Replace an element's HTML only when what we render changed (compared with what we last wrote, not the live DOM, which
+// an opened <details> alters), and keep every opened expander and scroll position across the replacement.
+const SCROLLERS = ".drawer, .oc-body, .filebox, .scroll, .turns, .tbody, .log";
+function swap(el, html) {
+  if (!el || el.dataset.html === html) return false;
+  const open = new Set([...el.querySelectorAll("details[open] > summary")].map((x) => x.textContent));
+  const tops = [...el.querySelectorAll(SCROLLERS)].map((x) => x.scrollTop);
+  el.innerHTML = html; el.dataset.html = html;
+  el.querySelectorAll("details > summary").forEach((x) => { if (open.has(x.textContent)) x.parentElement.open = true; });
+  el.querySelectorAll(SCROLLERS).forEach((x, i) => { if (tops[i]) x.scrollTop = tops[i]; });
+  return true;
 }
 
 async function poll() {
@@ -156,7 +169,6 @@ async function act(kind, t) {
   render();
   const method = { review: "GET", approve: "POST", revoke: "DELETE" }[kind];
   const r = await get(`/api/consent/${encodeURIComponent(t)}`, { method });
-  if (kind === "review" && !r.error) { const d = await get(`/api/training-data/${encodeURIComponent(t)}`); if (Array.isArray(d.runs) && d.runs.length) r.runs = d.runs; }
   if (r.status === 405) { data.readOnly = true; localStorage.setItem("graduate-read-only", "1"); }
   if (kind === "review") data.reviews[t] = r;
   else data.reviews[t] = r.status === 405 ? { msg: READ_ONLY } : r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };
@@ -282,6 +294,7 @@ function activity() {
 }
 
 const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing, "under-the-hood": underTheHood, setup };
+PAGES.activity = activity; // /app/activity; /app/logs still works
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 

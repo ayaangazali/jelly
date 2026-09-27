@@ -75,7 +75,7 @@ function paintChat() {
   q.disabled = chatRun.busy;
   for (const id of ["small", "big"]) {
     const s = chatRun.sides[id], el = document.getElementById(`chat-${id}`);
-    const f = (k) => el.querySelector(`[data-f="${k}"]`), put = (k, h) => { if (f(k).innerHTML !== h) f(k).innerHTML = h; };
+    const f = (k) => el.querySelector(`[data-f="${k}"]`), put = (k, h) => swap(f(k), h);
     put("title", esc(chatRun.own ? "session · your question" : `session · ${(data.preset && data.preset.title) || "fix the failing test"}`));
     put("model", esc(chatName(s && s.model, id)));
     put("user", userTurn());
