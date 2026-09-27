@@ -42,9 +42,9 @@ def test_race_pairs_each_owned_run_with_a_first_try_frontier_run_of_the_same_pro
     (workdir / "sessions/sess-o1.jsonl").write_text(json.dumps(call) + "\n")
 
     pairs = router("GET", "/api/race").json()["pairs"]
-    assert [(p["owned"]["row"]["session_id"], p["frontier"]["row"]["session_id"]) for p in pairs] == [
-        ("sess-o2", "sess-f1"),  # newest owned first; the escalation rerun is not the first-try frontier run
-        ("sess-o1", "sess-f1"),
+    assert [(p["owned"]["row"]["session_id"], p["frontier"]["row"]["session_id"], p["match"]) for p in pairs] == [
+        ("sess-o2", "sess-f1", "prompt"),  # newest owned first; the escalation rerun is not the first-try frontier run
+        ("sess-o1", "sess-f1", "prompt"),
     ]
     assert pairs[0]["rescue"]["session_id"] == "sess-f2" and pairs[1]["rescue"] is None
     assert pairs[1]["owned"]["log"] == [call] and pairs[1]["frontier"]["log"] is None
@@ -80,3 +80,15 @@ def test_pricing_lists_every_call_newest_first_with_the_prices(router, workdir):
     (workdir / "metrics.jsonl").write_text("".join(json.dumps(c) + "\n" for c in calls))
     got = router("GET", "/api/pricing").json()
     assert got["calls"] == calls[::-1] and set(got["prices"]) >= {"frontier", "owned"}
+
+
+def test_race_falls_back_to_a_verified_run_of_the_same_task_type(router, workdir):
+    rows = [
+        {**_row("sess-f1", "frontier", prompt="Fix test_mod_01."), "task_type": "fix-failing-test"},
+        {**_row("sess-f2", "frontier", exit_code=1, prompt="Fix test_mod_02."), "task_type": "fix-failing-test"},
+        {**_row("sess-o9", "owned", prompt="Fix test_mod_09."), "task_type": "fix-failing-test"},
+        {**_row("sess-o7", "owned", prompt="Something else."), "task_type": "update-changelog"},
+    ]
+    (workdir / "ledger.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    pairs = router("GET", "/api/race").json()["pairs"]
+    assert [(p["owned"]["row"]["session_id"], p["frontier"]["row"]["session_id"], p["match"]) for p in pairs] == [("sess-o9", "sess-f1", "task_type")]

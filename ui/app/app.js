@@ -224,7 +224,7 @@ function pairLabel(x) {
   const o = x.owned.row, nn = (String(o.prompt).match(/test_mod_(\d+)/) || [])[1];
   const kind = ((data.state.registry.task_types || {})[o.task_type] || {}).title || o.task_type || "task";
   const how = o.exit_code === 0 ? "your model passed" : x.rescue ? "handed to big model" : "your model failed";
-  return `${nn ? `Task ${nn}` : "Task"} · ${kind.toLowerCase()} · ${how}`;
+  return `${nn ? `Task ${nn}` : "Task"} · ${kind.toLowerCase()} · ${how}${x.match === "task_type" ? " · same task type, different task" : ""}`;
 }
 
 // The pair on screen: the one picked, else the newest where your model passed, else the newest.
@@ -247,7 +247,7 @@ function compare() {
 
 <a href="/ui/index.html#/compare">Benchmark table →</a></div>
 <div id="race" class="race stage"><section class="term owned"></section><section class="term frontier"></section></div><div id="verdict"></div>
-<p class="muted prompt-line">Task prompt: ${esc(o.prompt)}</p>`;
+<p class="muted prompt-line">${p.match === "task_type" ? `Same task type, different task. Yours: ${esc(o.prompt)} · Big model: ${esc(p.frontier.row.prompt)}` : `Task prompt: ${esc(o.prompt)}`}</p>`;
 }
 
 function activity() {
