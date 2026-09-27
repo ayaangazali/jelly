@@ -33,20 +33,11 @@ def race():
     rows = state.jsonl("ledger.jsonl", 10_000)
     pairs = []
     for owned in reversed([r for r in rows if r.get("routed_to") == "owned"]):
-        same = [
-            r
-            for r in rows
-            if r.get("routed_to") == "frontier"
-            and r.get("prompt") == owned.get("prompt")
-        ]
-        frontier = ([r for r in same if not r.get("escalated_from")] or same or [None])[
-            -1
-        ]
+        same = [r for r in rows if r.get("routed_to") == "frontier" and r.get("prompt") == owned.get("prompt")]
+        frontier = next((r for r in reversed(same) if not r.get("escalated_from")), same[-1] if same else None)
         if frontier is None:
             continue
-        rescue = next(
-            (r for r in rows if r.get("escalated_from") == owned["session_id"]), None
-        )
+        rescue = next((r for r in rows if r.get("escalated_from") == owned["session_id"]), None)
         pairs.append(
             {
                 "frontier": {"row": frontier, "log": _log(frontier["session_id"])},
