@@ -29,3 +29,12 @@ def test_results_freezes_the_dashboard_state(workdir, capsys):
     for key in ("registry", "ledger", "trace", "terminal", "session_log"):
         assert got[key] == want[key], key
     assert "?state=/" in capsys.readouterr().out
+
+
+def test_router_serves_the_latest_bench_for_compare(router, workdir):
+    run = workdir / "bench" / "bench-1"
+    run.mkdir(parents=True)
+    (run / "results.json").write_text((ROOT / "fixtures/bench.example.json").read_text())
+    (workdir / "bench" / "latest").symlink_to("bench-1")  # how graduate bench points at its newest run
+    r = router("GET", "/bench/latest/results.json")
+    assert r.status_code == 200 and r.json()["arms"]["owned"]["output_tokens"] == 540
