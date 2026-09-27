@@ -52,3 +52,17 @@ def test_race_pairs_each_owned_run_with_a_first_try_frontier_run_of_the_same_pro
 
 def test_race_with_no_ledger_has_no_pairs(router, workdir):
     assert router("GET", "/api/race").json()["pairs"] == []
+
+
+def test_replay_gives_each_run_its_tool_steps_and_each_task_type_its_newest_loss_curve(router, workdir):
+    (workdir / "ledger.jsonl").write_text(json.dumps(_row("sess-o1", "owned")) + "\n" + json.dumps(_row("sess-x", "frontier")) + "\n")
+    (workdir / "sessions").mkdir()
+    edit = {"function": {"name": "edit", "arguments": json.dumps({"file_path": "calc/mod_05.py\nmore"})}}
+    calls = [{"response": {"tool_calls": [edit]}}, {"response": {"content": "Fixed."}}]
+    (workdir / "sessions/sess-o1.jsonl").write_text("".join(json.dumps(c) + "\n" for c in calls))
+    (workdir / "data/checkpoints").mkdir(parents=True)
+    (workdir / "data/checkpoints/fix-failing-test-v3.loss.jsonl").write_text('{"step": 1, "loss": 2.35, "secs": 21.2}\n')
+
+    got = router("GET", "/api/replay").json()
+    assert [r["steps"] for r in got["runs"]] == [["edit calc/mod_05.py"], []]
+    assert got["loss"] == {"fix-failing-test": {"name": "fix-failing-test-v3", "steps": [{"step": 1, "loss": 2.35, "secs": 21.2}]}}

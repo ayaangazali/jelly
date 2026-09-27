@@ -36,6 +36,10 @@ async function poll() {
   if (up) data.state = s;
   if (["overview", "agents", "live"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
+  if (page() === "live" && !data.replay) {
+    data.replay = await get("/api/replay");
+    if (sim.S && (data.replay.runs || []).length && !data.sample) startLive(); // real runs arrived: replay them
+  }
   render();
 }
 
