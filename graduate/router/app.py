@@ -113,7 +113,20 @@ def models():
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
     start = time.monotonic()
-    body = await request.json()
+    try:
+        body = await request.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(
+            {
+                "error": {
+                    "message": "request body must be a JSON object",
+                    "type": "invalid_request_error",
+                }
+            },
+            400,
+        )
     bearer = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
     session_id = bearer if bearer.startswith("sess-") else "sess-anon"
     for route in _routes:
