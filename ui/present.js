@@ -51,7 +51,7 @@ function viewShow(a) {
   const negWired = esc_ && S.trace.some((e) => (e.nodes || []).includes("escalator"));
   const land = stampFor === k && Date.now() < stampUntil ? " land" : "";
   const stamp = t.state === "GRADUATED"
-    ? `<div class="stamp${land}">Graduated<small>${clock(t.graduated_at)} · trained on ${t.trained_on_runs} runs</small></div>`
+    ? `<div class="stamp${land}">Graduated<small>${clock(t.graduated_at)}${t.trained_on_runs ? ` · trained on ${t.trained_on_runs} runs` : ""}</small></div>`
     : t.state === "PROBATION" ? `<div class="stamp probation">Probation<small>back on frontier</small></div>` : "";
 
   return `<div class="show">
