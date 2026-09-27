@@ -20,7 +20,7 @@ from pathlib import Path
 
 import httpx
 
-from graduate import ledger, trace
+from graduate import escalator, ledger, trace
 from graduate.reward import parse_pytest_summary
 
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
@@ -58,6 +58,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         capture_output=True,
         text=True,
     ).stdout.strip()
+    pre_task = escalator.snapshot(repo)  # #23 resets to this
     _router(
         "POST",
         "/api/sessions",
@@ -150,8 +151,9 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         "started_at": started_at,
         "ended_at": _now(),
         "escalated_from": escalated_from,
-        "forced_failure": False,  # GRADUATE_FORCE_FAIL is #23's
+        "forced_failure": False,
     }
+    escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
     ledger.append(row)
     trace.emit(
         "Runner → Ledger",
@@ -163,24 +165,20 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         session_id,
     )
 
-    if routed_to == "owned" and row["exit_code"] != 0 and not escalated_from:
-        try:
-            from graduate.escalator import escalate  # #23; never escalate an escalation
-
-            escalate(row)
-        except Exception as e:  # fail open: the failed row is already on the ledger
-            print(f"escalator unavailable: {e!r}")
-
     print(
-        f"{session_id} {routed_to} exit {row['exit_code']} · {passed}/{total} passed · "
+        f"{session_id} {row['routed_to']} exit {row['exit_code']} · {passed}/{total} passed · "
         f"{row['turns']} turns · ${row['cost_usd']} · {row['wall_secs']}s"
     )
+    if row["routed_to"] == "owned" and row["exit_code"] != 0 and not escalated_from:
+        try:  # #23; never escalate an escalation
+            return escalator.escalate(row, pre_task)
+        except Exception as e:  # fail open: the failed row is already on the ledger
+            print(f"escalation failed: {e!r}")
     return row
 
 
 def main():
-    p = argparse.ArgumentParser(prog="graduate")
-    p.add_argument("cmd", choices=["run"])
+    p = argparse.ArgumentParser(prog="graduate run")
     p.add_argument("--task-file", required=True)
     p.add_argument("--repo", required=True)
     p.add_argument("--force-frontier", action="store_true")
