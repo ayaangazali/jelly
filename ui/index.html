@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Graduate</title>
 <link rel="icon" href="data:,">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --paper: #EDF0F3;
@@ -270,12 +267,14 @@ pre.filebox { max-height: 320px; margin-top: 0; border-top-left-radius: 0; }
   .trainbar b { transition: none; }
 }
 </style>
+<link rel="stylesheet" href="/ui/projector.css">
 </head>
 <body>
 <header class="top">
   <div class="wrap">
     <a class="brand" href="#/">Graduate</a>
     <nav class="primary" aria-label="Main">
+      <a href="#/show" data-nav="show">Showcase</a>
       <a href="#/" data-nav="overview">Overview</a>
       <a href="#/system" data-nav="system">Under the hood</a>
       <a href="#/setup" data-nav="setup">Setup</a>
@@ -287,6 +286,7 @@ pre.filebox { max-height: 320px; margin-top: 0; border-top-left-radius: 0; }
 <main><div class="wrap" id="app"><p class="lede">Loading…</p></div></main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="/ui/present.js"></script>
 <script>
 const GH = "https://github.com/ayaangazali/jelly/issues/";
 const BW = 190, BH = 56;
@@ -611,9 +611,9 @@ function render() {
   if (!S) return;
   const [r, a] = route();
   document.querySelectorAll("[data-nav]").forEach((x) => x.removeAttribute("aria-current"));
-  const nav = { "": "overview", system: "system", setup: "setup" }[r];
+  const nav = { "": "overview", show: "show", system: "system", setup: "setup" }[r];
   if (nav) $(`[data-nav="${nav}"]`).setAttribute("aria-current", "page");
-  const html = r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? viewSystem() : viewOverview();
+  const html = r === "show" ? viewShow(a) : r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? viewSystem() : viewOverview();
   const y = window.scrollY;
   $("#app").innerHTML = html;
   window.scrollTo(0, y);
