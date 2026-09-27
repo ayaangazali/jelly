@@ -5,11 +5,11 @@
 // panel wears a "demo data" tag. Uses app.js's globals (data, esc, num, money, pairs) at call time.
 const NODES = { agent: [95, 210], grad: [380, 210], big: [680, 75], yours: [680, 345], tests: [910, 210] };
 const EDGES = {
-  in: "M 177 210 L 298 210",
-  big: "M 462 190 C 530 110, 560 75, 598 75",
-  yours: "M 462 230 C 530 310, 560 345, 598 345",
-  bigOut: "M 762 75 C 820 75, 850 140, 875 168",
-  yoursOut: "M 762 345 C 820 345, 850 280, 875 252",
+  in: "M 183 210 L 292 210",
+  big: "M 468 190 C 530 110, 555 75, 592 75",
+  yours: "M 468 230 C 530 310, 555 345, 592 345",
+  bigOut: "M 768 75 C 820 75, 850 140, 868 168",
+  yoursOut: "M 768 345 C 820 345, 850 280, 868 252",
 };
 const sim = { on: false, last: 0, t: 0, next: 0, dots: [], tokens: 0, cost: 0, runs: 0, passed: 0, yours: 0, shown: { tokens: 0, cost: 0 }, ring: 0, lanes: [], logs: 0, raceT: 0 };
 
@@ -17,7 +17,7 @@ function live() {
   const svg = `<svg class="graph" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet" aria-label="How a request flows">
 <defs><filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 ${Object.entries(EDGES).map(([k, d]) => `<path id="e-${k}" class="edge ${k.startsWith("yours") ? "mine" : ""}" d="${d}"/>`).join("")}
-${node("agent", "Coding agents", "send every task")}${node("grad", "GRADUATE", "records · routes · verifies", "hub")}
+${node("agent", "Coding agents", "send every task")}${node("grad", "GRADUATE", "routes · records · checks", "hub")}
 ${node("big", "Big model", "rented, pay per token")}${node("yours", "Your model", "small, trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
@@ -31,7 +31,7 @@ ${node("big", "Big model", "rented, pay per token")}${node("yours", "Your model"
 <section class="panel p-lanes"><h2>Agents in parallel · sharing tips through GBrain <span class="tag">demo data</span></h2><div id="lanes" class="lanes"></div></section>
 </div>`;
 }
-const node = (id, label, sub, cls = "") => `<g id="n-${id}" class="node ${cls}" transform="translate(${NODES[id][0]} ${NODES[id][1]})"><rect x="-82" y="-42" width="164" height="84" rx="14"/><text y="-4">${label}</text><text y="22" class="sub">${sub}</text></g>`;
+const node = (id, label, sub, cls = "") => `<g id="n-${id}" class="node ${cls}" transform="translate(${NODES[id][0]} ${NODES[id][1]})"><rect x="-88" y="-42" width="176" height="84" rx="14"/><text y="-4">${label}</text><text y="22" class="sub">${sub}</text></g>`;
 const kpi = (id, label) => `<div class="kpi"><b id="${id}">0</b><span>${label}</span></div>`;
 const raceRow = (id, label) => `<div class="race-row ${id}"><span class="who">${label}</span><div class="bar"><i id="rb-${id}"></i></div><b id="rt-${id}">0</b><span class="unit">tokens</span><span id="rv-${id}" class="rv"></span></div>`;
 
@@ -50,8 +50,8 @@ function seed() {
     types: types.length ? types : ["Fix a failing test", "Update the changelog", "Add an API endpoint"],
     grads, learning: learning.length ? learning : types,
     n: s.config.n || 5,
-    big: { out: avg(big, "output_tokens", 25800), cost: avg(big, "cost_usd", 0.42) },
-    mine: { out: avg(mine, "output_tokens", 540), cost: avg(mine, "cost_usd", 0.0026) },
+    big: { out: avg(big, "output_tokens", 25800), cost: avg(big, "cost_usd", 0.42), secs: avg(big, "wall_secs", 94) },
+    mine: { out: avg(mine, "output_tokens", 540), cost: avg(mine, "cost_usd", 0.0026), secs: avg(mine, "wall_secs", 21) },
     steps: steps.length ? steps : ["read calc/mod_05.py", "edit calc/mod_05.py", "bash pytest -q tests/test_mod_05.py"],
     agents: agents.length >= 3 ? agents.slice(0, 6) : ["a1", "a2", "a3", "a4", "a5"],
   };
@@ -86,13 +86,18 @@ function launch() {
   addDot({ route: ["in", mine ? "yours" : "big", mine ? "yoursOut" : "bigOut"], mine, pass, type, lane, speed: mine ? 1.9 : 1.1 });
 }
 
+// A request is a glowing dot with a fading trail of three ghosts behind it.
 function addDot(d) {
-  const el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  el.setAttribute("r", d.rerun ? 7 : 6);
-  el.setAttribute("class", `dot ${d.rerun ? "rerun" : d.mine ? "mine" : "big"}`);
-  el.setAttribute("filter", "url(#glow)");
-  document.getElementById("dots").appendChild(el);
-  sim.dots.push({ ...d, el, leg: 0, s: 0 });
+  const els = [0, 1, 2, 3].map((k) => {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    el.setAttribute("r", (d.rerun ? 7 : 6) - k * 1.3);
+    el.setAttribute("class", `dot ${d.rerun ? "rerun" : d.mine ? "mine" : "big"}`);
+    el.setAttribute("opacity", 1 - k * 0.25);
+    if (!k) el.setAttribute("filter", "url(#glow)");
+    document.getElementById("dots").appendChild(el);
+    return el;
+  });
+  sim.dots.push({ ...d, els, leg: 0, s: 0 });
 }
 
 function moveDots(dt) {
@@ -105,10 +110,12 @@ function moveDots(dt) {
       if (d.leg === 2) flash(d.route[1] === "yours" ? "yours" : "big", "hit");
       if (d.leg >= d.route.length) { d.done = true; finish(d); continue; }
     }
-    const p = path.getPointAtLength(Math.min(d.s, len));
-    d.el.setAttribute("cx", p.x); d.el.setAttribute("cy", p.y);
+    d.els.forEach((el, k) => {
+      const p = path.getPointAtLength(Math.max(0, Math.min(d.s - k * 14, len)));
+      el.setAttribute("cx", p.x); el.setAttribute("cy", p.y);
+    });
   }
-  sim.dots = sim.dots.filter((d) => (d.done ? (d.el.remove(), false) : true));
+  sim.dots = sim.dots.filter((d) => (d.done ? (d.els.forEach((el) => el.remove()), false) : true));
 }
 
 function flash(id, cls) {
@@ -194,22 +201,25 @@ function counters(dt) {
   const ease = 1 - Math.pow(0.001, dt);
   sim.shown.tokens += (sim.tokens - sim.shown.tokens) * ease;
   sim.shown.cost += (sim.cost - sim.shown.cost) * ease;
-  set("k-tokens", num(sim.shown.tokens)); set("k-cost", money(sim.shown.cost)); set("k-runs", num(sim.runs));
+  set("k-tokens", num(sim.shown.tokens));
+  document.getElementById("n-yours").classList.toggle("lit", sim.graduated.size > 0); set("k-cost", money(sim.shown.cost)); set("k-runs", num(sim.runs));
   set("k-yours", sim.runs ? `${Math.round((sim.yours / sim.runs) * 100)}%` : "0%");
 }
 const short = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
 
-// The race: the same task on both models, 12-second loop. Big model 9 s, your model 2.5 s; tokens scale to the averages.
+// The race: the same task on both models, 12-second loop. The big model takes 9 s; your model's time and both token
+// counts keep the recorded averages' proportions.
 function raceLoop(dt) {
   const S = sim.S;
   sim.raceT = (sim.raceT + dt) % 12;
-  const t = sim.raceT, lanes = [["big", S.big.out, 9], ["yours", S.mine.out, 2.5]];
+  const t = sim.raceT, lanes = [["big", S.big.out, 9], ["yours", S.mine.out, Math.min(9, Math.max(0.8, (9 * S.mine.secs) / (S.big.secs || 1)))]];
   for (const [id, total, dur] of lanes) {
     const f = Math.min(1, t / dur);
     document.getElementById(`rb-${id}`).style.transform = `scaleX(${f * (total / S.big.out) || 0.004})`;
     set(`rt-${id}`, num(total * f));
     set(`rv-${id}`, f >= 1 ? "✓ tests pass" : "");
   }
-  set("race-verdict", t > 9.2 ? `${Math.round(S.big.out / (S.mine.out || 1))}× fewer tokens written by your model` : "");
+  const x = S.big.out / (S.mine.out || 1);
+  set("race-verdict", t > 9.2 ? (x >= 1.5 ? `${Math.round(x)}× fewer tokens written by your model` : "both passed the tests") : "");
 }
