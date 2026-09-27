@@ -551,7 +551,8 @@ function activeTrace() {
   const last = S.trace[S.trace.length - 1];
   if (!last) return { n: new Set(), e: new Set() };
   const fresh = new Date(S.generated_at) - new Date(last.ts) <= 2000;
-  return fresh ? { n: new Set(last.nodes), e: new Set(last.edges) } : { n: new Set(), e: new Set() };
+  const recent = fresh ? S.trace.filter((t) => new Date(last.ts) - new Date(t.ts) <= 2000) : [];
+  return { n: new Set(recent.flatMap((t) => t.nodes)), e: new Set(recent.flatMap((t) => t.edges)) };
 }
 
 function lastCallFor(id) {
