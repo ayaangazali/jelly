@@ -47,6 +47,7 @@ function chat() {
 ${env && env.files ? `<div class="chat-env">${env.files.map((f) => `<section class="card"><h3>${esc(f.path)}</h3>${pre(f.text)}</section>`).join("")}</div>
 <section class="card chat-out"><h3>$ ${esc(env.pytest.command)} · exit ${env.pytest.exit_code}</h3>${pre(env.pytest.output)}</section>
 <form class="chat-run" id="chat-form"><button class="btn owned" id="chat-send">Run both</button><p><b>Task:</b> ${esc(env.instruction)} <span class="muted">${esc(env.title)}</span></p></form>` : `<p class="muted">Loading the task…</p>`}
+<form class="chat-ask" id="chat-free"><input id="chat-q" maxlength="2000" placeholder="Or ask both models anything…" autocomplete="off" aria-label="Your own question"><button class="btn" id="chat-free-send">Send</button></form>
 <div class="chat-panes">${pane("small")}${pane("big")}</div><p class="banner chat-verdict" id="chat-verdict" hidden></p>`;
 }
 
@@ -80,13 +81,14 @@ function paintChat() {
   } else if (chatRun.note) v.textContent = chatRun.note;
 }
 
-async function sendChat() {
+async function sendChat(own) {
   const t0 = performance.now();
   Object.assign(chatRun, { busy: true, note: "", sides: { small: { t0, text: "", pieces: 0 }, big: { t0, text: "", pieces: 0 } } });
   const timer = setInterval(paintChat, 100);
   try {
-    const r = await fetch("/api/chat-compare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preset: (data.preset && data.preset.id) || "broken-09" }) });
-    if (!r.ok) { const b = await r.json().catch(() => ({})); chatRun.sides = {}; chatRun.note = b.error || `The chat answered ${r.status}.`; return; }
+    const body = own ? { prompt: own } : { preset: (data.preset && data.preset.id) || "broken-09" };
+    const r = await fetch("/api/chat-compare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) { chatRun.sides = {}; chatRun.note = await refusal(r); return; }
     const reader = r.body.getReader(), dec = new TextDecoder();
     let buf = "";
     for (;;) {
@@ -115,9 +117,21 @@ async function sendChat() {
   }
 }
 
+// Every refusal in plain words, never raw JSON: the server's own sentence, or what the status means.
+async function refusal(r) {
+  const b = await r.json().catch(() => null);
+  if (r.status === 429) return b && /budget/i.test(b.error || "") ? "Demo budget reached, try again later." : "Too many requests from you, try again in a few minutes.";
+  if (b && typeof b.error === "string" && !/[{}]/.test(b.error)) return b.error;
+  return "The chat couldn't answer right now. Try again in a moment.";
+}
+
 document.addEventListener("submit", (e) => {
-  if (e.target.id !== "chat-form") return;
-  e.preventDefault();
-  if (!chatRun.busy) sendChat();
+  if (e.target.id === "chat-form") { e.preventDefault(); if (!chatRun.busy) sendChat(); }
+  if (e.target.id === "chat-free") {
+    e.preventDefault();
+    const q = $("#chat-q").value.trim();
+    if (q.length > 2000) { chatRun.note = "Keep it under 2,000 characters."; paintChat(); return; }
+    if (q && !chatRun.busy) sendChat(q);
+  }
 });
 PAGES.chat = chat;

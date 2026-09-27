@@ -94,16 +94,23 @@ def test_both_sides_start_together_and_every_event_is_tagged(router, stub, river
     )
 
 
-def test_caps_refuse_free_prompts_and_a_spent_budget(router, stub, river):
-    r = router("POST", "/api/chat-compare", json={"prompt": "say anything"})
-    assert r.status_code == 400 and "free prompts are off" in r.json()["error"]
+def test_caps_refuse_long_or_empty_prompts_and_a_spent_budget_in_plain_words(router, stub, river):
+    r = router("POST", "/api/chat-compare", json={"prompt": "x" * 2001})
+    assert r.status_code == 400 and r.json()["error"] == "Keep it under 2,000 characters."
+    r = router("POST", "/api/chat-compare", json={"prompt": "   "})
+    assert r.status_code == 400 and "{" not in r.json()["error"]
     chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 200, "cost_usd": 0.1}))
-    r = router("POST", "/api/chat-compare", json={"preset": "broken-09"})
-    assert r.status_code == 429 and "200 requests" in r.json()["error"]
+    r = router("POST", "/api/chat-compare", json={"prompt": "say anything"})
+    assert r.status_code == 429 and r.json()["error"] == "Demo budget reached, try again later."
     chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 3, "cost_usd": 4.999}))
     r = router("POST", "/api/chat-compare", json={"preset": "broken-09"})
-    assert r.status_code == 429 and "$5 budget" in r.json()["error"]
+    assert r.status_code == 429 and r.json()["error"] == "Demo budget reached, try again later."
     assert not stub.requests and not river.calls  # a refusal spends nothing
+
+
+def test_a_free_prompt_reaches_both_models(router, stub, river):
+    r = router("POST", "/api/chat-compare", json={"prompt": "say anything"})
+    assert r.status_code == 200 and "say anything" in str(stub.requests[-1])
 
 
 def test_errors_never_echo_a_key(router, stub, river, monkeypatch):

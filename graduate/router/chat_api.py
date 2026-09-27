@@ -1,6 +1,6 @@
 """POST /api/chat-compare {"preset": "broken-09"} (captain's Chat page, /app/chat): one fixed task environment (a demo broken
 state: source, test, real failing pytest output; GET /api/chat-preset), sent to the big model and your own model at the
-same instant, streamed back as one SSE stream. No free prompts: the public link can only run a preset.
+same instant, streamed back as one SSE stream. A person may also send their own {"prompt": "..."} under the same caps.
 
 Every event is `data: {"side": "big"|"small", "type": ...}`:
 - `start`: that side's call is launched; `t_ms` is milliseconds since the request arrived (both ~0).
@@ -125,9 +125,9 @@ def _reserve():
     with _lock:
         b = _budget()
         if b["requests"] >= MAX_REQUESTS:
-            return f"The chat demo has used its {MAX_REQUESTS} requests. Thanks for trying it."
+            return "Demo budget reached, try again later."
         if b["cost_usd"] + WORST > MAX_USD:
-            return f"The chat demo has used its ${MAX_USD:.0f} budget. Thanks for trying it."
+            return "Demo budget reached, try again later."
         b["requests"] += 1
         BUDGET_PATH.write_text(json.dumps(b), encoding="utf-8")
     return None
@@ -315,12 +315,18 @@ def chat_preset():
 async def chat_compare(req: Request):
     t0 = time.monotonic()
     try:
-        pid = (await req.json()).get("preset")
+        body = await req.json()
     except Exception:
-        pid = None
-    if pid not in PRESETS:
-        return JSONResponse({"error": f"Send {{\"preset\": \"{next(iter(PRESETS))}\"}}; free prompts are off on the public link."}, 400)
-    prompt = preset(pid)["prompt"]
+        body = {}
+    pid, free = (body.get("preset"), body.get("prompt")) if isinstance(body, dict) else (None, None)
+    if pid in PRESETS:
+        prompt = preset(pid)["prompt"]
+    elif isinstance(free, str) and free.strip():  # a person's own question, same caps as a preset
+        if len(free) > MAX_PROMPT:
+            return JSONResponse({"error": f"Keep it under {MAX_PROMPT:,} characters."}, 400)
+        prompt = free
+    else:
+        return JSONResponse({"error": "Type a question, or press Run both for the preset task."}, 400)
     t0 = time.monotonic()  # the environment is built (once); both calls launch from here
     if refusal := _reserve():
         return JSONResponse({"error": refusal}, 429)
