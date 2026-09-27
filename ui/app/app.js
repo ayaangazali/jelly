@@ -121,8 +121,8 @@ ${tt.map(([id, t]) => {
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
     const per = (x) => (x ? `${Math.round(x.turns * 10) / 10} turns · ${money(x.cost_usd)}` : `<span class="muted">–</span>`);
-    const unmatched = (t.verified_runs || 0) + (t.failed_runs || 0) <= 1 && t.state === "LEARNING" && !/^[a-z]+(-[a-z]+){1,2}$/.test(id);
-    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${unmatched ? `<br><small class="muted">1 run Memorable could not match to a known type, so it stays on the big model.</small>` : ""}</td>
+    const runs = (t.verified_runs || 0) + (t.failed_runs || 0), unmatched = !t.procedure_slug && t.state === "LEARNING"; // no Memorable procedure behind it
+    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${unmatched ? `<br><small class="muted">${runs === 1 ? "1 run" : `${runs} runs`} Memorable could not match to a known type, so it stays on the big model.</small>` : ""}</td>
 <td>${stateTag(t.state)}</td>
 <td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>

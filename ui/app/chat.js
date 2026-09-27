@@ -88,7 +88,8 @@ function paintChat() {
   const v = $("#chat-verdict"), a = chatRun.sides.small && chatRun.sides.small.done, b = chatRun.sides.big && chatRun.sides.big.done;
   v.hidden = !(chatRun.note || (a && b));
   if (a && b) {
-    const x = a.cost_usd > 0 ? ` · your model cost ${(b.cost_usd / a.cost_usd).toFixed(1)}× less` : "";
+    const r = a.cost_usd > 0 ? b.cost_usd / a.cost_usd : 0;
+    const x = r >= 1.1 ? ` · your model cost ${r.toFixed(1)}× less` : r > 0 && r <= 1 / 1.1 ? ` · your model cost ${(1 / r).toFixed(1)}× more` : r ? " · about the same cost" : "";
     v.textContent = `your model ${a.output_tokens} tokens · $${a.cost_usd.toFixed(6)} · ${(a.wall_ms / 1000).toFixed(2)}s  |  big model ${b.output_tokens} tokens · $${b.cost_usd.toFixed(6)} · ${(b.wall_ms / 1000).toFixed(2)}s${x}`;
   } else if (chatRun.note) v.textContent = chatRun.note;
 }
