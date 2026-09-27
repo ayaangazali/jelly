@@ -14,13 +14,14 @@ Plug-in points, so #17 #35 #20 #37 #24 #26 never edit this file:
     upstream    "frontier" or "owned"; model is the id actually used
   Streamed calls ask the upstream for `stream_options.include_usage`, so the last chunk carries usage.
   A hook that raises is logged and skipped (fail open). Failed upstream calls (4xx/5xx) run no hooks.
-- `register_route(fn)`: before each call, `fn(session_id, request)` may return a Response to serve instead of the
-  frontier (the owned route, #20/#37). The first non-None wins. Whoever produces that Response calls
+- `register_route(fn)`: before each call, `fn(session_id, request)` (sync or async) may return a Response to serve
+  instead of the frontier (the owned route, #20/#37). The first non-None wins. Whoever produces that Response calls
   `call_hooks(...)` when its last byte is sent.
 - `app.include_router(...)` for new endpoints (/state #24, /api/sessions #17 #35, /v1/messages #26).
 """
 
 import importlib
+import inspect
 import json
 import logging
 import pkgutil
@@ -117,6 +118,8 @@ async def chat_completions(request: Request):
     session_id = bearer if bearer.startswith("sess-") else "sess-anon"
     for route in _routes:
         served = route(session_id, body)
+        if inspect.isawaitable(served):
+            served = await served
         if served is not None:
             return served
 
