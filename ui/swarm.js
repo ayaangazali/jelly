@@ -27,7 +27,8 @@ function viewSwarm() {
       <th scope="row">${esc(a.agent)}</th><td>${esc(a.task)} <small>${esc(a.task_type || "")}</small></td>
       <td class="st">${esc(a.status[0].toUpperCase() + a.status.slice(1))}</td><td>${a.turns ?? "—"}</td>
       <td>${a.exit_code ?? "—"}</td><td class="notes">${notes(a)}</td></tr>`).join("");
-  const feed = swarm.a2a.slice(-4).reverse().map((e) => `<li>
+  const shown = agents.length > 7 ? 2 : 3;  // measured: lanes + notes fit a 720p projector up to 8 agents
+  const feed = swarm.a2a.slice(-shown).reverse().map((e) => `<li>
       <time>${clock(e.ts, true)}</time><b>${esc(who[e.session_id] || e.session_id)}</b>
       <span class="dir">${e.edges.includes("a2a-write") ? "wrote" : "read"}</span><code>${esc(e.call)}</code>
       <span class="res">${esc(e.result)}</span></li>`).join("");
