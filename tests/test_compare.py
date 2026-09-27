@@ -11,7 +11,13 @@ FIXTURES = ROOT / "tests/compare"
 
 def compare(ledger):
     return subprocess.run(
-        [sys.executable, str(ROOT / "scripts/compare.py"), str(ledger)],
+        [
+            sys.executable,
+            str(ROOT / "scripts/compare.py"),
+            str(ledger),
+            "--prices",
+            "fixtures/prices.example.json",
+        ],
         capture_output=True,
         text=True,
     )
@@ -19,6 +25,10 @@ def compare(ledger):
 
 def test_each_arm_prints_its_numbers_and_row_ids():
     out = compare(FIXTURES / "ledger.jsonl").stdout.splitlines()
+    assert out[1] == (
+        "owned River list prices: fixtures/prices.example.json owned block, Qwen3.6-35B-A3B-FP8, per 1M tokens: "
+        "input $0.33, cached $0.066, output $0.82"
+    )
     frontier = out.index(
         "  frontier: n 3, mean turns 6.67, mean tool calls 5.67, mean cost $0.005935, pass rate 3/3 (100%)"
     )
