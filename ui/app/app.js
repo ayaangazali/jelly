@@ -299,6 +299,7 @@ function bench() {
   const bud = b.budget || {};
   return `<h1>Benchmark</h1>
 <p class="lede">The same demo tasks (${(b.tasks || []).map(esc).join(", ")}) through each model, from <code>graduate bench</code> at ${esc(String(b.started_at || "").slice(0, 16).replace("T", " "))}Z${bud.spent_usd != null ? `. Spent ${money(bud.spent_usd)} of a ${money(bud.cap_usd)} cap.` : "."}</p>
+${benchTakeaway(b)}
 <div class="scroll"><table><thead><tr><th>Per run (mean)</th>${arms.map(([id, l]) => `<th class="num">${l}<br><small class="muted">${esc(name(b.arms[id]))}</small></th>`).join("")}</tr></thead><tbody>
 ${row("Output tokens", "output_tokens", num, "lead")}
 ${row("Input tokens", "input_tokens", (v, a) => `${num(v)} <span class="muted">${Math.round(((a.cached_input_tokens || 0) / (v || 1)) * 100)}% cached</span>`)}
@@ -308,6 +309,23 @@ ${row("Wall time (median)", "wall_secs_p50", (v) => `${Math.round(v * 10) / 10}s
 ${row("Tests pass", "passed", (v, a) => `${v} of ${a.runs}`)}
 </tbody></table></div>
 <p class="muted">Means over each model's runs. Cost is tokens × list prices. n/a: that model has no runs in this benchmark.</p>`;
+}
+
+// "What this shows": every number and ratio computed from the same results the table shows, so the two never disagree.
+// A claim the results file does not carry (held-out tasks, big-model calls) is left out rather than asserted.
+function benchTakeaway(b) {
+  const f = b.arms.frontier, m = b.arms.small, o = b.arms.owned, ran = (a) => a && a.runs > 0;
+  if (!ran(o) || !ran(f)) return "";
+  const x = (p, q) => Math.round(p / q), n = (b.tasks || []).length, all = [f, m, o].filter(ran);
+  const cheap = (a) => `${money(a.cost_usd)} on ${esc(a.model)} (${x(a.cost_usd, o.cost_usd)}× cheaper)`;
+  const pct = Math.round((o.output_tokens / f.output_tokens - 1) * 100);
+  const lines = [
+    all.every((a) => a.passed === a.runs) ? `All ${all.length} models passed the tests on all ${n} tasks (${(b.tasks || []).map(esc).join(", ")}).` : `Tests passed: ${all.map((a) => `${esc(a.model.startsWith("river://") ? "your model" : a.model)} ${a.passed} of ${a.runs}`).join(", ")}.`,
+    `Your model: ${money(o.cost_usd)} a task vs ${cheap(f)}${ran(m) ? ` and ${cheap(m)}; it beats just buying a cheaper model` : ""}.`,
+    `Why: it learned the job, so it reads ${x(f.input_tokens, o.input_tokens)}× fewer input tokens (${num(o.input_tokens)} vs ${num(f.input_tokens)} a task)${o.turns && f.turns ? `, about ${num(o.input_tokens / o.turns)} per call instead of ${num(f.input_tokens / f.turns)}` : ""}.`,
+  ];
+  const limits = `Limits: it wrote ${pct >= 0 ? `${pct}% more` : `${-pct}% fewer`} output tokens than ${esc(f.model)} and took ${Math.round(o.wall_secs_p50)} s vs ${Math.round(f.wall_secs_p50)} s; ${o.runs} runs per model; your model's cost is priced at list rates, not billed.`;
+  return `<section class="panel takeaway"><h2>What this shows</h2>${lines.map((l) => `<p>${l}</p>`).join("")}<p class="muted">${limits}</p></section>`;
 }
 
 function activity() {
