@@ -791,21 +791,27 @@ svg.arch { width: 100%; height: auto; max-height: 62vh; }
 .aedge.on path { stroke: var(--owned); stroke-width: 2.5; }
 .aedge.on text { fill: var(--owned); }
 .arch-fig figcaption { font-size: 0.8em; margin-top: 6px; }
-svg.notes-svg { width: 100%; height: auto; max-height: 60vh; }
-.notes-svg .nnode rect { fill: var(--sheet); stroke: var(--rule); }
-.notes-svg .nnode.hub rect { stroke: var(--owned); fill: var(--owned-wash); }
-.notes-svg .nnode.file rect { stroke-dasharray: 5 4; }
-.notes-svg .nnode text { fill: var(--ink); font: 700 14px "Archivo", sans-serif; text-anchor: middle; }
-.notes-svg .nnode text.sub { fill: var(--muted); font: 400 11px "JetBrains Mono", monospace; }
-.notes-svg path { fill: none; stroke-width: 1.8; }
-.notes-svg path.nw { stroke: var(--warn); }
-.notes-svg path.nr { stroke: var(--owned); }
-.notes-svg path.nf { stroke: var(--warn); stroke-dasharray: 6 5; }
-.notes-svg > text { fill: var(--muted); font: 400 12px "Archivo", sans-serif; text-anchor: middle; }
+.ntl-wrap { overflow-x: auto; max-width: 100%; }
+svg.ntl { display: block; width: 100%; height: auto; margin: 0 auto; }
+.ntl text { fill: var(--muted); font: 400 11px "Archivo", sans-serif; text-anchor: middle; }
+.ntl text.ntitle { font-size: 12px; text-anchor: start; }
+.ntl text.ntitle tspan { fill: var(--ink); font-family: "JetBrains Mono", monospace; }
+.ntl .nband { fill: var(--sheet); stroke: var(--owned); }
+.ntl .nfill { fill: var(--owned-wash); }
+.ntl text.ncount { fill: var(--ink); font-weight: 700; font-size: 12px; }
+.ntl .nbox { fill: var(--sheet); stroke: var(--rule); }
+.ntl text.nrun { fill: var(--ink); font-weight: 700; font-size: 13px; }
+.ntl text.nsub { font-family: "JetBrains Mono", monospace; }
+.ntl .ncol path { fill: none; stroke-width: 2; }
+.ntl path.nr { stroke: var(--owned); } .ntl text.nr { fill: var(--owned); }
+.ntl path.nw { stroke: var(--warn); } .ntl text.nw { fill: var(--warn); }
+.ntl path.nm { stroke: var(--muted); stroke-dasharray: 4 3; }
+.ntl .nbusy { fill: none; stroke: var(--muted); stroke-dasharray: 3 2; }
+.ntl .nhit { fill: transparent; }
+.ntl .ncol:hover .nbox { stroke: var(--owned); }
 .notes-cap { font-size: 0.8em; margin: 6px 0; }
+.notes-cap .nr { color: var(--owned); } .notes-cap .nw { color: var(--warn); } .notes-cap .nm { color: var(--muted); }
 details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
-.notes-svg .nnode.hub rect { width: 230px; } svg.notes-svg { max-height: 66vh; }
-.notes-svg > text { font-size: 11px; paint-order: stroke; stroke: var(--sheet); stroke-width: 3px; }
 .runs { display: grid; gap: 6px; }
 .run { border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
 .run summary { display: grid; grid-template-columns: 2em minmax(0, 1.4fr) 1fr 1fr 1fr; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: center; }
