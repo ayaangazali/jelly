@@ -99,7 +99,7 @@ def parse(text):
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
     calls = []
     for i, body in enumerate(
-        re.findall(r"<tool_call>\s*(.*?)\s*</tool_call>", text, re.S)
+        re.findall(r"</?tool_call>\s*(.*?)\s*</tool_call>", text, re.S)
     ):
         try:
             call = json.loads(body)
@@ -115,7 +115,7 @@ def parse(text):
             )
         except (ValueError, KeyError, TypeError):
             continue  # a malformed call is dropped; the verify command catches what that breaks
-    content = re.sub(r"<tool_call>.*?(</tool_call>|$)", "", text, flags=re.S).strip()
+    content = re.sub(r"</?tool_call>.*?(</tool_call>|$)", "", text, flags=re.S).strip()
     msg = {"role": "assistant", "content": content}
     if calls:
         msg["tool_calls"] = calls
