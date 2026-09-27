@@ -95,7 +95,7 @@ async def classify_and_route(session_id, request):
             trace.emit("Router → River", "graduate.router.river.stream_completion", "not built yet (#37) → serving from frontier", 37,
                        nodes=["router", "river"], edges=["owned"], session_id=session_id)
         return None
-    return await serve(request, d)
+    return await serve(request, {**d, "session_id": session_id})  # #37 needs the id for call_hooks
 
 
 app.include_router(router)
