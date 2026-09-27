@@ -1,4 +1,4 @@
-.PHONY: dev ui check test
+.PHONY: dev ui check test screens
 
 dev:
 	uvicorn graduate.router.app:app --reload --port 4141
@@ -17,3 +17,7 @@ check:
 # Offline: the frontier is a stub (tests/conftest.py). pip install -e .[test] first.
 test:
 	pytest -q
+
+# Dashboard screenshots at 1920x1080 and 1280x720 into docs/screens/; fails on console errors or overflow (#55).
+screens:
+	python scripts/screens.py
