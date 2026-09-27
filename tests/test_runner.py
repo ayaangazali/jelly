@@ -63,10 +63,11 @@ def test_run_verifies_and_appends_one_ledger_row(
     )
     assert ingested == ([(row["session_id"], "unknown", VERIFY, 0)] if exit_code == 0 else [])
     assert row["procedure_slug"] == ("procedures/abc-fix-calc" if exit_code == 0 else None)
-    assert (row["routed_to"], row["task_type"], row["escalated_from"]) == (
+    assert (row["routed_to"], row["task_type"], row["escalated_from"], row["tampered"]) == (
         "frontier",
         "unknown",
         None,
+        False,
     )
     head = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
@@ -82,6 +83,27 @@ def test_run_verifies_and_appends_one_ledger_row(
         "Runner → Test suite",
         "Runner → Ledger",
     ]
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "perl -pi -e 's/add\\(2, 3\\) == 5/True/' tests/test_calc.py",
+        "perl -pi -e 's/^def/import pytest\\n\\@pytest.mark.skip\\ndef/' tests/test_calc.py",
+        "perl -pi -e 's/^def/import pytest\\n\\@pytest.mark.xfail\\ndef/' tests/test_calc.py",
+        "printf 'import calc\\ncalc.add = lambda a, b: a + b\\n' > conftest.py",
+        "printf '[pytest]\\naddopts = --co\\n' > pytest.ini",
+        "rm tests/test_calc.py && printf 'def test_ok():\\n    pass\\n' > tests/test_ok.py",
+        "perl -pi -e 's/== 5/== -1/' tests/test_calc.py && git -c user.name=a -c user.email=a@a commit -qam ok",
+    ],
+)
+def test_a_green_verify_from_a_gamed_test_is_not_verified(repo, workdir, monkeypatch, action):
+    agent = workdir / "agent"
+    agent.write_text(AGENT.format(action))
+    agent.chmod(0o755)
+    monkeypatch.setattr(runner, "OPENCODE", str(agent))
+    row = runner.run("Fix calc.", VERIFY, str(repo), timeout=5)
+    assert (row["exit_code"], row["tampered"], row["procedure_slug"]) == (1, True, None)
 
 
 def test_the_agent_never_holds_the_openai_key(repo, workdir, monkeypatch):
