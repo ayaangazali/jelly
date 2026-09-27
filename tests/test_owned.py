@@ -398,3 +398,30 @@ def test_trace_and_state_name_the_real_backend(router, stub, fake, monkeypatch, 
     assert s["config"]["backend"] == backend and f"Router → {says}" in said
     assert ("River" in said) == (backend == "river")
     assert s["terminal"] == ["1 passed", "[sess-x] link done"]
+
+
+def test_river_serves_the_compact_prompt_within_its_call_cap(monkeypatch):
+    """River gets what it was trained on (compact(), string tool arguments, the base model named) and RIVER_MAX_CALLS
+    stops the spend: past the cap complete() raises, so the frontier serves the call."""
+    sent = []
+
+    class Client:
+        def chat_complete_from_checkpoint(self, messages, **kw):
+            sent.append((messages, kw))
+            body = {"choices": [{"message": {"content": '<tool_call>{"name": "read", "arguments": {}}</tool_call>'}}]}
+            return type("R", (), {"status_code": 200, "response_json": json.dumps(body)})
+
+    b = train.RiverBackend()
+    monkeypatch.setattr(b, "_client", Client)
+    monkeypatch.setattr(train.RiverBackend, "calls", 0)
+    monkeypatch.setenv("RIVER_MAX_CALLS", "1")
+    ms = [{"role": "system", "content": "long opencode prompt"}, {"role": "user", "content": "fix it"},
+          {"role": "assistant", "content": "", "tool_calls": [CALL]}, {"role": "tool", "tool_call_id": "c1", "content": "x"}]
+    msg, _ = b.complete("river://run-x/weights/x-v1", ms, [{"type": "function", "function": {"name": "read", "parameters": {}}}])
+    messages, kw = sent[0]
+    assert msg["tool_calls"][0]["function"]["name"] == "read"
+    assert messages[0]["content"] == train.SYSTEM and json.loads(messages[2]["tool_calls"][0]["function"]["arguments"])
+    assert kw["base_model"] == b.BASE and kw["tools"][0]["function"]["name"] == "read"
+    with pytest.raises(RuntimeError, match="RIVER_MAX_CALLS=1"):
+        b.complete("river://run-x/weights/x-v1", ms, [])
+    assert len(sent) == 1
