@@ -43,6 +43,7 @@ ISSUE = 144
 _DATE = re.compile(r"(Today's date: |<location>)[^\\\"<]*")
 _NOTES = re.compile(r"## Notes from other agents\\n.*?\\n\\n")
 _index = {"mtime": None, "keys": {}, "evicted": {}}
+_missed = set()
 
 
 def _roots(request):
@@ -137,6 +138,9 @@ def _replay(session_id, request):
     k = key(request)
     hit = entries.get(k)
     if hit is None:
+        if session_id in _missed:  # the first divergent turn is traced; the rest would crowd /state's trace window
+            return None
+        _missed.add(session_id)
         trace.emit(
             "Router → Cache",
             f"lookup {k[:12]}",
