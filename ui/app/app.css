@@ -767,3 +767,6 @@ svg.over rect.mine { fill: var(--owned); }
   .stepper { margin-top: 6px; }
 }
 .howto { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; line-height: 1.45; }
+.ttypes td { white-space: nowrap; vertical-align: middle; }
+.ttypes td.tname { max-width: 28ch; overflow: hidden; text-overflow: ellipsis; }
+.ttypes .pips { margin-right: 6px; }

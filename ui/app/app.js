@@ -2,7 +2,7 @@
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const time = (ts) => esc((ts || "").slice(11, 19));
-const money = (v) => `$${Number(v).toFixed(v < 1 ? 4 : 2)}`;
+const money = (v) => `$${Number(v).toFixed(v < 1 ? 3 : 2)}`;
 const num = (v) => Math.round(v).toLocaleString();
 const data = { state: null, swarm: null, reviews: {} };
 
@@ -99,19 +99,19 @@ function tasks() {
   const approvable = (t) => ["READY", "PROBATION"].includes(t.state) && !data.readOnly;
   const off = data.readOnly ? ` title="${READ_ONLY}"` : "";
   return `<h1>Task types</h1>
-<div class="scroll"><table><thead><tr><th>Task type</th><th>State</th><th>Progress to graduation</th><th>Consent</th><th>Turns / cost per run</th><th>Actions</th></tr></thead><tbody>
+<div class="scroll"><table class="ttypes"><thead><tr><th>Task type</th><th>State</th><th>Progress</th><th>Consent</th><th>Big model per run</th><th>Your model per run</th><th></th></tr></thead><tbody>
 ${tt.map(([id, t]) => {
     const n = Math.min(t.verified_runs || 0, N());
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
-    return `<tr><td><b>${esc(t.title || id)}</b><br><code class="muted">${esc(id)}</code></td>
+    const per = (x) => (x ? `${Math.round(x.turns * 10) / 10} turns · ${money(x.cost_usd)}` : `<span class="muted">–</span>`);
+    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b></td>
 <td>${stateTag(t.state)}</td>
 <td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
-<td>${base ? `big model ${Math.round(base.turns * 10) / 10} turns · ${money(base.cost_usd)}` : `<span class="muted">n/a</span>`}${cur ? `<br><b style="color:var(--owned)">yours ${cur.turns} · ${money(cur.cost_usd)}</b>` : ""}</td>
+<td>${per(base)}</td><td style="color:var(--owned)">${per(cur)}</td>
 <td class="actions"><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
-<button class="btn owned" data-act="approve" data-t="${esc(id)}" ${approvable(t) ? "" : "disabled"}${off}>Approve</button>
-<button class="btn" data-act="revoke" data-t="${esc(id)}" ${approvable(t) && t.consent ? "" : "disabled"}${off}>Revoke</button></td></tr>`;
+${t.state === "READY" && !data.readOnly ? `<button class="btn owned" data-act="approve" data-t="${esc(id)}">Approve</button>` : ""}</td></tr>`;
   }).join("")}
 </tbody></table></div>
 ${data.readOnly ? `<p class="msg muted">${READ_ONLY}</p>` : ""}
