@@ -300,9 +300,7 @@ class RiverBackend:
     """The same two calls on River (river-client 0.12, contracts §6b). Needs RIVER_API_KEY. Trains and serves the same
     compact() prompt as the local backend, so a session costs ~2k tokens instead of OpenCode's ~25k."""
 
-    BASE = os.environ.get(
-        "RIVER_BASE_MODEL", "Qwen/Qwen3.5-9B"
-    )  # the <= 9B base River lists for LoRA
+    BASE = dataset.BASE_MODEL
     calls = 0  # this process's River serving calls, for RIVER_MAX_CALLS
 
     def _client(self):
@@ -379,6 +377,7 @@ class RiverBackend:
             base_model=self.BASE,  # required: River rejects an empty model name
             max_tokens=512,
             temperature=0,
+            chat_template_kwargs={"enable_thinking": False},
             **({"tools": short} if short else {}),
         )
         if r.status_code >= 400:
