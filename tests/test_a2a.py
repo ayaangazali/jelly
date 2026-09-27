@@ -72,7 +72,8 @@ def test_gbrain_backend_when_the_cli_works(workdir, monkeypatch):
     cli = workdir / "gbrain"
     cli.write_text(
         '#!/bin/sh\nf="$(dirname "$0")/page-$2"\n'
-        'if [ "$1" = put ]; then cat > "$f"; else [ -f "$f" ] && printf -- "---\\ntype: note\\n---\\n\\n" && cat "$f"; fi\n'
+        'if [ "$1" = put ]; then cat > "$f"; elif [ -f "$f" ]; then printf -- "---\\ntype: note\\n---\\n\\n" && cat "$f"; '
+        'else echo "Error [page_not_found]" >&2; exit 1; fi\n'
     )
     cli.chmod(0o755)
     monkeypatch.setenv("GBRAIN_BIN", str(cli))
@@ -100,3 +101,15 @@ def test_agents_get_gbrain_mcp_and_its_skills(workdir, monkeypatch):
     assert "`gbrain_get_page` with slug `a2a-fix-calc`" in open(rules).read() and "`a2a-fix-calc/sess-a`" in open(rules).read()
     monkeypatch.setenv("GBRAIN_BIN", str(workdir / "no-such-gbrain"))
     assert a2a.opencode_config("fix-calc", "sess-a") is None
+
+
+def test_a_brain_that_errors_on_read_is_never_overwritten(workdir, monkeypatch):
+    """A locked brain fails `get` with something other than page_not_found: the page is left alone, the file gets it."""
+    cli = workdir / "gbrain"
+    cli.write_text('#!/bin/sh\n[ "$1" = put ] && touch "$(dirname "$0")/wrote"\necho "Error [lock_timeout]: brain busy" >&2\nexit 1\n')
+    cli.chmod(0o755)
+    monkeypatch.setenv("GBRAIN_BIN", str(cli))
+    a2a.put("fix-calc", "### sess-a · t", "sess-a")
+    a2a.put("fix-calc", "### sess-b · t", "sess-b")
+    assert not (workdir / "wrote").exists()
+    assert (workdir / "a2a/fix-calc.md").read_text() == a2a.render("fix-calc", ["### sess-a · t", "### sess-b · t"])
