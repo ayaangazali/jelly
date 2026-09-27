@@ -2,7 +2,8 @@
 number on it comes from the live APIs (/state, /api/swarm, /api/consent, /api/sample, /api/race).
 
 GET /api/race feeds its Compare page: one pair per owned run in the ledger, raced against the newest frontier run of
-the same prompt (a first-try run before an escalation rerun), each with its session log (null when none was kept),
+the same prompt (a first-try run before an escalation rerun), else the newest verified one of the same task type
+(`match` says which), each with its session log (null when none was kept),
 plus the frontier rerun that rescued the owned run if it failed. Newest owned run first. `big_model` is the host the
 router sends frontier calls to, so the story can say when that is a stand-in rather than OpenAI."""
 
@@ -39,7 +40,10 @@ def race():
     pairs = []
     for owned in reversed([r for r in rows if r.get("routed_to") == "owned"]):
         same = [r for r in rows if r.get("routed_to") == "frontier" and r.get("prompt") == owned.get("prompt")]
-        frontier = next((r for r in reversed(same) if not r.get("escalated_from")), same[-1] if same else None)
+        frontier, match = next((r for r in reversed(same) if not r.get("escalated_from")), same[-1] if same else None), "prompt"
+        if frontier is None:  # no twin of this exact task: the latest verified big-model run of the same task type
+            kin = [r for r in rows if r.get("routed_to") == "frontier" and owned.get("task_type") and r.get("task_type") == owned.get("task_type") and r.get("exit_code") == 0 and not r.get("escalated_from")]
+            frontier, match = (kin[-1] if kin else None), "task_type"
         if frontier is None:
             continue
         rescue = next((r for r in rows if r.get("escalated_from") == owned["session_id"]), None)
@@ -48,6 +52,7 @@ def race():
                 "frontier": {"row": frontier, "log": _log(frontier["session_id"])},
                 "owned": {"row": owned, "log": _log(owned["session_id"])},
                 "rescue": rescue,
+                "match": match,  # "prompt": the same task; "task_type": same task type, different task
             }
         )
     return {"pairs": pairs, "big_model": urlparse(upstream.BASE_URL).netloc}  # api.openai.com, or a stand-in
