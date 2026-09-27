@@ -4,11 +4,11 @@ For a human, twice on demo day (early morning, then again at 3 PM). About 25 min
 
 When a step does not match, write down the step number, what you expected and what you got, and open an issue. Then carry on: the steps after it usually still work.
 
-**You need:** a clone of the repo, Python 3.11+, `jq`, `curl`, [OpenCode](https://opencode.ai) (`curl -fsSL https://opencode.ai/install | bash`) and a browser. Port 4141 must be free: stop any `graduate up` or `make dev` that is still running.
+**You need:** a clone of the repo, Python 3.12+ (the `[train]` extra's river-client builds the training records in step 14), `jq`, `curl`, [OpenCode](https://opencode.ai) (`curl -fsSL https://opencode.ai/install | bash`) and a browser. Port 4141 must be free: stop any `graduate up` or `make dev` that is still running.
 
 ## A. Install and automated checks (5 min)
 
-1. `python3 -m venv .venv && . .venv/bin/activate && pip install -e '.[test]'`
+1. `python3 -m venv .venv && . .venv/bin/activate && pip install -e '.[test,train]'`
    **Expected:** the install ends with `Successfully installed … graduate-0.1.0 …`.
 2. `graduate`
    **Expected:** a usage line, then `run`, `init`, `up` and `bench`, one line of help each.
