@@ -1,8 +1,13 @@
+import asyncio
 import json
 import os
 from pathlib import Path
 
+from fastapi import APIRouter
+
 from graduate import trace
+from graduate.router import classify as classifier
+from graduate.router.app import app, register_route
 from graduate.router.classify import classify
 
 REGISTRY = Path(os.environ.get("GRADUATE_REGISTRY", "registry.json"))
@@ -51,3 +56,45 @@ def decide(session_id, request, headers, hint=None):
                    nodes=["router", "registry", "river" if owned else "openai"],
                    edges=["reads", "owned" if owned else "frontier"], session_id=session_id)
     return decision
+
+
+_registered = {}
+_unwired = set()
+router = APIRouter()
+
+
+@router.post("/api/sessions")
+def register_session(body: dict):
+    session_id = str(body.get("session_id", ""))
+    if not session_id.startswith("sess-"):
+        return {"ok": False, "error": "session_id must start with sess-"}
+    _registered[session_id] = {k: body.get(k) for k in ("prompt", "repo", "verify", "force_frontier", "task_type")}
+    return {"ok": True}
+
+
+def task_type_of(session_id):
+    hit = classifier._cache.get(session_id)
+    return hit[0] if hit else "unknown"
+
+
+@register_route
+async def classify_and_route(session_id, request):
+    if session_id == "sess-anon":
+        return None
+    reg = _registered.get(session_id, {})
+    headers = {"x-graduate-force": "frontier"} if reg.get("force_frontier") else {}
+    d = await asyncio.to_thread(decide, session_id, request, headers, reg.get("task_type"))
+    if d["upstream"] != "owned":
+        return None
+    from graduate.router import river
+    serve = getattr(river, "stream_completion", None)
+    if serve is None:
+        if d["task_type"] not in _unwired:
+            _unwired.add(d["task_type"])
+            trace.emit("Router → River", "graduate.router.river.stream_completion", "not built yet (#37) → serving from frontier", 37,
+                       nodes=["router", "river"], edges=["owned"], session_id=session_id)
+        return None
+    return await serve(request, d)
+
+
+app.include_router(router)
