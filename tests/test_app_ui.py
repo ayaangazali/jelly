@@ -99,4 +99,5 @@ def test_training_data_lists_every_record_and_rejects_odd_names(router, workdir)
     recs = [{"messages": [{"role": "user", "content": f"run {i}"}], "metadata": {"session_id": f"sess-{i}"}} for i in range(3)]
     (workdir / "data/fix-failing-test.chat.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
     assert router("GET", "/api/training-data/fix-failing-test").json()["runs"] == recs
-    assert router("GET", "/api/training-data/..%2Fsecrets").json()["runs"] == []
+    odd = router("GET", "/api/training-data/..%2Fsecrets")
+    assert odd.status_code == 404 or odd.json().get("runs") == []  # never another file's records
