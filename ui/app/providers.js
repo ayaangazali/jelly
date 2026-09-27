@@ -157,14 +157,14 @@ function notesDiagram(calls) {
     on.filter((e) => !fell(e) && !isNaN(count(e))).forEach((e) => { held = count(e); });
     const busy = local.some((e) => /busy/.test(e.result)) ? "GBrain busy" : "GBrain not installed";
     const tip = [`run ${i + 1}${t ? ` · task ${t}` : ""}${r.id ? ` · ${r.id}` : ""}`,
-      ...r.ev.map((e) => `${(e.ts || "").slice(11, 19)} ${is(e, "a2a-read") ? "read" : "wrote"} ${pageOf(e)}: ${e.result}`)].join("\n");
+      ...r.ev.map((e) => `${localTime(e.ts)} ${is(e, "a2a-read") ? "read" : "wrote"} ${pageOf(e)}: ${e.result}`)].join("\n");
     const band = held ? `<rect class="nfill" x="${cx - COL / 2 + 1}" y="${80 - (26 * Math.min(held, NOTES_KEEP)) / NOTES_KEEP}" width="${COL - 2}" height="${(26 * Math.min(held, NOTES_KEEP)) / NOTES_KEEP}"/>${held !== before ? `<text class="ncount" x="${cx}" y="48">${fixes(held)}</text>` : ""}` : "";
     const wLabel = wrote.length ? `<text class="nw" x="${cx}" y="220">wrote 1 fix</text>` : local.length ? `<text class="nm" x="${cx}" y="220">local file</text>` : other.length ? `<text class="nm" x="${cx}" y="220">other page</text>` : "";
     return `<g class="ncol"><title>${esc(tip)}</title><rect class="nhit" x="${cx - COL / 2}" y="84" width="${COL}" height="${H - 84}"/>${band}
 ${read ? `<path class="${fell(read) ? "nm" : "nr"}" d="M${cx - 12},88 V140" marker-end="url(#ntl-${fell(read) ? "m" : "r"})"/><text class="${fell(read) ? "nm" : "nr"}" x="${cx}" y="204">read ${isNaN(count(read)) ? "" : count(read)}</text>` : ""}
 ${wrote.length ? `<path class="nw" d="M${cx + 12},142 V90" marker-end="url(#ntl-w)"/>` : ""}${local.length ? `<circle class="nbusy" cx="${cx + 12}" cy="115" r="6"><title>saved to local notes file, ${busy}</title></circle>` : ""}
 <rect class="nbox" x="${cx - 30}" y="146" width="60" height="40" rx="6"/><text class="nrun" x="${cx}" y="163">run ${i + 1}</text>${t ? `<text class="nsub" x="${cx}" y="179">task ${esc(t)}</text>` : ""}
-${wLabel}<text class="nsub" x="${cx}" y="240">${esc((r.ev[0].ts || "").slice(11, 16))}${i ? "" : " UTC"}</text></g>`;
+${wLabel}<text class="nsub" x="${cx}" y="240">${esc(localTime(r.ev[0].ts, true))}</text></g>`;
   });
   const mk = (id, c) => `<marker id="ntl-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`;
   return `<div class="ntl-wrap"><svg class="ntl" viewBox="0 0 ${W} ${H}" style="min-width:${W}px;max-width:${Math.round(W * 1.4)}px" role="img" aria-label="Timeline of agent runs reading and writing the GBrain page ${esc(page)}">

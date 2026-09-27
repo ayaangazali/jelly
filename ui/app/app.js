@@ -1,7 +1,9 @@
 // GRADUATE app (/app): one page per job, all from the live APIs. Nothing here computes a win the ledger doesn't show.
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const time = (ts) => esc((ts || "").slice(11, 19));
+// Timestamps are stored in UTC; show them in the viewer's own clock (e.g. 5:05:54 PM, not 00:05:54).
+const localTime = (ts, short) => { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString([], short ? { hour: "numeric", minute: "2-digit" } : { hour: "numeric", minute: "2-digit", second: "2-digit" }); };
+const time = (ts) => esc(localTime(ts));
 const money = (v) => `$${Number(v).toFixed(v < 1 ? 3 : 2)}`;
 const num = (v) => Math.round(v).toLocaleString();
 const data = { state: null, swarm: null, reviews: {} };

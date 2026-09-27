@@ -296,7 +296,7 @@ function realView() {
   const steps = Object.fromEntries(((data.replay && data.replay.runs) || []).map((r) => [r.session_id, r.steps || []]));
   document.getElementById("log").innerHTML = [...rows].reverse().map((r) => {
     const m = r.routed_to === "owned", st = (steps[r.session_id] || []).slice(-1)[0] || String(r.prompt || "").slice(0, 60);
-    return `<li style="animation:none"><time>${esc(String(r.started_at).slice(11, 19))}</time><span class="who ${m ? "mine" : "big"}">${m ? "your model" : esc(r.model || "big model")}</span><span class="what">${esc(st.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(r.output_tokens || 0)} tok</span><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></li>`;
+    return `<li style="animation:none"><time>${time(r.started_at)}</time><span class="who ${m ? "mine" : "big"}">${m ? "your model" : esc(r.model || "big model")}</span><span class="what">${esc(st.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(r.output_tokens || 0)} tok</span><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></li>`;
   }).join("");
   const top = Math.max(...rows.map((r) => r.cost_usd || 0), 0.0001), w = 400 / Math.max(rows.length, 1);
   const wide = rows.length * 14 > 400; // bars would be thinner than ~12px: draw every run at 14px and scroll the chart sideways
@@ -364,7 +364,7 @@ function resetRing() {
 
 function log(html) {
   const ol = document.getElementById("log"), li = document.createElement("li");
-  const ts = new Date().toISOString().slice(11, 19);
+  const ts = localTime(new Date());
   li.innerHTML = `<time>${ts}</time>${html}`;
   ol.prepend(li);
   while (ol.children.length > 18) ol.lastChild.remove();
