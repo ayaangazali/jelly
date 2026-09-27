@@ -88,3 +88,11 @@ def provider_calls():
     from graduate import trace
 
     return [e for e in state.jsonl(trace.TRACE_PATH, 20_000) if PROVIDER.search(str(e.get("who", "")))]
+
+
+@app.get("/api/pricing")
+def pricing():
+    """Every model call in metrics.jsonl, newest first, with the per-1M prices it was costed at (prices.json)."""
+    from graduate.router import metrics
+
+    return {"calls": state.jsonl("metrics.jsonl", 20_000)[::-1], "prices": metrics.PRICES}

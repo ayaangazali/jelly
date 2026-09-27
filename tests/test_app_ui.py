@@ -11,7 +11,7 @@ def test_app_page_and_its_assets_are_served(router, workdir):
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
     assert router("GET", "/app/explore/compare").text == page.text  # clean paths: the page routes itself
     assets = re.findall(r'(?:href|src)="(/ui/app/[^"]+)"', page.text)
-    assert sorted(assets) == ["/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js", "/ui/app/providers.js"]
+    assert {"/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js", "/ui/app/providers.js", "/ui/app/pricing.js"} <= set(assets)
     for a in assets:
         assert router("GET", a).status_code == 200, a
 
@@ -73,3 +73,10 @@ def test_provider_calls_cover_the_whole_trace_not_the_last_100(router, workdir):
     noise = {"who": "Router → Metrics", "call": "append metrics.jsonl", "result": "ok"}
     (workdir / "trace.jsonl").write_text(json.dumps(memorable) + "\n" + "".join(json.dumps(noise) + "\n" for _ in range(150)))
     assert router("GET", "/api/provider-calls").json() == [memorable]
+
+
+def test_pricing_lists_every_call_newest_first_with_the_prices(router, workdir):
+    calls = [{"ts": f"2026-09-27T22:0{i}:00Z", "upstream": "frontier", "model": "gpt-5.5", "cost_usd": 0.01 * i} for i in range(3)]
+    (workdir / "metrics.jsonl").write_text("".join(json.dumps(c) + "\n" for c in calls))
+    got = router("GET", "/api/pricing").json()
+    assert got["calls"] == calls[::-1] and set(got["prices"]) >= {"frontier", "owned"}

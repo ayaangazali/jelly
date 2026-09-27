@@ -5,7 +5,6 @@
 // by a stated speed-up, with their real tokens, cost, tests and tool calls: tagged "recorded real run". Without them
 // it runs a scripted timeline seeded from the APIs' shapes: tagged "demo data". Uses app.js's globals at call time.
 const SPONSORS = [
-  ["anthropic", "Anthropic · Claude Haiku 4.5", "the big model for today's real runs", "on"],
   ["openai", "OpenAI", "the big model when credited · no credit today", "off"],
   ["river", "River", "trains and serves your model · Qwen3.5-9B LoRA trained on 8 real runs", "on"],
   ["memorable", "Memorable", "classifies each task by recalling past procedures learned from verified runs", "on"],
@@ -25,15 +24,15 @@ function live() {
   const svg = `<svg class="graph" viewBox="10 50 980 320" preserveAspectRatio="xMidYMid meet" aria-label="How a request flows">
 ${Object.entries(EDGES).map(([k, d]) => `<path id="e-${k}" class="edge ${k.startsWith("yours") ? "mine" : ""}" d="${d}"/>`).join("")}
 ${node("agent", "Coding agents", "send tasks")}${node("grad", "jelly router", "records · checks", "hub")}
-${node("big", "Big model", "pay per token")}${node("yours", "Your model", "trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
+${node("big", "Big model", "pay per token")}${node("yours", "Your model", "trained on your runs", "mine")}${node("tests", "Unit tests", "the task's own tests", "tests")}
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
 <p id="yours-line"></p>
 <header class="live-top">
 <div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent")}${kpi("k-runs", "tests passed")}${kpi("k-yours", "on your model")}</div><span class="tag src">demo data</span></header>
-<section class="panel p-graph"><h2>How a task flows</h2>${svg}</section>
-<section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">5 passing runs of one kind of task, then your own model takes it over.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
-<div class="ring-mid"><b id="ring-n">0 of 5</b><span id="ring-sub">passing runs</span></div></div><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
+<section class="panel p-graph"><h2>How a task flows</h2>${svg}<p class="test-note">A run succeeds only if the task's own unit tests pass (e.g. <code>tests/test_mod_05.py</code>).</p></section>
+<section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">5 passing runs, then your own model takes over</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
+<div class="ring-mid"><b id="ring-n">0 of 5</b></div></div><p id="ring-sub" class="ring-big">passing runs</p><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
 <div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div></section>
 <section class="panel p-race"><h2>Race</h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
 <section class="panel p-log"><h2>Session log</h2><ol id="log" class="log"></ol></section>
@@ -57,8 +56,7 @@ function seed() {
   const steps = calls.flatMap((m) => (m.tool_calls || []).map((t) => { let a = ""; try { a = String(Object.values(JSON.parse(t.function.arguments))[0] || ""); } catch {} return `${t.function.name} ${a.split("\n")[0].replace(/^\/\S*\/(\S+\/\S+)/, "…/$1").slice(0, 48)}`; }));
   const agents = ((data.swarm && data.swarm.agents) || []).map((a) => a.agent);
   const title = Object.fromEntries(Object.entries(s.registry.task_types || {}).map(([k, t]) => [k, t.title || k]));
-  const runs = (!data.sample && data.replay && data.replay.runs) || [];
-  if (runs.length) return realSeed(s, runs, title, agents);
+  if (data.sample === false) return realSeed(s, (data.replay && data.replay.runs) || [], title, agents);
   return {
     types: types.length ? types : ["Fix a failing test", "Update the changelog", "Add an API endpoint"],
     grads, learning: learning.length ? learning : types,
@@ -75,7 +73,7 @@ function seed() {
 function realSeed(s, rows, title, agents) {
   const at = (r) => Date.parse(r.started_at) || 0;
   rows = [...rows].sort((a, b) => at(a) - at(b));
-  const span = (at(rows[rows.length - 1]) - at(rows[0])) / 1000, speed = Math.max(1, span / 45);
+  const span = rows.length ? (at(rows[rows.length - 1]) - at(rows[0])) / 1000 : 0, speed = Math.max(1, span / 45);
   const avg = (rs, k) => (rs.length ? rs.reduce((a, r) => a + (r[k] || 0), 0) / rs.length : null);
   const big = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from), mine = rows.filter((r) => r.routed_to === "owned");
   const count = {};
@@ -90,7 +88,7 @@ function realSeed(s, rows, title, agents) {
   big.forEach((r) => (bigBy[r.task_type] ||= []).push(r));
   return {
     real: true, speed, queue, ringSlug, ringTitle: title[ringSlug] || ringSlug, n: s.config.n || 5,
-    loss: ((data.replay.loss || {})[ringSlug]) || null,
+    loss: (((data.replay && data.replay.loss) || {})[ringSlug]) || null,
     bigBy: Object.fromEntries(Object.entries(bigBy).map(([k, rs]) => [k, { out: avg(rs, "output_tokens"), cost: avg(rs, "cost_usd") }])),
     big: { out: avg(big, "output_tokens") || 0, cost: avg(big, "cost_usd") || 0, secs: avg(big, "wall_secs") || 1 },
     mine: mine.length ? { out: avg(mine, "output_tokens"), cost: avg(mine, "cost_usd"), secs: avg(mine, "wall_secs") } : null,
@@ -118,7 +116,7 @@ function startLive() {
 function frame(now) {
   const root = document.getElementById("live-root");
   if (!root) { sim.on = false; return; }
-  if (!root.dataset.started) { root.dataset.started = 1; startLive(); }
+  if (!root.dataset.started) { if (data.sample === undefined) return requestAnimationFrame(frame); root.dataset.started = 1; startLive(); }
   const dt = Math.min(0.05, (now - sim.last) / 1000);
   sim.last = now; sim.t += dt;
   if (sim.S.real) { realView(); moveDots(dt); realRing(); } // real data: nothing replays; a dot flies only when a new run lands
@@ -165,7 +163,7 @@ function moveDots(dt) {
     if (d.s >= len) {
       d.s = 0; d.leg++;
       if (d.leg === 1) { flash("grad", "hit"); spark("memorable"); }
-      if (d.leg === 2) { flash(d.route[1] === "yours" ? "yours" : "big", "hit"); if (d.route[1] === "big") spark("anthropic"); }
+      if (d.leg === 2) { flash(d.route[1] === "yours" ? "yours" : "big", "hit"); if (d.route[1] === "big") spark("openai"); }
       if (d.leg >= d.route.length) { d.done = true; finish(d); continue; }
     }
     d.els.forEach((el, k) => {
@@ -212,7 +210,7 @@ function graduateStep(type) {
   if (sim.ring < S.n) return;
   if (S.real && !S.loss) { // no training log in this directory yet: say so, invent no curve
     document.querySelector(".p-ring").classList.add("training");
-    set("ring-state", `ready · your model is training on these ${S.queue.length} real runs`); set("train-line", "LoRA on Qwen2.5-Coder-0.5B · on this machine");
+    set("ring-state", "ready · training your model"); set("train-line", "LoRA on Qwen2.5-Coder-0.5B · on this machine");
     return;
   }
   // Training: the real loss curve when this task type has one, else a demo curve.
@@ -233,7 +231,7 @@ function training(dt) {
   const wrap = document.querySelector(".p-ring"), mins = Math.max(1, Math.round((c[c.length - 1].secs || 0) / 60));
   sim.training = null; sim.graduated.add(tr.type);
   wrap.classList.remove("training"); wrap.classList.add("graduated");
-  set("ring-state", "your model is live"); set("ring-n", "Graduated"); set("ring-sub", `after ${sim.S.n} passing runs`);
+  set("ring-state", "your model is live"); set("ring-n", "✓"); set("ring-sub", "Graduated");
   set("train-line", tr.real ? `trained in ${mins} min on this machine (real training log ${sim.S.loss.name})` : `trained in ${mins} min (demo curve)`);
   log(`<span class="who grad">graduated</span><span class="what">“${esc(tr.type)}” now runs on your model</span><span></span><span class="ok">✓</span>`);
   setTimeout(() => { // next task type starts learning
@@ -251,7 +249,7 @@ const RIVER_RUN = " · 24 steps · loss 0.261 → 0.030 · 122 s";
 // Real mode: the ring is the registry's own count and state for its busiest task type, not the replay's.
 const topType = () => Object.entries((data.state && data.state.registry.task_types) || {}).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
 // Your model's side before it has a run in this directory: training, or live with no run recorded here yet.
-const notYet = (short) => ((topType()[1] || {}).state === "GRADUATED" ? (short ? "no run yet" : "live · no run here yet") : short ? "model training" : `training on ${sim.S.queue.length} real runs`);
+const notYet = (short) => ((topType()[1] || {}).state === "GRADUATED" ? (short ? "no run yet" : "live · no run here yet") : short ? "model training" : "training on these runs");
 
 // Every frame, from the newest /state: the big model the latest runs used, and your model's plain one-liner.
 function facts() {
@@ -259,12 +257,9 @@ function facts() {
   const latest = ([...rows].reverse().find((r) => r.routed_to === "frontier" && r.model && r.model !== "unknown") || {}).model || "";
   const claude = /claude/i.test(latest), gpt = /gpt|openai/i.test(latest);
   set("big-sub", claude ? "Claude Haiku 4.5" : latest.split("/").pop() || "pay per token");
-  const anth = document.getElementById("sp-anthropic"), oai = document.getElementById("sp-openai");
-  anth.classList.toggle("on", claude); anth.classList.toggle("off", !claude);
+  const oai = document.getElementById("sp-openai");
   oai.classList.toggle("on", gpt); oai.classList.toggle("off", !gpt);
   if (gpt) set("sp-openai-role", `the big model now: ${latest}`);
-  const claudeRuns = rows.filter((r) => r.routed_to === "frontier" && /claude/i.test(r.model || "")).length;
-  set("sp-anthropic-role", claude ? "the big model for today's real runs" : claudeRuns ? `earlier big model · ${claudeRuns} runs` : "not used");
   const verified = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from).length;
   set("sp-memorable-role", `classifies each task by recalling past procedures · ${verified} learned from verified runs`);
   const g = Object.values(reg).find((t) => t.state === "GRADUATED" && t.model);
@@ -293,7 +288,7 @@ function realView() {
   const steps = Object.fromEntries(((data.replay && data.replay.runs) || []).map((r) => [r.session_id, r.steps || []]));
   document.getElementById("log").innerHTML = [...rows].reverse().slice(0, 18).map((r) => {
     const m = r.routed_to === "owned", st = (steps[r.session_id] || []).slice(-1)[0] || String(r.prompt || "").slice(0, 60);
-    return `<li style="animation:none"><time>${esc(String(r.started_at).slice(11, 19))}</time><span class="who ${m ? "mine" : "big"}">${m ? "your model" : esc(r.model || "big model")}</span><span class="what">${esc(st.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(r.output_tokens || 0)} tok</span><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓ tests pass" : "✗ tests fail"}</span></li>`;
+    return `<li style="animation:none"><time>${esc(String(r.started_at).slice(11, 19))}</time><span class="who ${m ? "mine" : "big"}">${m ? "your model" : esc(r.model || "big model")}</span><span class="what">${esc(st.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(r.output_tokens || 0)} tok</span><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></li>`;
   }).join("");
   const top = Math.max(...rows.map((r) => r.cost_usd || 0), 0.0001), w = 400 / Math.max(rows.length, 1);
   const avg = (rs, k) => (rs.length ? sum(rs, k) / rs.length : 0);
@@ -322,10 +317,10 @@ function realRing() {
   const v = t.verified_runs || 0, runs = `${v} real run${v === 1 ? "" : "s"}`;
   document.getElementById("ring").style.strokeDashoffset = 100 - (Math.min(v, n) / n) * 100;
   const grad = t.state === "GRADUATED", tot = s.totals || {};
-  set("ring-n", grad ? "Graduated" : `${Math.min(v, n)} of ${n}`); set("ring-sub", grad ? `after ${n} passing runs` : "passing runs");
+  set("ring-n", grad ? "✓" : `${Math.min(v, n)} of ${n}`); set("ring-sub", grad ? "Graduated" : "passing runs");
   set("ring-name", `“${t.title || slug}”`);
   const said = { LEARNING: "learning on the big model", READY: "ready · training your model", TRAINING: `training your model on these ${runs}`,
-    GRADUATED: `Trained on ${t.trained_on_runs || v} real runs · now serving ${tot.owned_runs || 0} run${tot.owned_runs === 1 ? "" : "s"} · saved ${money(tot.saved_usd || 0)}`,
+    GRADUATED: tot.owned_runs ? `trained on ${t.trained_on_runs || v} runs · serving ${tot.owned_runs} · saved $${(tot.saved_usd || 0).toFixed(2)}` : `trained on ${t.trained_on_runs || v} runs · waiting for its first run`,
     PROBATION: "back on the big model after failures" };
   set("ring-state", said[t.state] || t.state);
   const wrap = document.querySelector(".p-ring");
@@ -335,9 +330,9 @@ function realRing() {
   const where = river ? "LoRA on Qwen3.5-9B · on River" : "LoRA on Qwen2.5-Coder-0.5B · on this machine";
   const run = c && c.length ? ` · ${c.length} steps · loss ${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)} · ${Math.round(c[c.length - 1].secs || 0)} s`
     : river ? RIVER_RUN : "";
-  set("train-line", where + run);
+  set("train-line", river ? `Qwen3.5-9B on River${c && c.length ? "" : " · 24 steps · loss 0.261 → 0.030"}` : where);
   document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || c ? 1 : 0})`;
-  set("ring-what", `${n} passing runs of one kind of task, then your own model takes it over.`);
+  set("ring-what", `${n} passing runs, then your own model takes over`);
 }
 
 function resetRing() {
@@ -421,3 +416,6 @@ function raceLoop(dt) {
   const x = S.big.out / (S.mine.out || 1);
   set("race-verdict", t > 9.2 ? (x >= 1.5 ? `${Math.round(x)}× fewer tokens written by your model` : "both passed the tests") : "");
 }
+
+// The unit test file a run was verified by ("test_mod_05.py"), from its verify command.
+const testFile = (r) => (String(r.verify_command || r.prompt || "").match(/test_\w+\.py/) || ["tests"])[0];

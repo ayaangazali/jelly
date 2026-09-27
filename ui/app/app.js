@@ -36,6 +36,7 @@ async function poll() {
   if (up) data.state = s;
   if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
+  if (page() === "pricing") data.pricing = await get("/api/pricing");
   if (page() === "providers") { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
   if (page() === "live" && !data.replay) {
     data.replay = await get("/api/replay");
@@ -185,7 +186,7 @@ function paneHTML(p, t, side) {
   const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t);
   const c = done ? { out: r.output_tokens, turns: r.turns, cost: r.cost_usd, ms: r.wall_secs * 1000 }
     : { out: shown.reduce((a, s) => a + s.out, 0), turns: shown.length, cost: shown.reduce((a, s) => a + s.cost, 0), ms: t };
-  const end = !done ? `<p class="verify muted">working…</p>` : r.exit_code === 0 ? `<p class="verify pass">✓ Tests passed</p>`
+  const end = !done ? `<p class="verify muted">working…</p>` : r.exit_code === 0 ? `<p class="verify pass">✓ ${esc(testFile(r))} passed</p>`
     : `<p class="verify fail">✗ Tests failed${race.rescue && side === "owned" ? `: re-run on the big model, which ${race.rescue.exit_code === 0 ? "passed" : "failed too"}` : ""}</p>`;
   return `<header><b>${side === "owned" ? "Your model" : "Big model"}</b> <code class="muted">${esc(r.model.split("/").pop())}</code><p class="muted">${data.sample ? "sample data" : "recorded run"}</p></header>
 <div class="ctr"><div class="big"><b>${num(c.out)}</b><span>tokens written: the text you pay for</span></div>
@@ -261,7 +262,7 @@ function activity() {
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing };
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 

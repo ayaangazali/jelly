@@ -711,3 +711,17 @@ svg.over rect.mine { fill: var(--owned); }
 .over-tot p { margin: 4px 0 0; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .over-tot .bigc { color: var(--big); }
 .over-tot .minec { color: var(--owned); }
+/* Graduation card: ring big enough for its label, one-line captions, content centred with no empty half. */
+.p-ring { justify-content: center !important; }
+.p-ring h2 { position: absolute; top: 12px; left: 16px; }
+.p-ring .ring-what, .p-ring .ring-name, .p-ring .ring-state, .p-ring .train p { white-space: nowrap !important; overflow: visible; text-overflow: clip; -webkit-line-clamp: unset; display: block; }
+.ring-wrap { width: min(150px, 20vh) !important; margin: 8px 0 !important; }
+.ring-mid b { font-size: 1.6em !important; }
+.ring-big { margin: 0; font-weight: 800; font-size: 1.3em; color: var(--ink); }
+.p-ring.graduated .ring-big { color: var(--pass); }
+.p-ring .ring-state { font-size: 0.85em; }
+.p-ring .train { display: block !important; min-height: 0; }
+.p-ring .train p { font-size: 11px; min-height: 0; }
+.test-note { margin: 4px 0 0; font-size: 0.8em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptot { flex-wrap: nowrap; overflow-x: auto; margin-bottom: 12px; }
+.plog td, .plog th { white-space: nowrap; }
