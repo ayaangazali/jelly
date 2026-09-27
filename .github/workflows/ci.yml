@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       # river-client (the [train] extra) needs Python 3.12 (#51), and make check's dataset self-check (#21) needs it.
-      - run: pip install -e .${{ matrix.python == '3.12' && '[train]' || '' }}
+      # On 3.11, make test still runs every other self-check and skips that one.
+      - run: pip install -e .[test${{ matrix.python == '3.12' && ',train' || '' }}]
       - run: make check
         if: matrix.python == '3.12'
-      - run: pip install pytest && pytest -q
-        if: hashFiles('tests/**') != ''
+      - run: make test

@@ -46,12 +46,14 @@ def check():
     t0 = time.monotonic()
     with open(LEDGER_PATH, "a") as f:
         f.write(row(4))
-    while registry.load()["task_types"]["fix-failing-test"]["state"] != "READY":
+    # scan() writes the READY state, then the ready event: wait for the event
+    while not registry.load()["events"]:
         assert time.monotonic() - t0 < 2, "not READY within 2 s"
         time.sleep(0.05)
     flip = time.monotonic() - t0
     reg = registry.load()
     assert [e["kind"] for e in reg["events"]] == ["ready"], reg["events"]
+    assert reg["task_types"]["fix-failing-test"]["state"] == "READY"
 
     scan()
     scan()
