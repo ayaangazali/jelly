@@ -70,6 +70,18 @@ def scan():
         slugs = [r["procedure_slug"] for r in rs if r["procedure_slug"]]
         if slugs:
             fields["procedure_slug"] = slugs[-1]
+        # New types start as the bare slug with no verify command (#76): name them from the slug and the ledger.
+        # The command is what every run's command starts with; one that still covers every run (hand-set) stays.
+        old = known.get(t, {})
+        cmds = sorted({r["verify_command"] for r in rs if r.get("verify_command")})
+        if cmds:
+            common = os.path.commonprefix(cmds)
+            cmd = common if len(cmds) == 1 else common.rsplit(" ", 1)[0]
+            have = old.get("verify_command")
+            if not have or not all(c.startswith(have) for c in cmds):
+                fields["verify_command"] = cmd
+        if old.get("title", t) == t:
+            fields["title"] = t.replace("-", " ").capitalize()
         n = len(verified)
         if (
             registry.update(t, **fields)["state"] == "LEARNING"
