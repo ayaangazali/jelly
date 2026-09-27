@@ -27,7 +27,7 @@ N is `GRADUATE_N` (default 5). The fail limit is `GRADUATE_FAIL_LIMIT` (default 
 | `TRAINING` | `GRADUATED` | a checkpoint was saved | trainer (#22) |
 | `TRAINING` | `READY` | training failed, or `TRAINING` is stale for over an hour | trainer (#22) |
 | `GRADUATED` | `PROBATION` | `failures_since_graduation >= GRADUATE_FAIL_LIMIT`, or the owner demotes it | escalator (#23), dashboard |
-| `PROBATION` | `TRAINING` | `consent == true` (retrain includes the negatives) | consent endpoint (#25) |
+| `PROBATION` | `TRAINING` | `consent == true` (retrain on the passing runs; negatives are kept but not trained on, §6c) | consent endpoint (#25) |
 
 Anything else raises `IllegalTransition`. Consent is checked on the way **into** `TRAINING`, not on the way into `READY`: reaching the bar is automatic, sending data to River never is.
 
