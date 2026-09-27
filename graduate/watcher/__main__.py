@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from graduate import registry
-from graduate.watcher import LEDGER_PATH, scan, watch
+from graduate.watcher import LEDGER_PATH, scan, verify_pattern, watch
 
 FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "ledger.example.jsonl"
 
@@ -40,6 +40,9 @@ def check():
     assert tt["baseline"]["turns"] == (10 + 11 + 12 + 13) / 4, tt["baseline"]
     assert tt["procedure_slug"] == base["procedure_slug"]
     assert "unknown" not in registry.load()["task_types"]
+    assert (tt["title"], tt["verify_command"]) == ("Fix failing test", base["verify_command"]), tt
+    assert verify_pattern(["pytest -q tests/test_mod_01.py", "pytest -q tests/test_mod_07.py"]) == "pytest -q tests/test_mod_*.py"
+    assert verify_pattern(["make test", "pytest -q"]) == "make test"
 
     threading.Thread(target=watch, daemon=True).start()
     time.sleep(1.5)

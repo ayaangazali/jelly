@@ -7,6 +7,7 @@ python -m graduate.watcher --check   self-check
 
 import json
 import os
+import re
 import time
 
 from graduate import registry, trace
@@ -28,6 +29,12 @@ def _rows():
 
 def _avg(rows):
     return {k: sum(r[k] for r in rows) / len(rows) for k in NUMBERS} if rows else None
+
+
+def verify_pattern(commands):
+    distinct = list(dict.fromkeys(commands))
+    shapes = {re.sub(r"\d+", "*", c) for c in distinct}
+    return shapes.pop() if len(distinct) > 1 and len(shapes) == 1 else distinct[0]
 
 
 def scan():
@@ -67,6 +74,12 @@ def scan():
             "verified_since_graduation": len(owned),
             "current": _avg(owned),
         }
+        entry = known.get(t, {})
+        commands = [r["verify_command"] for r in rs if r.get("verify_command")]
+        if commands and not entry.get("verify_command"):
+            fields["verify_command"] = verify_pattern(commands)
+        if entry.get("title", t) == t:
+            fields["title"] = t.replace("-", " ").capitalize()
         slugs = [r["procedure_slug"] for r in rs if r["procedure_slug"]]
         if slugs:
             fields["procedure_slug"] = slugs[-1]
