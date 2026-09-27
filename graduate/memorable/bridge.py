@@ -34,7 +34,7 @@ def _text(content):
     return content or ""
 
 
-def build_trace(session_id, verify_command, exit_code, sessions_dir=Path("sessions")):
+def build_trace(session_id, verify_command, exit_code, sessions_dir=Path("sessions"), harness="opencode"):
     lines = (sessions_dir / f"{session_id}.jsonl").read_text().splitlines()
     last = json.loads(lines[-1])
     messages = last["request"]["messages"] + [last["response"]]
@@ -55,10 +55,10 @@ def build_trace(session_id, verify_command, exit_code, sessions_dir=Path("sessio
                 "result": {"ok": True},
             })
     calls.append({"name": "bash", "input": {"command": verify_command}, "result": {"exit_code": exit_code}})
-    return {"session_id": session_id, "harness": "opencode", "task_description": prompt[:200], "tool_calls": calls}
+    return {"session_id": session_id, "harness": harness, "task_description": prompt[:200], "tool_calls": calls}
 
 
-def ingest(session_id, task_type=None, verify_command=None, exit_code=None, root=Path(".")):
+def ingest(session_id, task_type=None, verify_command=None, exit_code=None, root=Path("."), harness="opencode"):
     row = _ledger_row(session_id, root / "ledger.jsonl")
     task_type = task_type or row.get("task_type")
     verify_command = verify_command or row.get("verify_command")
@@ -68,7 +68,7 @@ def ingest(session_id, task_type=None, verify_command=None, exit_code=None, root
         return None
 
     try:
-        body = build_trace(session_id, verify_command, exit_code, root / "sessions")
+        body = build_trace(session_id, verify_command, exit_code, root / "sessions", harness)
     except (OSError, ValueError, KeyError, IndexError) as e:
         _warn_once("trace", f"couldn't build a trace for {session_id} ({e}); skipped")
         return None

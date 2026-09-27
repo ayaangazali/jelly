@@ -94,15 +94,31 @@ def _args(a):
         return {}
 
 
+def _xml_call(body):
+    """Qwen3.5's tool-call format: <function=read><parameter=filePath>x</parameter></function>."""
+    name = re.search(r"<function=([^>\s]+)>", body)
+    params = re.findall(r"<parameter=([^>\s]+)>\s*(.*?)\s*</parameter>", body, re.S)
+    return {
+        "name": name[1],
+        "arguments": {
+            k: _args(v) if v[:1] in "[{" or v.isdigit() or v in ("true", "false") else v
+            for k, v in params
+        },
+    }
+
+
 def parse(text):
-    """Qwen output -> OpenAI assistant message: <tool_call>{json}</tool_call> blocks become tool_calls, <think> goes."""
+    """Qwen output -> OpenAI assistant message: <tool_call>{json}</tool_call> blocks (or Qwen3.5's XML form inside
+    them) become tool_calls, <think> goes."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
     calls = []
     for i, body in enumerate(
         re.findall(r"</?tool_call>\s*(.*?)\s*</tool_call>", text, re.S)
     ):
         try:
-            call = json.loads(body)
+            call = (
+                _xml_call(body) if body.startswith("<function=") else json.loads(body)
+            )
             calls.append(
                 {
                     "id": f"call_{time.time_ns()}_{i}",
@@ -281,50 +297,97 @@ class LocalBackend:
 
 
 class RiverBackend:
-    """The same two calls on River (river-client 0.12, contracts §6b). Needs RIVER_API_KEY; untested without one."""
+    """The same two calls on River (river-client 0.12, contracts §6b). Needs RIVER_API_KEY. Trains and serves the same
+    compact() prompt as the local backend, so a session costs ~2k tokens instead of OpenCode's ~25k."""
 
     BASE = dataset.BASE_MODEL
+    calls = 0  # this process's River serving calls, for RIVER_MAX_CALLS
 
     def _client(self):
-        if not os.environ.get("RIVER_API_KEY"):  # before the import: the reason, not a missing-extra error
-            raise RuntimeError("no River key: set RIVER_API_KEY or use a local checkpoint")
+        if not os.environ.get(
+            "RIVER_API_KEY"
+        ):  # before the import: the reason, not a missing-extra error
+            raise RuntimeError(
+                "no River key: set RIVER_API_KEY or use a local checkpoint"
+            )
         import river_client
 
-        return river_client.Client(api_key=os.environ["RIVER_API_KEY"])
+        return river_client.Client(api_key=os.environ["RIVER_API_KEY"], timeout=600)
 
     def train(self, chats, name, log, steps):
         from river_client import LoraConfig
+        from river_client.renderers import TrainingExample, TrainOnWhat, get_renderer
 
-        rend = dataset.renderer()
-        wires = [dataset.wire(rend, c)[0] for c in chats]
+        rend = get_renderer(self.BASE)
+        wires = []
+        for c in chats:
+            ms, short = compact(c["messages"], c["tools"])
+            ex = rend.build_training_example(
+                ms,
+                tools=[t["function"] for t in short],
+                train_on=TrainOnWhat.ALL_ASSISTANT,
+            )
+            wires.append(
+                TrainingExample(
+                    ex.input_ids[: MAX_LEN * 2], ex.weights[: MAX_LEN * 2]
+                ).to_dict()
+            )
+        t0 = time.monotonic()
         with self._client().session() as session:
-            model = session.create_model(self.BASE, lora=LoraConfig(rank=32))
+            model = session.create_model(self.BASE, lora=LoraConfig(rank=16))
+            trace.emit(
+                "Registrar → River",
+                f'create_model("{self.BASE}", LoraConfig(rank=16))',
+                f"LoRA created · {len(wires)} sessions · {steps} steps",
+                22,
+                ["registrar", "rivertrain"],
+                ["train"],
+            )
             for step in range(1, steps + 1):
                 fwd, _ = model.train_step(
                     data=[wires[(step - 1) % len(wires)]],
                     lr=2e-4,
                     loss_fn="cross_entropy",
+                    grad_clip_norm=1.0,
                 )
-                log({"step": step, "loss": fwd.metrics.get("loss")})
+                loss = fwd.metrics.get("loss")
+                log(
+                    {
+                        "step": step,
+                        "loss": round(loss, 4) if loss is not None else None,
+                        "secs": round(time.monotonic() - t0, 1),
+                    }
+                )
             return model.save_weights(name, mode="inference").path
 
     def complete(self, model_path, messages, tools):
+        cap = int(
+            os.environ.get("RIVER_MAX_CALLS") or 0
+        )  # a spend cap: past it the frontier serves (fail open)
+        if cap and RiverBackend.calls >= cap:
+            raise RuntimeError(f"RIVER_MAX_CALLS={cap} reached")
+        RiverBackend.calls += 1
+        ms, short = compact(messages, tools)
+        for m in ms:  # compact() keeps HF-template dict arguments; the OpenAI body River takes wants strings
+            for t in m.get("tool_calls", []):
+                t["function"]["arguments"] = json.dumps(t["function"]["arguments"])
         r = self._client().chat_complete_from_checkpoint(
-            messages,
+            ms,
             checkpoint_path=model_path,
-            base_model=self.BASE,
-            tools=tools,
+            base_model=self.BASE,  # required: River rejects an empty model name
+            max_tokens=512,
             temperature=0,
             chat_template_kwargs={"enable_thinking": False},
+            **({"tools": short} if short else {}),
         )
         if r.status_code >= 400:
             raise RuntimeError(f"River {r.status_code}: {r.response_json[:200]}")
         body = json.loads(r.response_json)
         msg = body["choices"][0]["message"]
-        # River's renderer may already return OpenAI tool_calls; otherwise parse Qwen's text format.
-        return (
-            msg if msg.get("tool_calls") else parse(msg.get("content") or "")
-        ), body.get("usage", {})
+        # River's renderer may already return OpenAI tool_calls; otherwise parse Qwen's text format. Qwen3.5's template
+        # opens <think> and the fine-tuned model never closes it, so River files the whole answer under reasoning_content.
+        text = msg.get("content") or msg.get("reasoning_content") or ""
+        return (msg if msg.get("tool_calls") else parse(text)), body.get("usage", {})
 
 
 def backend(model=None):
@@ -369,12 +432,21 @@ def from_corpus(task_type, corpus):
     """Rebuild data/<task_type>.chat.jsonl from the durable corpus copy (docs/corpus.md): its ledger, the staged
     rows it holds back for the live demo, and its session logs."""
     root = Path(corpus)
-    rows = "".join((root / f).read_text(encoding="utf-8") for f in ("ledger.jsonl", "stage-ledger.jsonl") if (root / f).exists())
+    rows = "".join(
+        (root / f).read_text(encoding="utf-8")
+        for f in ("ledger.jsonl", "stage-ledger.jsonl")
+        if (root / f).exists()
+    )
     if not rows:
-        sys.exit(f"{root}/ledger.jsonl not found: run the corpus first (docs/corpus.md)")
+        sys.exit(
+            f"{root}/ledger.jsonl not found: run the corpus first (docs/corpus.md)"
+        )
     DATA.mkdir(exist_ok=True)
     (DATA / "corpus-ledger.jsonl").write_text(rows, encoding="utf-8")
-    ledger.LEDGER_PATH, dataset.SESSIONS_DIR = str(DATA / "corpus-ledger.jsonl"), root / "sessions"
+    ledger.LEDGER_PATH, dataset.SESSIONS_DIR = (
+        str(DATA / "corpus-ledger.jsonl"),
+        root / "sessions",
+    )
     s = dataset.build(task_type)
     print(f"{task_type}: {s['records']} records from {root} ({s['skipped']} skipped)")
 
@@ -399,12 +471,16 @@ def run(task_type, steps=None, use_checkpoint=None):
                 Path(use_checkpoint) / "adapter_config.json"
             ).exists() and not use_checkpoint.startswith("river://"):
                 raise FileNotFoundError(f"{use_checkpoint} has no adapter_config.json")
-            meta = Path(use_checkpoint) / "graduate.json"  # written beside the adapter when it was trained
+            meta = (
+                Path(use_checkpoint) / "graduate.json"
+            )  # written beside the adapter when it was trained
             model, runs = (
                 str(Path(use_checkpoint).resolve())
                 if "://" not in use_checkpoint
                 else use_checkpoint,
-                json.loads(meta.read_text())["trained_on_runs"] if meta.exists() else tt["trained_on_runs"],
+                json.loads(meta.read_text())["trained_on_runs"]
+                if meta.exists()
+                else tt["trained_on_runs"],
             )
         else:
             chats = [
@@ -424,10 +500,16 @@ def run(task_type, steps=None, use_checkpoint=None):
                 loss_log.flush()
                 print(json.dumps(row), flush=True)
 
-            model = backend().train(chats, f"{task_type}-v{version}", log, steps or max(15, 3 * len(chats)))
+            model = backend().train(
+                chats, f"{task_type}-v{version}", log, steps or max(15, 3 * len(chats))
+            )
             runs = len(chats)
-            if Path(model).is_dir():  # so --use-checkpoint can say what it was trained on
-                (Path(model) / "graduate.json").write_text(json.dumps({"task_type": task_type, "trained_on_runs": runs}))
+            if Path(
+                model
+            ).is_dir():  # so --use-checkpoint can say what it was trained on
+                (Path(model) / "graduate.json").write_text(
+                    json.dumps({"task_type": task_type, "trained_on_runs": runs})
+                )
         secs = round(time.monotonic() - t0, 1)
         trace.emit(
             "Registrar → disk",
@@ -477,7 +559,13 @@ def main():
         metavar="PATH",
         help="graduate from an existing checkpoint, no training",
     )
-    p.add_argument("--corpus", nargs="?", const=CORPUS, metavar="DIR", help=f"train on the durable corpus (default {CORPUS})")
+    p.add_argument(
+        "--corpus",
+        nargs="?",
+        const=CORPUS,
+        metavar="DIR",
+        help=f"train on the durable corpus (default {CORPUS})",
+    )
     a = p.parse_args()
     if a.corpus:
         from_corpus(a.task_type, a.corpus)

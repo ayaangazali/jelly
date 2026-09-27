@@ -49,7 +49,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out. A verify that exits 0 is recorded as `1` when the row is `tampered`, or when the command runs `pytest` and its summary does not show at least one test with all of them passed |
 | `tests_passed` | int or null | Parsed from the pytest summary line |
 | `tests_total` | int or null | Parsed from the pytest summary line |
-| `routed_to` | `"frontier"` or `"owned"` | Which upstream served this session |
+| `routed_to` | `"frontier"`, `"owned"`, `"mixed"` or `"cache"` | Which upstream served this session. `"mixed"`: an owned call and a frontier call in one session (#133); it counts as neither a verified frontier run nor training data. `"cache"`: at least one answer replayed from the verified-response cache (#144); same exclusions |
 | `model` | string | Frontier model id, or the River checkpoint path / deployment model |
 | `turns` | int | Model calls in this session (from the router's session aggregate) |
 | `tool_calls` | int | Tool calls the model made across the session |
@@ -63,6 +63,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `escalated_from` | string or null | For an escalation rerun: the failed owned session it replaces |
 | `forced_failure` | bool | True only when `GRADUATE_FORCE_FAIL=1` faked the failure for the demo |
 | `tampered` | bool | The agent added, changed or deleted a file under a `tests/` directory or a `conftest.py`, compared with the working tree when the session started |
+| `harness` | `"opencode"` or `"claude-code"` | Which agent ran the session (`graduate run --harness`) |
 
 A task type's `verified_runs` is the count of rows with `routed_to == "frontier"`, `exit_code == 0`, `escalated_from == null`. Escalation reruns don't count toward graduation, because they would reward the model for failing.
 
@@ -78,7 +79,7 @@ One line per model call, written by the router (#35) after the response finishes
 |---|---|---|
 | `ts` | string | When the call finished |
 | `session_id` | string | Same as the ledger |
-| `upstream` | `"frontier"` or `"owned"` | Where the router sent it |
+| `upstream` | `"frontier"`, `"owned"` or `"cache"` | Where the router sent it |
 | `model` | string | Model id or checkpoint path used |
 | `request` | object | The full Chat Completions request body as received, minus nothing |
 | `response` | object | The full assistant message. For streams, the chunks reassembled: `{role, content, tool_calls, finish_reason}` with `tool_calls` merged by index |
@@ -100,7 +101,7 @@ One line per model call, written by the router (#17). The session aggregate the 
 | `ts` | string | Timestamp |
 | `session_id` | string | `sess-anon` if the bearer isn't a session id |
 | `task_type` | string | As classified for this session |
-| `upstream` | `"frontier"` or `"owned"` | |
+| `upstream` | `"frontier"`, `"owned"` or `"cache"` | |
 | `model` | string | |
 | `input_tokens` | int | |
 | `cached_input_tokens` | int | |
