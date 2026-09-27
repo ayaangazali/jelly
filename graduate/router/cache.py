@@ -39,6 +39,7 @@ from graduate.router.river import _chunks
 ISSUE = 144
 _DATE = re.compile(r"(Today's date: |<location>)[^\\\"<]*")
 _NOTES = re.compile(r"## Notes from other agents\\n.*?\\n\\n")
+_SESSION = re.compile(r"sess-[0-9a-f]{12}")
 _index = {"mtime": None, "keys": {}, "evicted": {}}
 _missed = set()
 
@@ -56,7 +57,7 @@ def _roots(request):
 
 
 def key(request):
-    text = _NOTES.sub("", _DATE.sub(r"\1-", json.dumps(request.get("messages") or [])))
+    text = _SESSION.sub("sess-", _NOTES.sub("", _DATE.sub(r"\1-", json.dumps(request.get("messages") or []))))
     messages = json.loads(text)
     canon = {"messages": relative(messages), "tools": request.get("tools") or []}
     return hashlib.sha256(

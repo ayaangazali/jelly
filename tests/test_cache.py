@@ -168,3 +168,12 @@ def test_a_failed_cache_session_is_evicted_and_escalated(router, stub, workdir, 
     post(router, new_sid(), body())
     assert len(stub.requests) == calls + 1
     assert any(e["result"].endswith("answer evicted") for e in jsonl("trace.jsonl") if e["who"] == "Router → Cache")
+
+
+def test_the_key_ignores_the_session_id_in_the_gbrain_directive():
+    from graduate.router import cache
+
+    def req(sid):
+        return {"messages": [{"role": "system", "content": f"call gbrain_put_page with slug a2a-fix-failing-test/{sid}"}], "tools": []}
+
+    assert cache.key(req("sess-db2d60c6e519")) == cache.key(req("sess-98df8cb71b6f"))
