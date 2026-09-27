@@ -31,11 +31,6 @@ BANNER = """addEventListener("DOMContentLoaded", () => { const b = document.crea
   document.body.append(b); });""" % json.dumps(LABEL)
 
 
-def get(url):
-    with urllib.request.urlopen(url, timeout=2) as r:
-        return json.loads(r.read())
-
-
 def main():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -60,7 +55,7 @@ def main():
         while demo.poll() is None:  # the runs on Under the hood, the graduation moment on the showcase
             time.sleep(1)
             try:
-                state = get(base + "/state")
+                state = json.loads(urllib.request.urlopen(base + "/state", timeout=2).read())
             except OSError:
                 continue
             if not graduated and any(t["state"] == "GRADUATED" for t in state["registry"]["task_types"].values()):
