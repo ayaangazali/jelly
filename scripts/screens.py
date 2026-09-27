@@ -3,7 +3,8 @@
 Serves the repo root on a free port, opens ui/index.html?state=<fixture>&bench=fixtures/bench.example.json in Chromium (Playwright) and saves
 docs/screens/<fixture>-<view>-<size>.png. Fails on console errors, failed requests, horizontal overflow, a view
 cut off at the bottom, text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), on the presenter showcase
-a wrong 5-of-5 count, and on presenter Under the hood a ticker without the latest trace event.
+a wrong 5-of-5 count or owned numbers for a type that isn't graduated, on any view a missing sample-data label,
+and on presenter Under the hood a ticker without the latest trace event.
 Offline; needs `pip install playwright && playwright install chromium`.
 """
 
@@ -82,6 +83,8 @@ def main():
                         t = next(t for t in state["registry"]["task_types"].values() if t["state"] == k)
                         want = str(min(t["verified_runs"], state["config"]["n"]))
                         problems += [f"verified {page.inner_text('[data-qa=verified]')} != {want}"] * (page.inner_text("[data-qa=verified]") != want)
+                        problems += ["owned numbers for a type that isn't graduated"] * (k != "GRADUATED" and page.query_selector("[data-qa=out-change]") is not None)
+                    problems += ["fixture numbers without the sample-data label"] * (not page.evaluate("document.documentElement.classList.contains('sample')"))
                     if view == "system-present":
                         who = state["trace"][-1]["who"]
                         problems += [f"ticker lacks the latest call {who!r}"] * (who not in page.inner_text("[data-qa=ticker]"))

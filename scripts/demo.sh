@@ -116,17 +116,10 @@ echo "training job started, log: data/$T.train.log"
 
 if [ -n "$checkpoint" ]; then
  say "4/6 GRADUATED on checkpoint $checkpoint, trained BEFORE the demo, not by the job that just started"
- python - "$T" "$checkpoint" <<'EOF'
-import sys
-from datetime import datetime, timezone
-
-from graduate import registry
-
-t, ckpt = sys.argv[1:]
-now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-registry.transition(t, "GRADUATED", model=ckpt, serving="checkpoint", graduated_at=now)
-registry.add_event("graduated", t, f"{t} graduated on {ckpt}, a checkpoint trained before the demo.")
-EOF
+ # The job consent started would train for ~10 min at ~5 GB beside the served model: stop it (a child of this
+ # demo's router, so no other checkout's trainer or agent can match).
+ pkill -9 -P "$router" -f "graduate\.registrar\.train $T" && echo "stopped the live training job"
+ graduate train "$T" --use-checkpoint "$checkpoint" # records trained_on_runs from the checkpoint (#22)
 else
  say "4/6 waiting for the live training job to graduate $T"
  until_state GRADUATED "${TRAIN_WAIT:-3600}"
@@ -134,10 +127,11 @@ fi
 jq -r --arg t $T '"\($t): \(.task_types[$t].state) on \(.task_types[$t].model)"' registry.json
 
 say "5/6 broken state 09: routed to your model"
-run 09
-jq -rs '.[-1] | "09: routed_to \(.routed_to), model \(.model), exit \(.exit_code), \(.turns) turns"' ledger.jsonl
-[ "$(jq -rs '.[-1].routed_to' ledger.jsonl)" = owned ] ||
- echo "NOTE: owned serving (#37) is not on main: the router fell back to the frontier (see the trace), so 09 ran on the frontier"
+n09=$(wc -l <ledger.jsonl)
+run 09 || true # the owned session may fail its tests: the escalator reruns it on the frontier
+jq -rs --argjson n "$n09" '.[$n:][] | "09: routed_to \(.routed_to), model \(.model), exit \(.exit_code), \(.turns) turns, \(.wall_secs) s\(if .escalated_from then ", rerun of \(.escalated_from)" else "" end)"' ledger.jsonl
+[ "$(jq -rs --argjson n "$n09" '.[$n].routed_to' ledger.jsonl)" = owned ] ||
+ echo "NOTE: 09 was not served by your model: the router fell back to the frontier (see the trace)"
 
 say "6/6 GRADUATE_FORCE_FAIL=1 on broken state 10: fail, escalate, rerun on the frontier"
 GRADUATE_FORCE_FAIL=1 run 10
@@ -172,7 +166,7 @@ cat "$out/results.md"
 say "checks"
 check() { "$@" >/dev/null || die "$*"; }
 check jq -se --argjson n "$base" '.[$n] | .exit_code == 0 and .routed_to == "frontier"' ledger.jsonl
-check jq -se --argjson n "$base" '.[-2:] | .[0].forced_failure and .[0].exit_code == 1 and .[1].exit_code == 0 and .[1].escalated_from == .[0].session_id' ledger.jsonl
+check jq -se --argjson n "$base" '.[-2:] | .[0].routed_to == "owned" and .[0].exit_code == 1 and .[1].exit_code == 0 and .[1].escalated_from == .[0].session_id' ledger.jsonl
 ids=$(jq -sc --argjson n "$base" '.[$n:] | map(.session_id)' ledger.jsonl)
 curl -sf localhost:$PORT/state >"$out/state.json"
 check jq -e --argjson ids "$ids" '[.trace[] | select(.session_id as $s | $ids | index($s))] | length > 0' "$out/state.json"
