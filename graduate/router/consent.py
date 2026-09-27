@@ -43,7 +43,16 @@ def review(task_type: str):
         return _error(404, f"No task type called {task_type!r}.")
     records = _records(task_type)
     if not records:
-        return _error(409, f"No training data built for {task_type} yet. Run: python -m graduate.registrar.dataset {task_type}")
+        return {
+            "task_type": task_type,
+            "state": tt["state"],
+            "consent": tt["consent"],
+            "records": 0,
+            "tokens": None,
+            "destination": "your River account",
+            "sample": None,
+            "error": f"No training data built for {task_type} yet. Run: python -m graduate.registrar.dataset {task_type}",
+        }
     return {
         "task_type": task_type,
         "state": tt["state"],
@@ -118,7 +127,7 @@ if __name__ == "__main__":
         assert (await c.get("/api/consent/../../etc/passwd")).status_code == 404
         assert (await c.get("/api/consent/nope")).status_code == 404
         r = await c.get("/api/consent/fix-failing-test")
-        assert r.status_code == 409 and "registrar.dataset" in r.json()["error"]
+        assert r.status_code == 200 and r.json()["sample"] is None and "registrar.dataset" in r.json()["error"]
         assert (await c.post("/api/consent/update-changelog")).status_code == 409
         r = await c.delete("/api/consent/write-migration")
         assert r.status_code == 200 and registry.load()["task_types"]["write-migration"]["consent"] is False
