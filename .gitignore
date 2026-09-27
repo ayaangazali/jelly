@@ -13,3 +13,4 @@ terminal.log
 data/
 bench/
 registry.lock
+prices.json
