@@ -433,7 +433,7 @@ pre.term {
 }
 
 /* Live (/app): the showcase. Dark, dense, every panel moving. */
-body.on-live main { max-width: none; padding: 16px 20px; }
+body.on-live main { max-width: none; padding: 16px 20px; background: radial-gradient(900px 500px at 30% 10%, #151C45 0%, transparent 60%), radial-gradient(700px 400px at 90% 90%, #2A1C08 0%, transparent 60%); }
 body.on-live #sample { display: none; }
 .live { display: grid; gap: 14px; height: calc(100vh - 32px); min-height: 640px;
   grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1.25fr) minmax(0, 1fr);
@@ -464,13 +464,15 @@ body.on-live #sample { display: none; }
   .p-ring h2 { width: 100%; }
 }
 svg.graph { width: 100%; flex: 1; min-height: 0; }
-.edge { fill: none; stroke: #26314A; stroke-width: 3; }
+.edge { fill: none; stroke: #26314A; stroke-width: 3; stroke-dasharray: 2 10; stroke-linecap: round; animation: flow 1.1s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -24; } }
 .edge.mine { stroke: #2B2F66; }
 .node rect { fill: #121A2E; stroke: #2A3654; stroke-width: 1.5; transition: fill 0.4s, stroke 0.4s; }
 .node text { fill: var(--ink); font: 700 24px "Archivo", sans-serif; text-anchor: middle; }
 .node text.sub { fill: var(--muted); font: 400 15px "Archivo", sans-serif; }
 .node.hub rect { stroke: var(--owned); fill: #151B3D; }
 .node.mine rect { stroke: #5558C8; }
+.node.mine.lit rect { stroke: var(--owned); filter: drop-shadow(0 0 10px #5558C8); }
 .node.hit rect { animation: hit 0.5s; }
 .node.pass rect { animation: pass 0.8s; }
 .node.fail rect { animation: fail 0.8s; }
