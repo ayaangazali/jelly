@@ -4,8 +4,11 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 
 from graduate import e2e
+
+QUOTA = {"error": {"type": "insufficient_quota", "code": "insufficient_quota"}}
 
 
 def test_no_key_skips_after_the_estimate(workdir, monkeypatch, capsys):
@@ -15,23 +18,28 @@ def test_no_key_skips_after_the_estimate(workdir, monkeypatch, capsys):
     assert out.index("est.   $") < out.index("skipped: no key")
 
 
-def test_no_credit_skips_after_one_1_token_probe(workdir, monkeypatch, capsys):
+@pytest.mark.parametrize(
+    "status, body, code, said",
+    [
+        (429, QUOTA, 0, "skipped: no credit"),
+        (404, {"error": {"code": "model_not_found"}}, 1, "FAIL: probe 404"),
+        (429, {"error": {"code": "rate_limit_exceeded"}}, 1, "FAIL: probe 429"),
+    ],
+)
+def test_one_1_token_probe_and_no_session_unless_it_answers(
+    workdir, monkeypatch, capsys, status, body, code, said
+):
     seen = []
 
     def frontier(request):
         seen.append(json.loads(request.content))
-        return httpx.Response(
-            429,
-            json={
-                "error": {"type": "insufficient_quota", "code": "insufficient_quota"}
-            },
-        )
+        return httpx.Response(status, json=body)
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(
         e2e, "http", httpx.Client(transport=httpx.MockTransport(frontier))
     )
-    assert e2e.main() == 0
-    assert "skipped: no credit" in capsys.readouterr().out
+    assert e2e.main() == code
+    assert said in capsys.readouterr().out
     assert [b["max_completion_tokens"] for b in seen] == [1]
     assert not Path("backups").exists()  # nothing ran

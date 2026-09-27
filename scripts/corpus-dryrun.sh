@@ -58,12 +58,5 @@ rm "$out/restore/registry.json"
 check jq -e '.task_types["fix-failing-test"].verified_runs == 4' "$out/restore/registry.json"
 stash "$out/full"
 
-# make e2e (#59) on the stub, from $out: a 4-call session passes, then each cap stops it within its 3 calls or $0.02.
-e2e() { # e2e PATTERN [VAR=value]: the last line of make e2e matches PATTERN
-  { env -C "$out" OPENAI_BASE_URL=http://127.0.0.1:4299/v1 OPENAI_API_KEY=sk-stub "${@:2}" python -m graduate.e2e || true; } |
-    tee -a "$out/e2e.txt" | tail -1 | grep -q "$1" || check false "make e2e ${*:2}"
-}
-e2e "^e2e sess-.* exit 0 · 4 calls"
-e2e "^CAP HIT: .* · [23] calls" E2E_CAP_CALLS=3
-e2e "^CAP HIT: .* · [23] calls" E2E_CAP_USD=0.02
+scripts/e2e-offline.sh http://127.0.0.1:4299/v1 "$out" # make e2e's caps (#59)
 echo "dry run ok: $out"

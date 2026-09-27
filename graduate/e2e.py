@@ -53,8 +53,10 @@ def main():
     if r.status_code == 429 and "insufficient_quota" in r.text:
         print("skipped: no credit")
         return 0
-    if r.status_code == 401:
-        print(f"FAIL: the key was rejected: {r.text[:200]}")
+    if (
+        r.status_code != 200
+    ):  # a rejected key, an unknown model, a rate limit: no session
+        print(f"FAIL: probe {r.status_code}: {r.text[:200]}")
         return 1
 
     root = bench.ROOT
