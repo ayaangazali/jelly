@@ -36,8 +36,11 @@ client = httpx.AsyncClient(timeout=httpx.Timeout(30.0, read=600.0))
 
 async def send(body):
     """POST `body` to the frontier and return the response with its body still unread (stream it or `aread()` it)."""
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise httpx.RequestError("OPENAI_API_KEY is not set: run `graduate init` or add it to .env")
     headers = {
-        "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY', '')}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
     request = client.build_request("POST", URL, json=body, headers=headers)

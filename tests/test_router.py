@@ -71,6 +71,13 @@ def test_unreachable_frontier_is_502(router, stub, sid):
     assert r.status_code == 502 and r.json()["error"]["type"] == "upstream_error"
 
 
+def test_missing_key_says_how_to_fix(router, stub, sid, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY")
+    r = post(router, sid)
+    assert r.status_code == 502 and "OPENAI_API_KEY is not set" in r.json()["error"]["message"]
+    assert stub.requests == []
+
+
 @pytest.mark.parametrize("tools", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
 def test_call_logged_in_contract_shapes(router, stub, sid, workdir, stream, tools):
