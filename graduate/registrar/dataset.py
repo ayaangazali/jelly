@@ -6,6 +6,7 @@ python -m graduate.registrar.dataset --check                offline self-check o
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -14,7 +15,7 @@ from graduate import ledger, trace
 
 SESSIONS_DIR = Path("sessions")  # written by graduate/router/sessionlog.py (#35)
 DATA_DIR = Path("data")
-BASE_MODEL = "Qwen/Qwen3.6-35B-A3B-FP8"
+BASE_MODEL = os.environ.get("RIVER_BASE_MODEL") or "Qwen/Qwen3.5-9B"
 CTX = 32768  # ponytail: fixed cap well under the 262k window; raise if sessions get truncated
 META = ("task_type", "session_id", "verify_command", "exit_code", "turns", "tool_calls")
 
@@ -27,7 +28,7 @@ def renderer(tokenizer=None):
         get_renderer,
     )  # optional extra: pip install -e '.[train]'
 
-    return get_renderer(BASE_MODEL, tokenizer=tokenizer)
+    return get_renderer(BASE_MODEL, thinking=False, tokenizer=tokenizer)
 
 
 _WORKDIR = re.compile(r"(?:Working directory|Workspace root folder): (\S+)")

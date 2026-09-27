@@ -283,7 +283,7 @@ class LocalBackend:
 class RiverBackend:
     """The same two calls on River (river-client 0.12, contracts §6b). Needs RIVER_API_KEY; untested without one."""
 
-    BASE = "Qwen/Qwen3.6-35B-A3B-FP8"
+    BASE = dataset.BASE_MODEL
 
     def _client(self):
         if not os.environ.get("RIVER_API_KEY"):  # before the import: the reason, not a missing-extra error
@@ -310,7 +310,12 @@ class RiverBackend:
 
     def complete(self, model_path, messages, tools):
         r = self._client().chat_complete_from_checkpoint(
-            messages, checkpoint_path=model_path, tools=tools
+            messages,
+            checkpoint_path=model_path,
+            base_model=self.BASE,
+            tools=tools,
+            temperature=0,
+            chat_template_kwargs={"enable_thinking": False},
         )
         if r.status_code >= 400:
             raise RuntimeError(f"River {r.status_code}: {r.response_json[:200]}")

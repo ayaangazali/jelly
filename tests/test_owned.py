@@ -359,6 +359,22 @@ def test_session_trains_and_serves_with_repo_relative_paths(workdir, monkeypatch
     )
 
 
+def test_river_serves_the_trained_base_with_thinking_off(monkeypatch):
+    seen = {}
+
+    class Client:
+        def chat_complete_from_checkpoint(self, messages, **kw):
+            seen.update(kw)
+            body = {"choices": [{"message": {"role": "assistant", "content": "ok"}}], "usage": {}}
+            return type("R", (), {"status_code": 200, "response_json": json.dumps(body)})
+
+    monkeypatch.setattr(train.RiverBackend, "_client", lambda self: Client())
+    msg, _ = train.RiverBackend().complete("river://run/sampler_weights/x", [{"role": "user", "content": "hi"}], [])
+    assert msg["content"] == "ok"
+    assert seen["base_model"] == "Qwen/Qwen3.5-9B"
+    assert seen["chat_template_kwargs"] == {"enable_thinking": False} and seen["temperature"] == 0
+
+
 def test_river_model_without_key_says_why(router, stub, monkeypatch):
     """#93: a river:// model with no key falls back to the frontier with a reason a person can act on."""
     monkeypatch.delenv("RIVER_API_KEY", raising=False)
