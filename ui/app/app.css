@@ -778,3 +778,16 @@ svg.over rect.mine { fill: var(--owned); }
 pre.term .c { color: #EDE6E3; font-weight: 700; } pre.term .f { color: var(--fail); } pre.term .p { color: var(--pass); }
 .filebox { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 12px; max-height: 40vh; overflow: auto; white-space: pre; font-size: 0.8em; }
 .setup-body { margin-bottom: 18px; }
+.arch-fig { margin: 0 0 16px; padding: 12px; }
+svg.arch { width: 100%; height: auto; max-height: 62vh; }
+.anode rect { fill: var(--sheet); stroke: var(--rule); stroke-width: 1; }
+.anode.ext rect { stroke-dasharray: 5 4; }
+.anode text { fill: var(--ink); font: 700 15px "Archivo", sans-serif; }
+.anode text.sub { fill: var(--muted); font: 400 12px "JetBrains Mono", monospace; }
+.anode.idle { opacity: 0.4; }
+.anode.on rect { stroke: var(--owned); fill: var(--owned-wash); }
+.aedge path { fill: none; stroke: #33405C; stroke-width: 1.5; }
+.aedge text { fill: var(--muted); font: 400 11px "Archivo", sans-serif; }
+.aedge.on path { stroke: var(--owned); stroke-width: 2.5; }
+.aedge.on text { fill: var(--owned); }
+.arch-fig figcaption { font-size: 0.8em; margin-top: 6px; }
