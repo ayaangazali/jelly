@@ -211,6 +211,59 @@ pre.cmd { background: var(--ink); color: var(--sheet); padding: 14px 16px; borde
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--sheet); padding: 10px 18px; border-radius: 4px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; }
 .toast.show { opacity: 1; }
 
+
+.honest { border-left: 4px solid var(--warn); background: var(--sheet); padding: 12px 16px; border-radius: 4px; margin: 16px 0 20px; max-width: 80ch; }
+figure.arch { margin: 0 0 20px; padding: 16px 16px 12px; overflow-x: auto; }
+figure.arch svg { display: block; width: 100%; min-width: 760px; height: auto; }
+figure.arch figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.arch .node { cursor: pointer; }
+.arch .node rect { fill: var(--sheet); stroke: var(--rented); stroke-width: 1.5; }
+.arch .node.ext rect { stroke-dasharray: 6 4; fill: var(--paper); }
+.arch .node text { fill: var(--ink); font-size: 13.5px; font-weight: 600; }
+.arch .node text.sub { fill: var(--muted); font-size: 11.5px; font-weight: 400; }
+.arch .node.sel rect { stroke: var(--ink); stroke-width: 2.5; }
+.arch .node.on rect { fill: var(--owned-wash); stroke: var(--owned); stroke-width: 2.5; }
+.arch .node:focus-visible { outline: none; }
+.arch .node:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
+.arch .edge path { fill: none; stroke: var(--rented); stroke-width: 1.5; marker-end: url(#a); }
+.arch .edge text { fill: var(--muted); font-size: 11px; paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; stroke-linejoin: round; }
+.arch .edge.on path { stroke: var(--owned); stroke-width: 3; marker-end: url(#b); }
+.arch .edge.on text { fill: var(--owned); font-weight: 700; }
+.arch marker path.a { fill: var(--rented); }
+.arch marker path.b { fill: var(--owned); }
+.detail { margin-bottom: 28px; }
+.detail-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.detail h2 { margin: 0; }
+.detail h3 { font-size: 13.5px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
+.detail p { margin: 8px 0 0; max-width: 80ch; }
+.where { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
+.badge { font-size: 12.5px; border: 1px solid var(--warn); color: var(--warn); border-radius: 3px; padding: 2px 8px; }
+.badge a { color: inherit; }
+ul.calls { margin: 0; padding-left: 18px; }
+ul.calls li { margin: 4px 0; }
+ul.calls code { white-space: pre-wrap; word-break: break-word; }
+.risk { border-left: 3px solid var(--fail); padding-left: 10px; }
+.sys-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-bottom: 28px; }
+@media (max-width: 960px) { .sys-grid { grid-template-columns: minmax(0, 1fr); } }
+.wire { max-height: 420px; overflow: auto; }
+.wire ol { list-style: none; margin: 0; padding: 0; }
+.wire li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.wire li:last-child { border-bottom: 0; }
+.wire li.fresh { animation: fresh 1.6s ease-out; }
+.wire time { color: var(--muted); font-size: 12px; padding-top: 1px; }
+.wire .who { font-weight: 600; margin-bottom: 3px; }
+.wire .who a { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+.wire code { display: block; white-space: pre-wrap; word-break: break-word; color: var(--owned); }
+.wire .res { color: var(--muted); margin-top: 3px; word-break: break-word; }
+.wire .empty { padding: 16px; margin: 0; color: var(--muted); }
+pre.term { background: #0E1422; color: #D5DAE3; border-radius: 6px; padding: 14px 16px; height: 420px; overflow: auto; margin: 0; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+pre.term .c { color: #B9BCFF; }
+pre.term .d { color: #9AA3B4; }
+pre.term .p, pre.term .add { color: #4CC08E; }
+pre.term .f, pre.term .del { color: #FF7A6E; }
+pre.filebox { max-height: 320px; margin-top: 0; border-top-left-radius: 0; }
+@media (prefers-reduced-motion: reduce) { .wire li.fresh { animation: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   .stamp.land, .log .fresh { animation: none; }
   .trainbar b { transition: none; }
@@ -223,6 +276,7 @@ pre.cmd { background: var(--ink); color: var(--sheet); padding: 14px 16px; borde
     <a class="brand" href="#/">Graduate</a>
     <nav class="primary" aria-label="Main">
       <a href="#/" data-nav="overview">Overview</a>
+      <a href="#/system" data-nav="system">Under the hood</a>
       <a href="#/setup" data-nav="setup">Setup</a>
     </nav>
     <div class="proxy"><span class="dot" aria-hidden="true"></span>Proxy running on localhost:4141</div>
@@ -235,7 +289,7 @@ pre.cmd { background: var(--ink); color: var(--sheet); padding: 14px 16px; borde
     <button class="btn sm primary" id="play">Play the demo story</button>
     <button class="btn sm" id="fail" disabled>Force a failure</button>
     <button class="btn sm quiet" id="reset">Reset</button>
-    <span id="storyhint" style="color:var(--muted)">Sample data only. Nothing here talks to a real model.</span>
+    <span id="storyhint" style="color:var(--muted)">Sample data only. Open “Under the hood” to see every call.</span>
   </div>
 </div>
 
@@ -299,6 +353,14 @@ function seed() {
         ],
       },
     },
+    wire: [], term: [], hi: { n: [], e: [] }, sesslog: [], sel: "router", fileTab: "registry",
+    ledger: [
+      { session_id: "sess-1a0c3e", task_type: "fix-failing-test", routed_to: "frontier", turns: 16, tool_calls: 4, cost_usd: 0.41, exit_code: 0 },
+      { session_id: "sess-2b7f10", task_type: "fix-failing-test", routed_to: "frontier", turns: 16, tool_calls: 5, cost_usd: 0.42, exit_code: 0 },
+      { session_id: "sess-3c9d44", task_type: "fix-failing-test", routed_to: "frontier", turns: 19, tool_calls: 7, cost_usd: 0.51, exit_code: 1 },
+      { session_id: "sess-4d2e81", task_type: "fix-failing-test", routed_to: "frontier", turns: 17, tool_calls: 6, cost_usd: 0.45, exit_code: 0 },
+      { session_id: "sess-5e6a02", task_type: "fix-failing-test", routed_to: "frontier", turns: 15, tool_calls: 5, cost_usd: 0.40, exit_code: 0 },
+    ],
     events: [
       { t: "14:30", html: `update-changelog routed to <span class="owned">your model</span>. Verify <span class="pass">exit 0</span>.` },
       { t: "14:21", html: `fix-failing-test routed to frontier. Verify <span class="pass">exit 0</span>. 4 of ${N} verified runs.` },
@@ -518,73 +580,292 @@ function render() {
   let html;
   if (route === "task") html = viewTask(decodeURIComponent(arg || ""));
   else if (route === "consent") html = viewConsent(decodeURIComponent(arg || ""));
-  else if (route === "setup") { html = viewSetup(); $('[data-nav="setup"]').setAttribute("aria-current", "page"); }
-  else { html = viewOverview(); $('[data-nav="overview"]').setAttribute("aria-current", "page"); }
+  else if (route === "setup") { watching = false; html = viewSetup(); $('[data-nav="setup"]').setAttribute("aria-current", "page"); }
+  else if (route === "system") { watching = true; html = viewSystem(); $('[data-nav="system"]').setAttribute("aria-current", "page"); }
+  else { watching = false; html = viewOverview(); $('[data-nav="overview"]').setAttribute("aria-current", "page"); }
   $("#app").innerHTML = html;
+  const tm = $("#term"); if (tm) tm.scrollTop = tm.scrollHeight;
   S.events.forEach((e) => (e.fresh = false));
-  $("#fail").disabled = S.tasks["fix-failing-test"].state !== "GRADUATED";
+  if (S.tasks["fix-failing-test"].state !== "GRADUATED") $("#fail").disabled = true;
 }
 
+const GH = "https://github.com/ayaangazali/jelly/issues/";
+const BW = 190, BH = 56;
+const COL = { A: 40, B: 290, C: 580, D: 820 }, ROW = { 1: 20, 2: 130, 3: 240, 4: 350, 5: 460 };
+const NODES = [
+  { id: "runner", c: "A", r: 1, label: "Runner", sub: "graduate run", issues: [34],
+    what: "Runs one task as one session. Gives it a session id, launches OpenCode, runs the task's test command after the agent exits, and writes the result to the ledger.",
+    calls: ["opencode run \"<task prompt>\"   env GRADUATE_SESSION=sess-…", "pytest -q tests/test_mod_05.py   → exit code", "memorable ingest data/traces/<session>.json"], files: ["ledger.jsonl"] },
+  { id: "memorable", c: "B", r: 1, ext: true, label: "Memorable", sub: "recall · ingest", issues: [4, 20, 36],
+    what: "Procedure memory. Its matcher names the task type for each new session, and every passing session is fed back in so matching improves with use.",
+    calls: ["memorable recall \"<first prompt>\" --single   → 0.91 procedures/7c2e19ab-fix-failing-test [lexical]", "memorable ingest trace.json   (harness: opencode, verify step with exit_code)"],
+    leaves: "The prompt and allow-listed tool arguments (paths, commands). No file contents, no command output." },
+  { id: "openai", c: "C", r: 1, ext: true, label: "OpenAI", sub: "frontier model", issues: [13, 17],
+    what: "The expensive general model. Handles every task type until it graduates, and stays the fallback forever.",
+    calls: ["POST https://api.openai.com/v1/chat/completions   stream: true, stream_options.include_usage: true"],
+    leaves: "The full request, exactly as it would without GRADUATE." },
+  { id: "opencode", c: "A", r: 2, label: "OpenCode", sub: "the coding agent", issues: [5],
+    what: "The agent, unmodified. The only change is a provider in opencode.json whose baseURL is http://localhost:4141/v1 and whose apiKey is the session id.",
+    calls: ["POST http://localhost:4141/v1/chat/completions   Authorization: Bearer sess-…"], files: ["edits files in demo-repo/"] },
+  { id: "router", c: "B", r: 2, label: "Router :4141", sub: "/v1/chat/completions", issues: [13, 17, 20, 35, 37],
+    what: "An OpenAI-compatible proxy. Classifies each session once, reads the registry, sends the call to OpenAI or to your River model, streams the answer back untouched, and logs the call.",
+    calls: ["memorable recall … --single   (first call of a session only)", "registry.json → state of the task type", "POST api.openai.com/v1/chat/completions   or   POST <river deployment>/chat/completions"], files: ["sessions/<id>.jsonl", "metrics.jsonl"] },
+  { id: "river", c: "C", r: 2, ext: true, label: "River model", sub: "your LoRA, served", issues: [2, 37],
+    what: "Your trained model, served by River. Uses a River deployment endpoint if River enables deployments for our team; otherwise the proxy calls the checkpoint through River's API and streams the result itself.",
+    calls: ["POST <deployment.base_url>/chat/completions   model=<deployment.model>", "fallback: client.chat_complete_from_checkpoint(messages, checkpoint_path=\"river://…\")"],
+    leaves: "The request for graduated task types.", risk: "Deployments are gated: River has to switch them on for our team (asked in #2). Tool calling on this endpoint is unconfirmed." },
+  { id: "dashboard", c: "D", r: 2, label: "Dashboard", sub: "GET /state every 1s", issues: [15, 24],
+    what: "What the judges watch. It reads /state from the router once a second and renders the registry, the ledger totals and the event log." },
+  { id: "pytest", c: "A", r: 3, label: "Test suite", sub: "verify → exit code", issues: [5, 34],
+    what: "The task's own test command. Its exit code is the only label anything is trained on. It runs once per session, after the agent exits.",
+    calls: ["pytest -q tests/test_mod_05.py"] },
+  { id: "disk", c: "B", r: 3, label: "Session log", sub: "sessions/ · metrics.jsonl", issues: [35, 17],
+    what: "Every request and response, kept on this machine. Training data comes from here. Memorable only keeps summarized steps, so it can't be used for training.",
+    files: ["sessions/<session>.jsonl", "metrics.jsonl"] },
+  { id: "registry", c: "C", r: 3, label: "registry.json", sub: "state per task type", issues: [18],
+    what: "One JSON file holding each task type's state: Learning, Ready, Training, Graduated or On probation. Every component reads it, and writes are atomic.", files: ["registry.json"] },
+  { id: "consent", c: "D", r: 3, label: "You", sub: "approve training data", issues: [25],
+    what: "Nothing is sent to River until you approve the exact records on the consent screen.", calls: ["POST /api/consent/<task type>"] },
+  { id: "ledger", c: "A", r: 4, label: "ledger.jsonl", sub: "one row per session", issues: [34],
+    what: "One row per session: task type, which model handled it, turns, tokens, cost and the test exit code. Graduation is counted from here.", files: ["ledger.jsonl"] },
+  { id: "watcher", c: "B", r: 4, label: "Watcher", sub: "counts passing runs", issues: [19],
+    what: "Counts passing frontier sessions per task type. At 5 it marks the task type Ready and asks for your approval." },
+  { id: "rivertrain", c: "C", r: 4, ext: true, label: "River training", sub: "LoRA SFT API", issues: [3, 22],
+    what: "River's training API. River runs the forward and backward passes on its GPUs. The loop that calls it is ours, and runs on this machine.",
+    calls: ["model.train_step(batch, loss_fn=\"cross_entropy\", lr=2e-4)", "model.save_weights(\"fix-failing-test-v1\", mode=\"inference\")"],
+    leaves: "Only the approved training records, as tokens.", risk: "River publishes no wall-clock numbers for training. #3 measures it tonight; #7 pre-trains a fallback." },
+  { id: "registrar", c: "D", r: 4, label: "Registrar", sub: "dataset + trainer", issues: [21, 22, 7],
+    what: "Turns passing sessions into tokenized training records with the base model's chat template, runs the River training loop, and marks the task type Graduated with the new checkpoint.",
+    calls: ["tokenizer.apply_chat_template(messages, tools=…)", "session.create_model(\"Qwen3.6-35B-A3B-FP8\", lora=LoraConfig(rank=32))", "registry.transition(\"GRADUATED\", model=\"river://…\")"], files: ["data/<task>.tok.jsonl", "data/<task>.loss.jsonl"] },
+  { id: "escalator", c: "A", r: 5, label: "Escalator", sub: "reset · rerun on frontier", issues: [23],
+    what: "When your model's attempt fails the tests, it saves the diff, resets the repo, reruns the task forced to the frontier, and keeps the failure as a negative example. After 3 failures the task type goes on probation.",
+    calls: ["git diff > sessions/<id>.diff", "git checkout -- . && git clean -fd", "graduate run --force-frontier   (header x-graduate-force: frontier)"], files: ["data/<task>.neg.jsonl"] },
+];
+const NODE = Object.fromEntries(NODES.map((n) => [n.id, { ...n, x: COL[n.c], y: ROW[n.r] }]));
+const EDGES = [
+  { id: "launch", d: "M135,76 V130", lx: 141, ly: 107, t: "launches", a: "start" },
+  { id: "ingest", d: "M230,48 H290", lx: 260, ly: 42, t: "ingest", a: "middle" },
+  { id: "chat", d: "M230,158 H290", lx: 260, ly: 152, t: "chat calls", a: "middle" },
+  { id: "recall", d: "M385,130 V76", lx: 391, ly: 107, t: "recall", a: "start" },
+  { id: "frontier", d: "M480,146 H530 V48 H580", lx: 536, ly: 98, t: "not graduated", a: "start" },
+  { id: "owned", d: "M480,172 H580", lx: 530, ly: 166, t: "graduated", a: "middle" },
+  { id: "log", d: "M385,186 V240", lx: 379, ly: 206, t: "logs every call", a: "end" },
+  { id: "reads", d: "M580,262 H545 V214 H455 V186", lx: 500, ly: 229, t: "reads state", a: "middle" },
+  { id: "verify", d: "M40,48 H22 V268 H40", lx: 30, ly: 216, t: "verify", a: "start" },
+  { id: "exit", d: "M135,296 V350", lx: 141, ly: 327, t: "exit code", a: "start" },
+  { id: "tail", d: "M230,378 H290", lx: 260, ly: 372, t: "tails", a: "middle" },
+  { id: "ready", d: "M480,378 H530 V278 H580", lx: 536, ly: 332, t: "5 passing → Ready", a: "start" },
+  { id: "ask", d: "M770,268 H820", lx: 795, ly: 262, t: "asks", a: "middle" },
+  { id: "approved", d: "M915,296 V350", lx: 921, ly: 327, t: "approved", a: "start" },
+  { id: "train", d: "M820,392 H770", lx: 795, ly: 418, t: "trains", a: "middle" },
+  { id: "serve", d: "M770,362 H796 V158 H770", lx: 802, ly: 205, t: "checkpoint", a: "start" },
+  { id: "graduate", d: "M870,350 V316 H720 V296", lx: 752, ly: 311, t: "Graduated", a: "middle" },
+  { id: "state", d: "M960,186 V214 H745 V240", lx: 952, ly: 208, t: "GET /state", a: "end" },
+  { id: "failed", d: "M135,406 V460", lx: 141, ly: 437, t: "your model failed", a: "start" },
+  { id: "rerun", d: "M230,488 H260 V178 H290", lx: 266, ly: 470, t: "rerun on frontier", a: "start" },
+];
+
+function archSvg() {
+  const on = new Set(S.hi.n), eon = new Set(S.hi.e);
+  const edges = EDGES.map((e) => `<g class="edge${eon.has(e.id) ? " on" : ""}"><path d="${e.d}"/><text x="${e.lx}" y="${e.ly}" text-anchor="${e.a}">${e.t}</text></g>`).join("");
+  const nodes = Object.values(NODE).map((n) => `<g class="node${n.ext ? " ext" : ""}${on.has(n.id) ? " on" : ""}${S.sel === n.id ? " sel" : ""}" data-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.label)}: ${esc(n.sub)}">
+      <rect x="${n.x}" y="${n.y}" width="${BW}" height="${BH}" rx="6"/>
+      <text x="${n.x + 14}" y="${n.y + 24}">${esc(n.label)}</text>
+      <text class="sub" x="${n.x + 14}" y="${n.y + 42}">${esc(n.sub)}</text></g>`).join("");
+  return `<svg viewBox="0 0 1030 530" role="img" aria-label="GRADUATE architecture: the runner launches OpenCode, whose model calls go through the router to OpenAI or your River model; the test suite's exit code goes to the ledger, the watcher marks task types ready, you approve, and the registrar trains on River and marks them graduated.">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="a" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="b" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>${edges}${nodes}</svg>`;
+}
+
+function nodeDetail() {
+  const n = NODE[S.sel];
+  const list = (a) => `<ul class="calls">${a.map((c) => `<li><code>${esc(c)}</code></li>`).join("")}</ul>`;
+  return `<div class="sheet pad detail">
+    <div class="detail-top"><h2>${esc(n.label)} <span class="where">${n.ext ? "Outside service" : "On your machine"}</span></h2>
+      <span class="badge">Not built yet · ${n.issues.map((i) => `<a href="${GH}${i}" target="_blank" rel="noopener">#${i}</a>`).join(" ")}</span></div>
+    <p>${esc(n.what)}</p>
+    ${n.calls ? `<h3>Calls it makes</h3>${list(n.calls)}` : ""}
+    ${n.files ? `<h3>Writes</h3>${list(n.files)}` : ""}
+    ${n.leaves ? `<h3>What leaves your machine</h3><p>${esc(n.leaves)}</p>` : ""}
+    ${n.risk ? `<p class="risk"><strong>Open risk.</strong> ${esc(n.risk)}</p>` : ""}
+  </div>`;
+}
+
+function regJson() {
+  const o = {};
+  for (const [k, t] of Object.entries(S.tasks)) o[k] = { state: t.state, consent: t.consent, verified_runs: t.verified, failed_runs: t.failed, verify_command: t.verify, model: t.model, failures_since_graduation: t.failsSinceGrad };
+  return JSON.stringify(o, null, 2);
+}
+
+function viewSystem() {
+  const t = S.tasks["fix-failing-test"];
+  const files = {
+    registry: regJson(),
+    ledger: S.ledger.slice(-8).map((r) => JSON.stringify(r)).join("\n"),
+    session: S.sesslog.slice(-4).map((r) => JSON.stringify(r)).join("\n") || "No calls logged yet. Press “Play the demo story”.",
+  };
+  const ft = S.fileTab;
+  return `
+    <h1>Under the hood</h1>
+    <p class="lede">What each part does, what it calls, and where your data goes. Press <strong>Play the demo story</strong> and watch the parts light up as each call happens.</p>
+    <p class="honest"><strong>Nothing on this page is built yet.</strong> This is the planned design. Every call is named from the sponsor's own docs (checked Sep 26), each part links to the GitHub issue that builds it, and the numbers are samples.</p>
+    ${t.state === "READY" && !t.consent ? `<div class="banner"><p>The watcher counted 5 passing runs. Nothing goes to River until you approve.</p><a class="btn owned" href="#/consent/fix-failing-test">Review training data</a></div>` : ""}
+    <figure class="arch sheet">
+      ${archSvg()}
+      <figcaption>Solid boxes run on your machine. Dashed boxes are outside services, so data leaves your machine there. Indigo is what's happening right now. Click any box for its calls.</figcaption>
+    </figure>
+    ${nodeDetail()}
+    <div class="sys-grid">
+      <section aria-labelledby="wire-h">
+        <h2 id="wire-h">Every call, newest first</h2>
+        <div class="sheet wire">${S.wire.length ? `<ol>${S.wire.map((w) => `<li class="${w.fresh ? "fresh" : ""}"><time>${w.t}</time><div><div class="who">${esc(w.who)} <a href="${GH}${w.issue}" target="_blank" rel="noopener">#${w.issue}</a></div><code>${esc(w.call)}</code><div class="res">${esc(w.res)}</div></div></li>`).join("")}</ol>` : `<p class="empty">No calls yet. Press “Play the demo story”.</p>`}</div>
+      </section>
+      <section aria-labelledby="term-h">
+        <h2 id="term-h">Terminal</h2>
+        <pre class="term" id="term">${S.term.length ? S.term.map(([k, l]) => `<span class="${k}">${esc(l)}</span>`).join("\n") : `<span class="d">Waiting for a task…</span>`}</pre>
+        <p class="note">This is the part of the demo people can see with their own eyes: a real agent editing real code, and the tests going from red to green.</p>
+      </section>
+    </div>
+    <section aria-labelledby="files-h">
+      <h2 id="files-h">Files on disk</h2>
+      <div class="tabs" role="tablist">${[["registry", "registry.json"], ["ledger", "ledger.jsonl"], ["session", "sessions/…jsonl"]].map(([k, l]) => `<button role="tab" aria-selected="${ft === k}" data-file="${k}">${l}</button>`).join("")}</div>
+      <pre class="sample filebox">${esc(files[ft])}</pre>
+    </section>`;
+}
+
+let watching = false;
+function go(h) { location.hash = watching ? "#/system" : h; }
+function hi(n, e) { S.hi = { n, e }; }
+function wire(who, call, res, issue) { S.wire.forEach((w) => (w.fresh = false)); S.wire.unshift({ t: clock(), who, call, res, issue, fresh: true }); }
+function term(...lines) { S.term.push(...lines); }
+function clock() { const d = new Date(); return [d.getHours(), d.getMinutes(), d.getSeconds()].map((x) => String(x).padStart(2, "0")).join(":"); }
+function sid() { return "sess-" + Math.random().toString(16).slice(2, 8); }
 function later(ms, fn) { timers.push(setTimeout(() => { fn(); render(); }, ms)); }
+function seq(steps, gap = 1300, start = 200) { steps.forEach((fn, i) => later(start + i * gap, fn)); return start + steps.length * gap; }
+
+function sessionSteps(o) {
+  const s = o.sid, p = `The test tests/test_mod_${o.mod}.py is failing. Fix the code so it passes.`;
+  const up = o.owned ? "river" : "openai";
+  return [
+    () => { hi(["runner", "opencode"], ["launch"]); wire("Runner → OpenCode", `opencode run "${p}"`, `env GRADUATE_SESSION=${s}${o.force ? " · x-graduate-force: frontier" : ""}`, 34);
+      term(["c", `$ graduate run --task-file demo-repo/tasks/${o.mod}.json --repo demo-repo${o.force ? " --force-frontier" : ""}`], ["d", `session ${s} · launching opencode`]); },
+    () => { hi(["opencode", "router", "memorable"], ["chat", "recall"]); wire("OpenCode → Router", "POST http://localhost:4141/v1/chat/completions", `Authorization: Bearer ${s} · stream: true · 7 tools`, 13);
+      wire("Router → Memorable", `memorable recall "${p.slice(0, 38)}…" --single`, "0.91 procedures/7c2e19ab-fix-failing-test [lexical] · 41 ms → task type fix-failing-test", 20); },
+    () => { hi(["router", "registry", up], ["reads", o.owned ? "owned" : "frontier"]);
+      wire("Router → registry.json", `registry["fix-failing-test"].state`, o.owned ? "GRADUATED → route to your River model" : `${o.force ? "forced by header" : S.tasks["fix-failing-test"].state} → route to frontier`, 20);
+      if (o.owned) wire("Router → River", "POST <deployment.base_url>/chat/completions  model=<deployment.model>", "strip <think> blocks · stream back to OpenCode · fallback: chat_complete_from_checkpoint", 37);
+      else wire("Router → OpenAI", "POST https://api.openai.com/v1/chat/completions  stream_options.include_usage=true", "streamed back untouched · usage: 18,231 in (16,384 cached) · 412 out", 13);
+      term(["d", "▸ read tests/test_mod_" + o.mod + ".py"]); },
+    () => { hi(["router", "disk"], ["log"]); wire("Router → Session log", `append sessions/${s}.jsonl · metrics.jsonl`, `turn 1 · ${o.owned ? "$0.004" : "$0.021"}`, 35);
+      S.sesslog.push({ ts: clock(), session: s, upstream: up, model: o.owned ? "river://…/fix-failing-test-v1" : "gpt-frontier", usage: o.owned ? { in: 2210, out: 180 } : { in: 18231, cached: 16384, out: 412 }, latency_ms: o.owned ? 640 : 2310 });
+      term(["d", "▸ read calc/mod_" + o.mod + ".py"], ["d", "▸ bash pytest -q tests/test_mod_" + o.mod + ".py"], ["f", "  FAILED test_add_negative - assert -1 == 5"]); },
+    () => { hi(["opencode", "router", up], ["chat", o.owned ? "owned" : "frontier"]);
+      wire("OpenCode → Router", `turns 2–${o.turns}: same path`, `${o.turns} turns · ${o.tools} tool calls · ${money(o.cost)} total`, 17);
+      term(["d", "▸ edit calc/mod_" + o.mod + ".py"], ["del", "-    return a - b"], ["add", "+    return a + b"]);
+      if (!o.fail) term(["d", "▸ bash pytest -q tests/test_mod_" + o.mod + ".py"], ["p", "  1 passed in 0.04s"]);
+      term(["d", "opencode exited"]); },
+    () => { hi(["runner", "pytest"], ["verify"]); wire("Runner → Test suite", `pytest -q tests/test_mod_${o.mod}.py`, o.fail ? "exit 1 · 1 failed" : "exit 0 · 1 passed", 34);
+      term(["c", `$ pytest -q tests/test_mod_${o.mod}.py   (verify, run by graduate)`], o.fail ? ["f", "1 failed in 0.05s · exit 1"] : ["p", "1 passed in 0.04s · exit 0"]); },
+    () => { const row = { session_id: s, task_type: "fix-failing-test", routed_to: o.force ? "frontier" : o.owned ? "owned" : "frontier", turns: o.turns, tool_calls: o.tools, cost_usd: o.cost, exit_code: o.fail ? 1 : 0, ...(o.from ? { escalated_from: o.from } : {}) };
+      S.ledger.push(row);
+      hi(o.fail ? ["pytest", "ledger"] : ["pytest", "ledger", "runner", "memorable"], o.fail ? ["exit"] : ["exit", "ingest"]);
+      wire("Runner → ledger.jsonl", "append row", JSON.stringify(row), 34);
+      if (!o.fail) wire("Runner → Memorable", `memorable ingest data/traces/${s}.json`, "procedure 7c2e19ab updated · harness opencode · verify exit_code 0", 36);
+      o.after && o.after(); },
+  ];
+}
 
 function play() {
   const t = S.tasks["fix-failing-test"];
   if (t.state !== "LEARNING") { toast("Reset first to replay the story."); return; }
-  $("#play").disabled = true;
-  location.hash = "#/";
-  $("#storyhint").textContent = "Watch the fix-failing-test row and the activity log.";
-  later(300, () => log(`New request: “Fix failing test in module_5”. Matched <strong>fix-failing-test</strong>. No graduated model yet, so it goes to frontier.`));
-  later(2200, () => {
-    t.runs.unshift({ t: now(), req: "Fix failing test in module_5", to: "frontier", turns: 16, tools: 5, cost: 0.42, exit: 0 });
-    t.verified = 5; t.state = "READY";
-    log(`Verify <code>pytest tests/test_module_5.py</code>: <span class="pass">exit 0</span>. fix-failing-test has ${N} of ${N} verified runs.`);
-  });
-  later(3600, () => {
-    S.awaitingConsent = true;
-    log(`fix-failing-test is ready to graduate. Waiting for you to approve the training data.`);
-    $("#storyhint").textContent = "Your turn: click “Review training data”.";
-  });
+  $("#play").disabled = true; S.term = [];
+  $("#storyhint").textContent = "Open “Under the hood” to watch every call.";
+  log(`New request: “Fix failing test in module_5”. Matched <strong>fix-failing-test</strong>. No graduated model yet, so it goes to frontier.`);
+  const end = seq([...sessionSteps({ sid: sid(), mod: "05", turns: 16, tools: 5, cost: 0.42, after: () => {
+      t.runs.unshift({ t: now(), req: "Fix failing test in module_5", to: "frontier", turns: 16, tools: 5, cost: 0.42, exit: 0 });
+      log(`Verify <code>pytest tests/test_mod_05.py</code>: <span class="pass">exit 0</span>. fix-failing-test has ${N} of ${N} verified runs.`);
+    } }),
+    () => { hi(["ledger", "watcher", "registry"], ["tail", "ready"]); t.verified = 5; t.state = "READY";
+      wire("Watcher → registry.json", "verified_runs(\"fix-failing-test\") = 5   (bar: 5)", "state READY · consent not given yet → ask you", 19); },
+    () => { hi(["registry", "consent"], ["ask"]); S.awaitingConsent = true;
+      wire("registry.json → You", "event: ready to graduate", "waiting for approval on the consent screen", 25);
+      log(`fix-failing-test is ready to graduate. Waiting for you to approve the training data.`);
+      $("#storyhint").textContent = "Your turn: click “Review training data”."; }]);
+  return end;
 }
 
 function approve(k) {
   const t = S.tasks[k];
   const retrain = t.state === "PROBATION";
+  const n = retrain ? t.verified + t.failed : t.verified;
   t.consent = true; t.state = "TRAINING"; t.trainPct = 0; S.awaitingConsent = false;
-  log(`Approved. Training started on River with ${retrain ? t.verified + t.failed : t.verified} runs.`);
+  hi(["consent", "registrar"], ["approved"]);
+  wire("Dashboard → Router", `POST /api/consent/${k}`, `consent = true · spawned: python -m graduate.registrar.train ${k}`, 25);
+  term(["c", `$ python -m graduate.registrar.train ${k}`]);
+  log(`Approved. Training started on River with ${n} runs.`);
   toast("Approved. Training started.");
-  location.hash = "#/";
-  $("#storyhint").textContent = "Training on River. In the real product this takes minutes to hours.";
-  for (let i = 1; i <= 10; i++) later(i * 450, () => { t.trainPct = i * 10; });
-  later(4900, () => {
-    t.state = "GRADUATED"; t.model = `river://run-${Math.random().toString(16).slice(2, 6)}/sampler_weights/${k}-v${retrain ? 2 : 1}`; t.trainedOn = retrain ? t.verified + t.failed : t.verified;
-    t.current = t.current || { turns: 3, tools: 3, cost: 0.011, secs: 9 };
-    t.graduatedAt = now(); t.sinceGrad = 0; t.failsSinceGrad = 0; justGraduated = k;
-    log(`<span class="owned">${k} graduated.</span> Model <code>${t.model}</code>. Matching requests now go to your model.`);
-    location.hash = `#/task/${k}`;
-  });
-  if (k !== "fix-failing-test") return;
-  later(8200, () => {
-    t.runs.unshift({ t: now(), req: "Fix failing test in module_6", to: "owned", turns: 3, tools: 3, cost: 0.011, exit: 0 });
-    t.sinceGrad++; S.routedRuns++; S.savedUsd += 0.42 - 0.011;
-    log(`“Fix failing test in module_6” went to <span class="owned">your model</span>. 3 turns instead of 16. Verify <span class="pass">exit 0</span>. Saved $0.41.`);
-    $("#storyhint").textContent = "Now try “Force a failure” to see the safety path.";
-  });
+  go("#/");
+  $("#storyhint").textContent = "Training on River. In the real product this takes minutes, not seconds.";
+  const ck = `river://run-${Math.random().toString(16).slice(2, 6)}/sampler_weights/${k}-v${retrain ? 2 : 1}`;
+  const losses = [2.41, 1.98, 1.62, 1.31, 1.07, 0.88, 0.72, 0.61, 0.52, 0.46];
+  const steps = [
+    () => { hi(["registrar", "disk"], []); wire("Registrar", `dataset.py: ${n} passing sessions from sessions/*.jsonl`, `81 examples → tokenizer.apply_chat_template(messages, tools=…) → 81 × {input_ids, target_tokens, weights} · 312k tokens`, 21);
+      term(["d", `dataset: ${n} sessions → 81 examples · 312k tokens → data/${k}.tok.jsonl`]); },
+    () => { hi(["registrar", "rivertrain"], ["train"]); wire("Registrar → River training", `session.create_model("Qwen3.6-35B-A3B-FP8", lora=LoraConfig(rank=32))`, "LoRA model created · rank 32", 22);
+      term(["d", "river: create_model Qwen3.6-35B-A3B-FP8 · LoRA rank 32"]); },
+    ...losses.map((l, i) => () => { hi(["registrar", "rivertrain"], ["train"]); t.trainPct = (i + 1) * 10;
+      if (i === 0) wire("Registrar → River training", `model.train_step(batch, loss_fn="cross_entropy", lr=2e-4)   × 15`, "loss per step written to data/" + k + ".loss.jsonl", 22);
+      term(["d", `train step ${String(i + 1).padStart(2)}/15 · loss ${l.toFixed(2)}`]); }),
+    () => { hi(["rivertrain", "river"], ["serve"]); wire("Registrar → River training", `model.save_weights("${k}-v${retrain ? 2 : 1}", mode="inference")`, ck, 22);
+      wire("Registrar → River", "client.create_deployment(checkpoint=…, unified_replicas=1, wait=True)", "only if River enabled deployments; otherwise serve from the checkpoint", 37);
+      term(["p", `saved ${ck}`]); },
+    () => { hi(["registrar", "registry"], ["graduate"]);
+      t.state = "GRADUATED"; t.model = ck; t.trainedOn = n; t.current = t.current || { turns: 3, tools: 3, cost: 0.011, secs: 9 };
+      t.graduatedAt = now(); t.sinceGrad = 0; t.failsSinceGrad = 0; justGraduated = k;
+      wire("Registrar → registry.json", `transition("${k}", "GRADUATED", model="${ck}")`, "router picks this up on its next registry reload", 18);
+      log(`<span class="owned">${k} graduated.</span> Model <code>${ck}</code>. Matching requests now go to your model.`);
+      go(`#/task/${k}`); },
+  ];
+  const end = seq(steps, 480, 300);
+  if (k !== "fix-failing-test" || retrain) return;
+  timers.push(setTimeout(() => {
+    seq(sessionSteps({ sid: sid(), mod: "06", owned: true, turns: 3, tools: 3, cost: 0.011, after: () => {
+      t.runs.unshift({ t: now(), req: "Fix failing test in module_6", to: "owned", turns: 3, tools: 3, cost: 0.011, exit: 0 });
+      t.sinceGrad++; S.routedRuns++; S.savedUsd += 0.42 - 0.011;
+      log(`“Fix failing test in module_6” went to <span class="owned">your model</span>. 3 turns instead of 16. Verify <span class="pass">exit 0</span>. Saved $0.41.`);
+      $("#storyhint").textContent = "Now try “Force a failure” to see the safety path.";
+      $("#fail").disabled = false;
+    } }), 1100);
+  }, end + 1500));
 }
 
 function forceFail() {
   const t = S.tasks["fix-failing-test"];
   if (t.state !== "GRADUATED") return;
-  log(`“Fix failing test in module_8” went to <span class="owned">your model</span>. Verify <span class="fail">exit 1</span>.`);
-  render();
-  later(1400, () => {
+  $("#fail").disabled = true;
+  const s1 = sid(), s2 = sid();
+  const first = sessionSteps({ sid: s1, mod: "08", owned: true, fail: true, turns: 3, tools: 3, cost: 0.011 });
+  const esc1 = [
+    () => { hi(["ledger", "escalator"], ["failed"]); wire("Escalator", `git diff > sessions/${s1}.diff`, "failed attempt kept for review", 23);
+      term(["c", "$ graduate: your model failed verification → escalating"], ["d", `git diff > sessions/${s1}.diff`]); },
+    () => { hi(["escalator"], []); wire("Escalator", "git checkout -- . && git clean -fd", "repo back to the starting commit", 23); term(["d", "git checkout -- . && git clean -fd"]); },
+    () => { hi(["escalator", "router", "openai"], ["rerun", "frontier"]); wire("Escalator → Runner", "graduate run --force-frontier", `new session ${s2} · linked escalated_from=${s1}`, 23); },
+  ];
+  const rerun = sessionSteps({ sid: s2, mod: "08", force: true, from: s1, turns: 16, tools: 5, cost: 0.42, after: () => {
     t.failsSinceGrad++; t.failed++;
-    t.runs.unshift({ t: now(), req: "Fix failing test in module_8", to: "owned → frontier", turns: 3 + 16, tools: 8, cost: 0.011 + 0.42, exit: 0 });
-    log(`Retried on frontier: verify <span class="pass">exit 0</span>. You got a passing result. The failed attempt is saved as a negative example (${t.failsSinceGrad} of ${FAIL_LIMIT} before probation).`);
+    t.runs.unshift({ t: now(), req: "Fix failing test in module_8", to: "owned → frontier", turns: 19, tools: 8, cost: 0.431, exit: 0 });
+    wire("Escalator", `append data/fix-failing-test.neg.jsonl`, `negative example saved · failures ${t.failsSinceGrad} of ${FAIL_LIMIT}`, 23);
+    log(`Your model failed on module_8, so it was rerun on frontier: verify <span class="pass">exit 0</span>. The failed attempt is saved as a negative example (${t.failsSinceGrad} of ${FAIL_LIMIT} before probation).`);
     if (t.failsSinceGrad >= FAIL_LIMIT) {
       t.state = "PROBATION";
+      wire("Escalator → registry.json", `transition("fix-failing-test", "PROBATION")`, "router sends this task type to frontier until it retrains", 23);
       log(`<span class="fail">fix-failing-test moved to probation.</span> Requests go to frontier until it retrains.`);
-    }
-  });
+    } else $("#fail").disabled = false;
+  } });
+  log(`“Fix failing test in module_8” went to <span class="owned">your model</span>.`);
+  seq([...first, ...esc1, ...rerun], 900);
 }
 
 function demote(k) {
@@ -596,15 +877,21 @@ function demote(k) {
 
 function reset() {
   timers.forEach(clearTimeout); timers = [];
-  S = seed(); justGraduated = null;
+  const sel = S.sel, ft = S.fileTab;
+  S = seed(); S.sel = sel; S.fileTab = ft; justGraduated = null;
   $("#play").disabled = false;
-  $("#storyhint").textContent = "Sample data only. Nothing here talks to a real model.";
-  location.hash = "#/"; render();
+  $("#storyhint").textContent = "Sample data only. Open “Under the hood” to see every call.";
+  go("#/");
+  render();
 }
 
 document.addEventListener("click", (e) => {
   const act = e.target.closest("[data-act]");
   if (act) { const k = act.dataset.k; ({ approve, demote })[act.dataset.act](k); render(); return; }
+  const node = e.target.closest("[data-node]");
+  if (node) { S.sel = node.dataset.node; render(); return; }
+  const file = e.target.closest("[data-file]");
+  if (file) { S.fileTab = file.dataset.file; render(); return; }
   const tab = e.target.closest("[data-tab]");
   if (tab) { viewSetup.sel = tab.dataset.tab; render(); return; }
   const row = e.target.closest("tr[data-go]");
@@ -613,6 +900,10 @@ document.addEventListener("click", (e) => {
 $("#play").addEventListener("click", play);
 $("#fail").addEventListener("click", forceFail);
 $("#reset").addEventListener("click", reset);
+document.addEventListener("keydown", (e) => {
+  const node = e.target.closest && e.target.closest("[data-node]");
+  if (node && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); S.sel = node.dataset.node; render(); $(`[data-node="${S.sel}"]`)?.focus(); }
+});
 window.addEventListener("hashchange", render);
 render();
 </script>
