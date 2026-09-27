@@ -766,3 +766,4 @@ svg.over rect.mine { fill: var(--owned); }
   .p-ring .ring-name { margin-top: 2px; }
   .stepper { margin-top: 6px; }
 }
+.howto { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; line-height: 1.45; }
