@@ -145,6 +145,6 @@ def escalate(row, pre):
         ),
     )
     print(
-        f"{sid} owned_then_frontier → {rerun['session_id']} exit {rerun['exit_code']}"
+        f"{sid} {row['routed_to']}_then_frontier → {rerun['session_id']} exit {rerun['exit_code']}"
     )
     return rerun
