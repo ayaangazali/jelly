@@ -67,7 +67,9 @@ def check():
     os.chmod("agent", 0o755)
     runner.OPENCODE, runner.ROUTER = os.path.abspath("agent"), "http://127.0.0.1:9"
     os.environ.update(
-        SEEN=os.path.abspath("seen.jsonl"), SESSIONS=os.path.abspath("sessions")
+        SEEN=os.path.abspath("seen.jsonl"),
+        SESSIONS=os.path.abspath("sessions"),
+        MEMORABLE_BIN="false",
     )
     os.environ["GRADUATE_FORCE_FAIL"] = "1"
     graduated("unknown")  # no router: the runner's task type is `unknown`
@@ -99,7 +101,7 @@ def check():
         assert tt["failures_since_graduation"] == n
         assert tt["state"] == ("PROBATION" if n == 3 else "GRADUATED"), tt["state"]
     assert (
-        Path("outside.txt").exists() and not Path("data").exists()
+        Path("outside.txt").exists() and not Path("data/unknown.neg.jsonl").exists()
     )  # forced: no negative example
 
     # Fourth forced run: on probation, so it is a plain frontier session.

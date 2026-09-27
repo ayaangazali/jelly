@@ -20,7 +20,7 @@ from pathlib import Path
 
 import httpx
 
-from graduate import escalator, ledger, trace
+from graduate import escalator, ledger, memorable, trace
 from graduate.reward import parse_pytest_summary
 
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
@@ -153,6 +153,8 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         "escalated_from": escalated_from,
         "forced_failure": False,
     }
+    if routed_to == "frontier" and exit_code == 0:
+        row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)
     escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
     ledger.append(row)
     trace.emit(
