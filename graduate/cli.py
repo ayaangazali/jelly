@@ -184,7 +184,7 @@ def _demo_dir():
     shutil.copy(FIXTURES / "ledger.example.jsonl", work / "ledger.jsonl")
     shutil.copy(FIXTURES / "trace.example.jsonl", work / "trace.jsonl")
     (work / "sessions").mkdir()
-    shutil.copy(FIXTURES / "session.example.jsonl", work / "sessions/sess-demo.jsonl")
+    shutil.copy(FIXTURES / "session.example.jsonl", work / "sessions/sess-8b30c11e2d7a.jsonl")
     return work
 
 

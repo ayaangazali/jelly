@@ -4,7 +4,7 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(
 const time = (ts) => esc((ts || "").slice(11, 19));
 const money = (v) => `$${Number(v).toFixed(v < 1 ? 4 : 2)}`;
 const num = (v) => Math.round(v).toLocaleString();
-const data = { state: null, swarm: null, bench: null, reviews: {} };
+const data = { state: null, swarm: null, reviews: {} };
 
 async function get(url, init) {
   try {
@@ -16,13 +16,14 @@ async function get(url, init) {
   }
 }
 
-const page = () => (location.hash.split("/")[1] || "home");
+const page = () => (location.hash.split("/")[1] || "compare");
 
 function render() {
-  const p = PAGES[page()] ? page() : "home";
+  const p = PAGES[page()] ? page() : "compare";
   document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === p ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const html = data.state ? PAGES[p]() : `<p class="lede">Loading /state…</p>`;
   if ($("#view").dataset.html !== html) { $("#view").innerHTML = html; $("#view").dataset.html = html; }
+  tick();
 }
 
 async function poll() {
@@ -31,6 +32,7 @@ async function poll() {
   $("#live").innerHTML = `<span class="dot${up ? " on" : ""}"></span> ${up ? "live · updates every 3s" : "router unreachable"}`;
   if (up) data.state = s;
   if (["home", "agents"].includes(page())) data.swarm = await get("/api/swarm");
+  if (page() === "compare") data.race = await get("/api/race");
   render();
 }
 
@@ -125,27 +127,99 @@ async function act(kind, t) {
   await poll();
 }
 
+// Compare: the same task, frontier (left) vs your model (right), replayed from the recorded session logs at recorded
+// speed. Pairs come from the ledger: a prompt with both a frontier row and an owned row. Counters only reach what the
+// ledger row and session log hold; a pane without a log shows the ledger's totals when its recorded time is up.
+const race = { key: null, speed: 1, base: 0, since: 0, panes: null };
+
+const pairs = () => (data.race && data.race.pairs) || [];
+
+function pane({ row, log }) {
+  const calls = log || [];
+  const start = calls.length ? Date.parse(calls[0].ts) - (calls[0].latency_ms || 0) : 0;
+  const tokens = (u) => (u.input_tokens || 0) + (u.output_tokens || 0);
+  const all = calls.reduce((a, c) => a + tokens(c.usage || {}), 0) || 1;
+  const steps = calls.map((c) => ({
+    at: Date.parse(c.ts) - start, from: Date.parse(c.ts) - start - (c.latency_ms || 0), out: (c.usage || {}).output_tokens || 0,
+    cost: (row.cost_usd || 0) * tokens(c.usage || {}) / all, what: describe(c.response || {}),
+  }));
+  const end = Math.max(row.wall_secs * 1000 || 0, steps.length ? steps[steps.length - 1].at : 0);
+  return { row, steps, end, logged: calls.length > 0 };
+}
+
+function describe(m) {
+  if (m.tool_calls && m.tool_calls.length) return m.tool_calls.map((t) => {
+    let args = t.function.arguments;
+    try { args = Object.values(JSON.parse(args)).map(String)[0] || ""; } catch {}
+    return `<b>${esc(t.function.name)}</b> <code>${esc(String(args).split("\n")[0].replace(/^\/\S*\/(\S+\/\S+)/, "…/$1").slice(0, 70))}</code>`;
+  }).join("<br>");
+  return m.content ? esc(m.content.slice(0, 160)) : `<span class="muted">(empty reply)</span>`;
+}
+
+function startRace(p) {
+  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.frontier), pane(p.owned)], rescue: p.rescue, base: 0, since: performance.now() });
+}
+
+const elapsed = () => race.base + (performance.now() - race.since) * race.speed;
+function setSpeed(x) { race.base = elapsed(); race.since = performance.now(); race.speed = x; tick(); }
+
+const source = (r, side) => /stub/i.test(r.model) ? "stub model, offline" : r.model.startsWith("/") ? "local model on this machine"
+  : r.model.startsWith("river://") ? "River model" : side === "owned" ? `routed to your model, upstream reported ${esc(r.model)}` : "frontier API";
+const secsOf = (ms) => `${(ms / 1000).toFixed(1)}s`;
+
+function paneHTML(p, t, side) {
+  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t), next = p.steps.find((s) => s.at > t);
+  const counts = done ? { out: r.output_tokens, turns: r.turns, cost: r.cost_usd, ms: r.wall_secs * 1000 }  // the ledger has the last word
+    : { out: shown.reduce((a, s) => a + s.out, 0), turns: shown.length, cost: shown.reduce((a, s) => a + s.cost, 0), ms: t };
+  const verdict = !done ? `<p class="verify muted">running…</p>` : r.exit_code === 0
+    ? `<p class="verify pass">Tests pass: ${r.tests_passed} of ${r.tests_total} · exit 0</p>`
+    : `<p class="verify fail">Tests fail · exit ${r.exit_code}${race.rescue && side === "owned" ? `<br>Escalated to the frontier: <code>${esc(race.rescue.session_id)}</code>, exit ${race.rescue.exit_code}, ${money(race.rescue.cost_usd)}` : ""}</p>`;
+  return `<header><b>${side === "owned" ? "Your model" : "Frontier"}</b> <code>${esc(r.model.split("/").pop())}</code>
+<p class="muted">${data.sample ? "sample data" : "recorded run"} · ${source(r, side)} · ${p.logged ? `${p.steps.length} calls from <code>sessions/${esc(r.session_id)}.jsonl</code>` : "no session log: ledger totals at the end"}</p></header>
+<div class="ctr"><div class="big"><b>${num(counts.out)}</b><span>output tokens</span></div>
+<div><b>${counts.turns}</b><span>turns</span></div><div><b>${money(counts.cost)}</b><span>cost est.</span></div>
+<div><b>${secsOf(counts.ms)}</b><span>wall time</span></div></div>
+<ol class="turns">${shown.map((s, i) => `<li><span class="muted">${i + 1}</span><span>${s.what}<br><small class="muted">${num(s.out)} output tokens · ${secsOf(s.at)}</small></span></li>`).join("")}
+${next && next.from <= t ? `<li class="now"><span class="muted">${shown.length + 1}</span><span class="muted">model thinking…</span></li>` : ""}</ol>
+${verdict}`;
+}
+
+function verdictHTML([f, o]) {
+  const F = f.row, O = o.row;
+  if (O.exit_code !== 0) return `<p class="diff fail">Your model failed this task${race.rescue ? " and the frontier finished it" : ""}. No win to claim here.</p>`;
+  if (F.exit_code !== 0) return `<p class="diff">The frontier failed this task; your model passed.</p>`;
+  const x = O.output_tokens ? (F.output_tokens / O.output_tokens).toFixed(1) : "n/a";
+  return `<p class="diff">Both passed. Your model: <b>${x}× fewer output tokens</b> (${num(F.output_tokens)} → ${num(O.output_tokens)}), ${F.turns} → ${O.turns} turns, ${money(F.cost_usd)} → ${money(O.cost_usd)}, ${F.wall_secs}s → ${O.wall_secs}s wall time. From the ledger rows.</p>`;
+}
+
+function tick() {
+  const box = document.getElementById("race");
+  if (!box || !race.panes) return;
+  const t = elapsed();
+  race.panes.forEach((p, i) => {
+    const el = box.children[i], html = paneHTML(p, t, i ? "owned" : "frontier");
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; el.querySelector(".turns").scrollTop = 1e6; }
+  });
+  const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML(race.panes) : "";
+  if (v.dataset.html !== html) { v.innerHTML = html; v.dataset.html = html; }
+}
+setInterval(tick, 100);
+
 function compare() {
-  const b = data.bench;
-  if (!b) { data.bench = { loading: true }; get("/bench/latest/results.json").then((x) => { data.bench = x; render(); }); }
-  if (!b || b.loading) return `<h1>Compare</h1><p class="lede">Loading the bench…</p>`;
-  if (b.error) return `<h1>Compare</h1>${empty(`No bench results yet: ${esc(b.error)} Run <code>graduate bench</code> (it prints its cost estimate and asks first).`)}`;
-  const arms = [["frontier", "Frontier"], ["small", "Small model"], ["owned", "Your model"]].filter(([k]) => b.arms[k]);
-  const row = (label, key, fmt, cls = "") => `<tr class="${cls}"><th>${label}</th>${arms.map(([k]) => {
-    const a = b.arms[k];
-    return `<td class="num">${a.runs > 0 && a[key] != null ? fmt(a[key], a) : `<span class="muted">${esc(a.note || "n/a")}</span>`}</td>`;
-  }).join("")}</tr>`;
-  return `<h1>Compare</h1>
-<p class="lede">The same demo tasks (${b.tasks.map(esc).join(", ")}) through each model, from <code>graduate bench</code> at ${esc(b.started_at.slice(0, 16).replace("T", " "))}Z on <code>${esc(b.git_sha)}</code>. Spent ${money(b.budget.spent_usd)} of a ${money(b.budget.cap_usd)} cap.</p>
-<table><thead><tr><th>Per run (mean)</th>${arms.map(([k, l]) => `<th class="num">${l}<br><small class="muted">${esc((b.arms[k].model || "").split("/").pop())}</small></th>`).join("")}</tr></thead><tbody>
-${row("Output tokens", "output_tokens", num, "lead")}
-${row("Input tokens", "input_tokens", (v, a) => `${num(v)} <span class="muted">${Math.round((a.cached_input_tokens / (v || 1)) * 100)}% cached</span>`)}
-${row("Cost <small>est.</small>", "cost_usd", money)}
-${row("Turns", "turns", (v) => v)}
-${row("Wall time <small>median</small>", "wall_secs_p50", (v) => `${v}s`)}
-${row("Tests pass", "passed", (v, a) => `${v} of ${a.runs}`)}
-</tbody></table>
-<p class="muted">Means over each arm's runs. Cost is tokens × list prices, frontier with prompt caching on. n/a: that arm has no real runs.</p>`;
+  if (!data.race) return `<h1>Compare</h1><p class="lede">Loading the recorded runs…</p>`;
+  if (data.race.error) return `<h1>Compare</h1>${empty(esc(data.race.error))}`;
+  const ps = pairs();
+  if (!ps.length) return `<h1>Compare</h1>${empty("No task has both a frontier run and a run on your model in the ledger yet. Once a task type graduates, its next run races here against a frontier run of the same task.")}`;
+  const key = (x) => x.owned.row.session_id;
+  let p = ps.find((x) => key(x) === race.key);
+  if (!p) startRace((p = ps.find((x) => x.owned.row.exit_code === 0) || ps[0]));
+  const o = p.owned.row;
+  return `<h1>Same task, side by side</h1>
+<p class="lede">${esc(o.prompt)} <span class="muted">· ${esc(o.task_type)} · frontier on the left, your model on the right, replayed at recorded speed.</span></p>
+<div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(x.owned.row.prompt.slice(0, 60))} · ${esc(x.owned.row.started_at.slice(11, 16))} · yours ${x.owned.row.exit_code === 0 ? "passed" : "failed"}</option>`).join("")}</select>
+<button class="btn" data-race="replay">Replay</button>${[1, 4, 16].map((x) => `<button class="btn" data-race="${x}">${x}×</button>`).join("")}
+<a href="/#/compare">Bench: frontier vs small vs yours →</a></div>
+<div id="race" class="race"><section class="pane frontier"></section><section class="pane owned"></section></div><div id="verdict"></div>`;
 }
 
 function activity() {
@@ -164,8 +238,14 @@ const PAGES = { home, agents, tasks, compare, activity };
 document.addEventListener("click", (e) => {
   const b = e.target.closest("button[data-act]");
   if (b) act(b.dataset.act, b.dataset.t);
+  const r = e.target.closest("button[data-race]");
+  if (r && r.dataset.race === "replay") { race.base = 0; race.since = performance.now(); tick(); }
+  else if (r) setSpeed(Number(r.dataset.race));
 });
-window.addEventListener("hashchange", () => { if (page() === "compare") data.bench = null; poll(); });
-get("/api/sample").then((r) => { $("#sample").hidden = !r.sample; });
+document.addEventListener("change", (e) => {
+  if (e.target.id === "pair") { startRace(pairs().find((x) => x.owned.row.session_id === e.target.value)); render(); }
+});
+window.addEventListener("hashchange", poll);
+get("/api/sample").then((r) => { data.sample = r.sample; $("#sample").hidden = !r.sample; });
 poll();
 setInterval(poll, 3000);
