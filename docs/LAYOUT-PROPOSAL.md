@@ -46,10 +46,10 @@ Links between pack files are relative (`../02-project/narrative.md`) and survive
 
 | Path | Files and lines |
 |---|---|
-| `01-context` | `README.md`: 134, 163 |
-| `02-project` | `AGENTS.md`: 5; `README.md`: 164 |
-| `03-build` | `AGENTS.md`: 5, 56; `README.md`: 165, 168 |
-| `04-appendix` | `README.md`: 134, 157, 166 |
+| `01-context` | `README.md`: 140, 152 |
+| `02-project` | `AGENTS.md`: 5; `README.md`: 152 |
+| `03-build` | `AGENTS.md`: 5, 56; `README.md`: 152 |
+| `04-appendix` | `README.md`: 140, 150, 152 |
 
 `AGENTS.md` line 62 names `hour-by-hour.md` in prose without a path; it needs no change.
 
@@ -80,10 +80,10 @@ None of these five files contains a relative link, so only the files that point 
 
 | File moved | Referenced from |
 |---|---|
-| `docs/river-api.md` | `README.md`: 149; `docs/river-rl.md`: 13 (prose); `docs/sponsor-answers.md`: 13 (prose) |
-| `docs/river-rl.md` | `README.md`: 149; `SUBMISSION.md`: 32 |
-| `docs/memorable-shapes.md` | `README.md`: 150; `docs/sponsor-answers.md`: 15 (prose) |
-| `docs/qm-config.md` | `README.md`: 150; `SUBMISSION.md`: 35 |
+| `docs/river-api.md` | `docs/river-rl.md`: 13 (prose); `docs/sponsor-answers.md`: 13 (prose) |
+| `docs/river-rl.md` | `SUBMISSION.md`: 32 |
+| `docs/memorable-shapes.md` | `docs/sponsor-answers.md`: 15 (prose) |
+| `docs/qm-config.md` | `SUBMISSION.md`: 35 |
 | `docs/sponsor-answers.md` | `SUBMISSION.md`: 33 |
 
 `SUBMISSION.md` is the judged file; move these only after judging, or leave them.
@@ -93,8 +93,8 @@ None of these five files contains a relative link, so only the files that point 
 | Path | Why |
 |---|---|
 | `graduate/`, `ui/`, `fixtures/` | `pyproject.toml` packages all three side by side; the router finds the dashboard and prices through `parents[2]`, which is what makes `uvx ... graduate up --demo` work without a clone |
-| `demo-repo/` | Hard-coded in `graduate/runner/__init__.py`, `graduate/bench.py`, `graduate/e2e.py`, `scripts/demo.sh`, `scripts/reset-demo.sh`, `scripts/corpus.sh`, `scripts/live.sh`, `tests/test_cli.py`, `tests/test_runner.py` |
-| `scripts/` | Called by the Makefile, CI (`scripts/demo.sh`, `scripts/corpus-dryrun.sh`) and the docs |
+| `demo-repo/` | Hard-coded in `graduate/runner/__init__.py`, `graduate/bench.py`, `graduate/e2e.py`, `graduate/rl_env.py`, `scripts/demo.sh`, `scripts/reset-demo.sh`, `scripts/corpus.sh`, `scripts/stub-upstream.py`, `tests/test_bench.py`, `tests/test_cli.py`, `tests/test_demo_repo.py`, `tests/test_owned.py`, `tests/test_rl_env.py`, `tests/test_runner.py`; `pyproject.toml` excludes `demo-repo/tests` from pytest |
+| `scripts/` | CI calls `scripts/demo.sh` directly and `scripts/corpus-dryrun.sh` through `make e2e-replay`; the Makefile and the docs name them too |
 | `mock-up/` | Its diagram ids are the ids every `graduate.trace.emit` call uses (AGENTS.md, "Trace every external call") |
 | `docs/results.md` | `scripts/demo.sh` rewrites the block between its `demo.sh:begin` and `demo.sh:end` markers on every run |
 | `docs/screens/`, `docs/recordings/` | `scripts/screens.py` and `scripts/record.py` write there |
