@@ -21,6 +21,7 @@ from graduate import trace
 
 REGISTRY_PATH = "registry.json"
 LOCK_PATH = "registry.lock"
+GRADUATE_N = int(os.environ.get("GRADUATE_N", "5"))
 EVENT_CAP = 200
 EVENT_KINDS = {
     "run",
@@ -115,13 +116,6 @@ def _locked():
         _write(reg)
 
 
-def save(reg: dict) -> None:
-    """Replace the whole registry. Prefer transition()/update(): this overwrites concurrent writes."""
-    with _locked() as cur:
-        cur.clear()
-        cur.update(reg)
-
-
 def _check_fields(fields):
     bad = {"state", "consent"} & fields.keys()
     if bad:
@@ -141,7 +135,7 @@ def transition(task_type: str, to_state: str, **fields) -> dict:
         if edge is None:
             raise IllegalTransition(f"{task_type}: {tt['state']} -> {to_state}")
         tt.update(fields)
-        n = int(os.environ.get("GRADUATE_N", "5"))
+        n = GRADUATE_N
         if (
             to_state == "READY"
             and tt["state"] == "LEARNING"
@@ -218,9 +212,9 @@ if __name__ == "__main__":
         os.path.join(tmp, "registry.lock"),
     )
     trace.TRACE_PATH = os.path.join(tmp, "trace.jsonl")
-    os.environ["GRADUATE_N"] = "5"
+    GRADUATE_N = 5
 
-    # The fixture loads and round-trips.
+    # The fixture loads, and a locked write keeps the rest of it intact.
     shutil.copy(
         os.path.join(os.path.dirname(__file__), "..", "registry.example.json"),
         REGISTRY_PATH,
@@ -233,10 +227,8 @@ if __name__ == "__main__":
         "GRADUATED",
         "PROBATION",
     }
-    fixture["events"].append(
-        {"ts": _now(), "kind": "error", "task_type": "t", "text": "saved"}
-    )
-    save(fixture)
+    update("fix-failing-test", verified_runs=5)
+    fixture["task_types"]["fix-failing-test"]["verified_runs"] = 5
     assert load() == fixture
     os.remove(REGISTRY_PATH)
 
