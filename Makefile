@@ -23,6 +23,6 @@ screens:
 	python scripts/screens.py
 
 # $0 and deterministic (#65): real OpenCode + the demo repo's pytest against scripts/stub-upstream.py, which replays
-# one scripted session (read, edit, "Fixed.") per broken state. Drives scripts/corpus-dryrun.sh; off :4141/:4199.
+# one scripted session (read, edit, "Fixed.") per broken state. Drives scripts/corpus-dryrun.sh.
 e2e-replay:
-	PORT=4241 STUB_PORT=4299 scripts/corpus-dryrun.sh
+	scripts/corpus-dryrun.sh
