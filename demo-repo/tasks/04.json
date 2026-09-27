@@ -1,0 +1,4 @@
+{
+  "prompt": "The test tests/test_mod_04.py is failing. Fix the code so it passes.",
+  "verify": "pytest -q tests/test_mod_04.py"
+}
