@@ -70,7 +70,7 @@ function underTheHood() {
 
 let setupTab = "opencode";
 const SETUP = {
-  opencode: ["OpenCode", `<p>Add a provider in <code>opencode.json</code>:</p><pre class="filebox">"provider": { "graduate": {\n  "npm": "@ai-sdk/openai-compatible",\n  "options": { "baseURL": "http://localhost:4141/v1", "apiKey": "{env:GRADUATE_SESSION}" }\n} }</pre><p class="muted">This is the harness the demo uses.</p>`],
+  opencode: ["OpenCode", `<p>Add a provider in <code>opencode.json</code>:</p><pre class="filebox">"provider": { "jelly": {\n  "npm": "@ai-sdk/openai-compatible",\n  "options": { "baseURL": "http://localhost:4141/v1", "apiKey": "{env:JELLY_SESSION}" }\n} }</pre><p class="muted">Set <code>JELLY_SESSION</code> to a new <code>sess-…</code> id for each session: Jelly uses it to tell sessions apart. This is the harness the demo uses.</p>`],
   claude: ["Claude Code", `<p>Point Claude Code at the proxy and turn on the headers Jelly uses to count turns:</p><pre class="filebox">export ANTHROPIC_BASE_URL=http://localhost:4141\nexport ANTHROPIC_API_KEY=sess-$(uuidgen | tr A-Z a-z)\nexport CLAUDE_CODE_GATEWAY_HINT_HEADERS=1</pre><p class="muted">The key is the session id: use a new <code>sess-…</code> value per session.</p>`],
   aider: ["Aider and scripts", `<p>Anything that speaks OpenAI Chat Completions:</p><pre class="filebox">export OPENAI_API_BASE=http://localhost:4141/v1</pre><p class="muted">Aider reads OPENAI_API_BASE; the OpenAI SDK reads OPENAI_BASE_URL.</p>`],
   codex: ["Codex", `<p>Codex only talks the OpenAI Responses API, which Jelly doesn't serve, so Codex runs go straight to OpenAI.</p>`],
@@ -84,7 +84,7 @@ function setup() {
 <div class="race-bar">${Object.entries(SETUP).map(([k, [l]]) => `<button class="btn${setupTab === k ? " owned" : ""}" data-setup="${k}">${l}</button>`).join("")}</div>
 <section class="panel setup-body">${SETUP[setupTab][1]}</section>
 <h2>Consent and status</h2>
-${tt.length ? `<div class="scroll"><table class="ttypes"><thead><tr><th>Task type</th><th>State</th><th>Verified runs</th><th>Consent to train</th><th>Model</th></tr></thead><tbody>${tt.map(([id, t]) => `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b></td><td>${stateTag(t.state)}</td><td>${t.verified_runs} of ${s.config.n}</td><td>${t.consent ? "given" : `<span class="muted">not given</span>`}</td><td>${t.model ? (String(t.model).startsWith("river://") ? "Qwen3.5-9B on River" : "on this machine") : `<span class="muted">none yet</span>`}</td></tr>`).join("")}</tbody></table></div>` : empty("No task types yet.")}`;
+${tt.length ? `<div class="scroll"><table class="ttypes"><thead><tr><th>Task type</th><th>State</th><th>Verified runs</th><th>Consent to train</th><th>Model</th></tr></thead><tbody>${tt.map(([id, t]) => `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b></td><td>${stateTag(t.state)}</td><td>${t.verified_runs} verified · ${s.config.n} needed</td><td>${t.consent ? "given" : `<span class="muted">not given</span>`}</td><td>${t.model ? (String(t.model).startsWith("river://") ? "Qwen3.5-9B on River" : "on this machine") : `<span class="muted">none yet</span>`}</td></tr>`).join("")}</tbody></table></div>` : empty("No task types yet.")}`;
 }
 
 document.addEventListener("click", (e) => {
