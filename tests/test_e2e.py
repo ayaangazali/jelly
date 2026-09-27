@@ -57,7 +57,9 @@ def test_live_sh_refuses_without_credit_before_touching_anything(tmp_path):
 
     class Quota(http.server.BaseHTTPRequestHandler):
         def do_POST(self):
-            seen.append(json.loads(self.rfile.read(int(self.headers["content-length"]))))
+            seen.append(
+                json.loads(self.rfile.read(int(self.headers["content-length"])))
+            )
             body = json.dumps(QUOTA).encode()
             self.send_response(429)
             self.send_header("content-length", str(len(body)))
@@ -68,9 +70,19 @@ def test_live_sh_refuses_without_credit_before_touching_anything(tmp_path):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     before = sorted(ROOT.glob("backups/live-*"))
     env = {k: v for k, v in __import__("os").environ.items() if k != "CORPUS_DIR"}
+    # macOS realpath has no -m (#120): its usage error, first on PATH, keeps live.sh portable from Linux CI
+    (tmp_path / "realpath").write_text(
+        "#!/bin/sh\necho 'realpath: illegal option -- m' >&2\nexit 1\n"
+    )
+    (tmp_path / "realpath").chmod(0o755)
     r = subprocess.run(
         [ROOT / "scripts/live.sh"],
-        env={**env, "OPENAI_API_KEY": "sk-test", "OPENAI_BASE_URL": f"http://127.0.0.1:{srv.server_port}/v1"},
+        env={
+            **env,
+            "PATH": f"{tmp_path}:{env['PATH']}",
+            "OPENAI_API_KEY": "sk-test",
+            "OPENAI_BASE_URL": f"http://127.0.0.1:{srv.server_port}/v1",
+        },
         capture_output=True,
         text=True,
         timeout=60,
