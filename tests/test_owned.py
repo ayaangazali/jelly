@@ -333,3 +333,15 @@ def test_session_trains_and_serves_with_repo_relative_paths(workdir, monkeypatch
     assert train.compact(session("/Users/ayaan/jelly/demo-repo"), []) == train.compact(
         rec["messages"][:4], []
     )
+
+
+def test_river_model_without_key_says_why(router, stub, monkeypatch):
+    """#93: a river:// model with no key falls back to the frontier with a reason a person can act on."""
+    monkeypatch.delenv("RIVER_API_KEY", raising=False)
+    monkeypatch.delenv("GRADUATE_OWNED_BACKEND", raising=False)
+    task("GRADUATED", model="river://run-x/sampler_weights/x-v1", serving="checkpoint")
+    router("POST", "/api/sessions", json={"session_id": "sess-0000000000a5", "task_type": TT})
+    r = router("POST", "/v1/chat/completions", headers={"Authorization": "Bearer sess-0000000000a5"},
+               json={"model": "graduate", "messages": [{"role": "user", "content": "fix it"}]})
+    assert r.status_code == 200 and len(stub.requests) == 1
+    assert "no River key: set RIVER_API_KEY or use a local checkpoint" in registry.load()["events"][0]["text"]

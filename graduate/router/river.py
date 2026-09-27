@@ -70,7 +70,7 @@ async def stream_completion(request, session):
         registry.add_event(
             "error",
             task_type,
-            f"Your model for {task_type} failed a call ({type(e).__name__}); the frontier answered it.",
+            f"Your model for {task_type} failed a call ({str(e) or type(e).__name__}); the frontier answered it.",
         )
         return None
     usage = {
