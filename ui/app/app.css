@@ -469,7 +469,7 @@ svg.graph { width: 100%; flex: 1; min-height: 0; }
 .edge.mine { stroke: #2B2F66; }
 .node rect { fill: #121A2E; stroke: #2A3654; stroke-width: 1.5; transition: fill 0.4s, stroke 0.4s; }
 .node text { fill: var(--ink); font: 700 24px "Archivo", sans-serif; text-anchor: middle; }
-.node text.sub { fill: var(--muted); font: 400 16px "Archivo", sans-serif; }
+.node text.sub { fill: var(--muted); font: 400 14.5px "Archivo", sans-serif; }
 .node.hub rect { stroke: var(--owned); fill: #151B3D; }
 .node.mine rect { stroke: #5558C8; }
 .node.mine.lit rect { stroke: var(--owned); filter: drop-shadow(0 0 10px #5558C8); }
