@@ -369,7 +369,7 @@ const EDGES = [
 const STATE_URL = new URLSearchParams(location.search).get("state") || "/state";
 const STATE_TEXT = { LEARNING: "Learning", READY: "Ready to train", TRAINING: "Training", GRADUATED: "Graduated", PROBATION: "On probation" };
 const FLOW = ["LEARNING", "READY", "TRAINING", "GRADUATED", "PROBATION"];
-const HINT = { LEARNING: "Under N passing runs", READY: "N passing runs, waiting for approval", TRAINING: "Training on River", GRADUATED: "Routed to your model, verified every run", PROBATION: "Failed too often, back on frontier" };
+const HINT = { LEARNING: "Under N passing runs", READY: "N passing runs, waiting for approval", TRAINING: "Training your model", GRADUATED: "Routed to your model, verified every run", PROBATION: "Failed too often, back on frontier" };
 
 let S = null, lastJson = "", prevState = {}, stampFor = null, stampUntil = 0, selNode = "router", fileTab = "registry", setupTab = "claude";
 const consentCache = {};
@@ -483,7 +483,7 @@ function viewTask(k) {
         <dl class="facts">
           <dt>State</dt><dd><span class="state ${t.state}">${STATE_TEXT[t.state]}</span></dd>
           <dt>Model</dt><dd>${t.model ? `<code>${esc(t.model)}</code>` : "None yet"}</dd>
-          <dt>Served from</dt><dd>${t.serving === "deployment" ? "River deployment" : t.serving === "checkpoint" ? "River checkpoint" : "—"}</dd>
+          <dt>Served from</dt><dd>${t.serving === "deployment" ? "River deployment" : t.serving === "checkpoint" ? (t.model || "").startsWith("river://") ? "River checkpoint" : "Checkpoint on this machine" : "—"}</dd>
           <dt>Trained on</dt><dd>${t.trained_on_runs ? `${t.trained_on_runs} verified runs` : "Not trained"}</dd>
           <dt>Since graduating</dt><dd>${t.model ? `${t.verified_since_graduation} passed, ${t.failures_since_graduation} failed (limit ${S.config.fail_limit})` : "—"}</dd>
           <dt>Training data</dt><dd>${t.consent ? "Approved" : "Not approved"}</dd>
@@ -509,15 +509,16 @@ function viewConsent(k) {
   if (!t) return viewTask(k);
   const d = consentCache[k];
   if (!d) loadConsent(k);
+  const local = d?.backend === "local";
   const n = d?.sample ? d.records : (t.state === "PROBATION" ? t.verified_runs + t.failed_runs : t.verified_runs);
   return `<div class="consent">
     <a class="back" href="#/task/${encodeURIComponent(k)}">Back to ${esc((t.title || k).toLowerCase())}</a>
-    <h1>Send ${n} runs to River to train “${esc(t.title || k)}”?</h1>
-    <p class="lede">Graduate trains a small model on River with these runs, using your River key. The weights are saved to your River account. After that, matching requests go to it, and each one is still checked with <code>${esc(t.verify_command)}</code>.</p>
-    <section><h2>What gets sent</h2><ul>
+    <h1>${local ? `Train a model on this machine on ${n} runs of “${esc(t.title || k)}”?` : `Send ${n} runs to River to train “${esc(t.title || k)}”?`}</h1>
+    <p class="lede">${local ? "Graduate trains a small model on this machine's CPU with these runs. Nothing leaves this machine." : "Graduate trains a small model on River with these runs, using your River key. The weights are saved to your River account."} After that, matching requests go to it, and each one is still checked with <code>${esc(t.verify_command)}</code>.</p>
+    <section><h2>${local ? "What it trains on" : "What gets sent"}</h2><ul>
       <li>${n} passing runs as training examples${t.state === "PROBATION" ? `, plus ${t.failed_runs} failing runs as examples of what not to do` : ""}${d?.tokens ? `, ${d.tokens.toLocaleString()} tokens in total` : ""}</li>
       <li>For each run: the conversation with the model, including its tool calls and their results</li>
-      <li>Destination: your River account. The trained weights are yours.</li></ul></section>
+      <li>Destination: ${esc(d?.destination || "your River account")}. The trained weights are yours.</li></ul></section>
     <section><h2>What stays on this machine</h2><ul><li>Runs from other task types</li><li>The run ledger, metrics and trace logs</li><li>Anything from sessions that failed their tests, unless this is a retrain</li></ul></section>
     <section><h2>One record, exactly as it would be sent</h2>
       ${d?.sample ? `<pre class="sample">${esc(JSON.stringify(d.sample, null, 2))}</pre>` : `<p class="note">${esc(d?.error || "Loading the sample record…")}</p>`}</section>
