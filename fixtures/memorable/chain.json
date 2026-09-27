@@ -1,0 +1,13 @@
+{
+  "segments": [
+    "fix the failing test"
+  ],
+  "items": [
+    {
+      "kind": "gap",
+      "segment": "fix the failing test"
+    }
+  ],
+  "coverage": 0,
+  "score": 0
+}

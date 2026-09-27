@@ -1,0 +1,18 @@
+
+  memorable status   v0.5.30
+
+  ✓ capture on · recall on
+
+  store ──────────────────────────────────────────────────
+  backend        local (~/.memorable/procedures.jsonl)
+  write consent  read-write
+  encryption     off, no key store on this machine
+  stored         nothing yet
+
+  service ────────────────────────────────────────────────
+  extraction api  configured
+  allowance       0 of 1,000 memorables used, 1,500 left, resets 27 Oct (500 in reserve behind it)
+  repository      not reported
+
+  next  memorable ingest -  record a session, any harness
+

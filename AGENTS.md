@@ -21,6 +21,8 @@ Read first: [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md) (overrides the pack
 - **PR:** one PR per issue, body starts with `Closes #<n>`, and explains *why* as well as what.
 - **After merge:** open each issue that listed yours under **Depends on**. If all its dependencies are now closed, remove its `blocked` label.
 - **Done means:** every box in the issue's **Acceptance criteria** is ticked and shown in the PR (a command plus its output, or a screenshot for UI).
+- **End-to-end proofs in parallel:** `:4141` may be another lane's router. Run yours on another port and point both sides at it: `GRADUATE_ROUTER=http://localhost:<port>` for the runner, `OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"http://localhost:<port>/v1"}}}}'` for OpenCode. Run `scripts/reset-demo.sh clean` before committing.
+- **Tests:** `pip install -e .[test]`, then `make check && make test` before you push; CI runs both on every push and PR. Fully offline: the frontier is the `stub` fixture in `tests/conftest.py`. New behavior gets a test under `tests/`.
 
 ## Decided stack (don't re-litigate)
 
@@ -66,3 +68,10 @@ These decisions come from [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md), whic
 | `size:S/M/L` | Under 30 min / 30–60 min / over 60 min |
 
 The pinned issue **#1** is the master tracker and dependency map.
+
+## Maintaining this file
+
+Keep this file for knowledge useful to almost every future agent session in this project.
+Do not repeat what the codebase already shows; point to the authoritative file or command instead.
+Prefer rewriting or pruning existing entries over appending new ones.
+When updating this file, preserve this bar for all agents and keep entries concise.

@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graduate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #EDF0F3;
+  --sheet: #F8F9FB;
+  --ink: #17213A;
+  --muted: #5B6478;
+  --rule: #CBD1DA;
+  --owned: #3B3FB6;
+  --owned-wash: #E3E4F7;
+  --rented: #98A1B0;
+  --pass: #1E7A57;
+  --fail: #B3261E;
+  --warn: #9A5F00;
+  --focus: #3B3FB6;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10151F; --sheet: #171E2B; --ink: #E6E9EF; --muted: #9AA3B4; --rule: #2A3345;
+    --owned: #9A9DFF; --owned-wash: #232852; --rented: #5C6678; --pass: #4CC08E; --fail: #FF7A6E; --warn: #E0A840;
+    --focus: #9A9DFF; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10151F; --sheet: #171E2B; --ink: #E6E9EF; --muted: #9AA3B4; --rule: #2A3345;
+  --owned: #9A9DFF; --owned-wash: #232852; --rented: #5C6678; --pass: #4CC08E; --fail: #FF7A6E; --warn: #E0A840;
+  --focus: #9A9DFF; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 15px/1.5 "Archivo", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+code, pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 640px) { .wrap { padding: 0 16px; } }
+
+header.top { border-bottom: 1px solid var(--rule); background: var(--sheet); }
+header.top .wrap { display: flex; align-items: center; gap: 28px; min-height: 60px; flex-wrap: wrap; }
+.brand { font-weight: 800; font-stretch: 125%; font-size: 19px; letter-spacing: -0.01em; text-decoration: none; }
+nav.primary { display: flex; gap: 20px; }
+nav.primary a { text-decoration: none; color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
+nav.primary a[aria-current="page"] { color: var(--ink); border-color: var(--ink); }
+.proxy { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pass); display: inline-block; }
+
+.btn {
+  border: 1px solid var(--ink); background: transparent; padding: 7px 14px; border-radius: 4px; cursor: pointer;
+  font-weight: 500;
+}
+.btn.primary { background: var(--ink); color: var(--sheet); }
+.btn.owned { background: var(--owned); border-color: var(--owned); color: #fff; }
+.btn.quiet { border-color: var(--rule); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.sm { padding: 4px 10px; font-size: 13px; }
+
+main { padding: 32px 0 64px; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.015em; }
+h2 { font-size: 17px; font-weight: 700; margin: 0 0 12px; }
+.lede { color: var(--muted); margin: 0; max-width: 64ch; }
+
+.savings { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
+.savings .amount { font-size: 54px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.03em; line-height: 1; color: var(--owned); }
+.savings .what { max-width: 40ch; }
+.savings .what small { display: block; color: var(--muted); font-size: 13px; }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; align-items: start; }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; }
+
+.roster { width: 100%; border-collapse: collapse; }
+.roster th { text-align: left; font-weight: 500; font-size: 12.5px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.roster td { padding: 14px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.roster tr:last-child td { border-bottom: 0; }
+.roster tbody tr { cursor: pointer; }
+.roster tbody tr:hover td { background: color-mix(in srgb, var(--owned-wash) 45%, transparent); }
+.roster .name a { font-weight: 600; text-decoration: none; }
+.roster .name code { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.roster .num { white-space: nowrap; }
+.roster .num s { color: var(--muted); text-decoration-thickness: 1px; }
+.roster .route { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.roster .route.owned { color: var(--owned); font-weight: 600; }
+.unclassified td { color: var(--muted); font-size: 13.5px; cursor: default; }
+@media (max-width: 720px) {
+  .roster thead { display: none; }
+  .roster, .roster tbody, .roster tr, .roster td { display: block; width: 100%; }
+  .roster td { border: 0; padding: 4px 14px; }
+  .roster tr { border-bottom: 1px solid var(--rule); padding: 10px 0; }
+  .roster td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: 12.5px; }
+}
+
+.state { font-stretch: 125%; font-weight: 700; font-size: 13px; letter-spacing: 0.01em; }
+.state.LEARNING { color: var(--muted); }
+.state.READY { color: var(--warn); }
+.state.TRAINING { color: var(--owned); }
+.state.GRADUATED { color: var(--owned); }
+.state.PROBATION { color: var(--fail); }
+.pips { display: inline-flex; gap: 3px; margin-top: 5px; }
+.pips i { width: 14px; height: 6px; border-radius: 1px; background: var(--rule); }
+.pips i.on { background: var(--ink); }
+.trainbar { height: 6px; width: 90px; background: var(--rule); border-radius: 1px; margin-top: 6px; overflow: hidden; }
+.trainbar b { display: block; height: 100%; background: var(--owned); width: 0; transition: width .4s linear; }
+
+.log { max-height: 560px; overflow: auto; }
+.log ol { list-style: none; margin: 0; padding: 0; }
+.log li { padding: 10px 16px; border-bottom: 1px solid var(--rule); font-size: 13.5px; display: grid; grid-template-columns: 52px 1fr; gap: 10px; }
+.log li:last-child { border-bottom: 0; }
+.log time { color: var(--muted); font-size: 12.5px; padding-top: 1px; }
+.log .pass { color: var(--pass); font-weight: 600; }
+.log .fail { color: var(--fail); font-weight: 600; }
+.log .owned { color: var(--owned); font-weight: 600; }
+.log .fresh { animation: fresh 1.6s ease-out; }
+@keyframes fresh { from { background: var(--owned-wash); } to { background: transparent; } }
+.log header { padding: 14px 16px; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: baseline; }
+.log header h2 { margin: 0; }
+.log header span { color: var(--muted); font-size: 12.5px; }
+
+.banner { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 20px; border: 1px solid var(--warn); border-left-width: 4px; border-radius: 6px; background: var(--sheet); }
+.banner p { margin: 0; }
+
+.detail-head { display: flex; gap: 24px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 24px; position: relative; }
+.back { display: inline-block; margin-bottom: 14px; color: var(--muted); text-decoration: none; font-size: 14px; }
+.back:hover { color: var(--ink); }
+
+.stamp {
+  display: inline-block; border: 3px double var(--owned); color: var(--owned); border-radius: 6px;
+  padding: 6px 16px 4px; font-weight: 800; font-stretch: 125%; font-size: 26px; letter-spacing: 0.02em;
+  transform: rotate(-6deg); opacity: .92; line-height: 1.1; text-align: center;
+}
+.stamp small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; font-stretch: 100%; }
+.stamp.probation { border-color: var(--fail); color: var(--fail); }
+.stamp.land { animation: land .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes land { from { transform: rotate(-14deg) scale(1.9); opacity: 0; } to { transform: rotate(-6deg) scale(1); opacity: .92; } }
+
+.lifecycle { display: grid; grid-template-columns: repeat(5, 1fr); margin: 0 0 28px; padding: 0; list-style: none; counter-reset: step; }
+.lifecycle li { padding: 12px 12px 10px; border-top: 4px solid var(--rule); font-size: 13px; color: var(--muted); }
+.lifecycle li b { display: block; font-stretch: 125%; font-size: 13px; color: var(--muted); }
+.lifecycle li.done { border-color: var(--ink); }
+.lifecycle li.done b { color: var(--ink); }
+.lifecycle li.now { border-color: var(--owned); }
+.lifecycle li.now b { color: var(--owned); }
+.lifecycle li.now.PROBATION { border-color: var(--fail); }
+.lifecycle li.now.PROBATION b { color: var(--fail); }
+@media (max-width: 720px) { .lifecycle { grid-template-columns: 1fr; } }
+
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-bottom: 24px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.pad { padding: 18px 20px; }
+
+.compare { display: grid; gap: 16px; }
+.metric .label { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 6px; }
+.metric .label span:last-child { color: var(--muted); }
+.bar { display: grid; grid-template-columns: 78px 1fr 64px; align-items: center; gap: 10px; font-size: 12.5px; margin-top: 4px; }
+.bar .track { height: 12px; background: color-mix(in srgb, var(--rule) 50%, transparent); border-radius: 2px; overflow: hidden; }
+.bar .fill { height: 100%; border-radius: 2px; }
+.bar.rented .fill { background: var(--rented); }
+.bar.owned .fill { background: var(--owned); }
+.bar .v { text-align: right; }
+.note { color: var(--muted); font-size: 12.5px; margin: 12px 0 0; }
+
+dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 0; font-size: 14px; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+table.runs { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.runs th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+table.runs td { padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+table.runs tr:last-child td { border-bottom: 0; }
+.exit0 { color: var(--pass); font-weight: 600; }
+.exit1 { color: var(--fail); font-weight: 600; }
+.tbl-scroll { overflow-x: auto; }
+
+.consent { max-width: 780px; }
+.consent h1 { margin-bottom: 10px; }
+.consent section { margin-top: 22px; }
+.consent ul { margin: 0; padding-left: 18px; }
+.consent li { margin: 3px 0; }
+pre.sample { background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 14px; overflow: auto; line-height: 1.45; margin: 0; }
+
+.setup { max-width: 820px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule); margin: 22px 0 0; flex-wrap: wrap; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; color: var(--muted); }
+.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+.tabpanel { padding: 18px 0; }
+pre.cmd { background: var(--ink); color: var(--sheet); padding: 14px 16px; border-radius: 4px; overflow: auto; margin: 8px 0; }
+.check { display: flex; gap: 10px; align-items: baseline; margin: 8px 0; }
+.check .ok { color: var(--pass); font-weight: 700; }
+.check .no { color: var(--muted); font-weight: 700; }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--sheet); padding: 10px 18px; border-radius: 4px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.toast.show { opacity: 1; }
+
+
+.honest { border-left: 4px solid var(--warn); background: var(--sheet); padding: 12px 16px; border-radius: 4px; margin: 16px 0 20px; max-width: 80ch; }
+figure.arch { margin: 0 0 20px; padding: 16px 16px 12px; overflow-x: auto; }
+figure.arch svg { display: block; width: 100%; min-width: 760px; height: auto; }
+figure.arch figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.arch .node { cursor: pointer; }
+.arch .node rect { fill: var(--sheet); stroke: var(--rented); stroke-width: 1.5; }
+.arch .node.ext rect { stroke-dasharray: 6 4; fill: var(--paper); }
+.arch .node text { fill: var(--ink); font-size: 13.5px; font-weight: 600; }
+.arch .node text.sub { fill: var(--muted); font-size: 11.5px; font-weight: 400; }
+.arch .node.sel rect { stroke: var(--ink); stroke-width: 2.5; }
+.arch .node.on rect { fill: var(--owned-wash); stroke: var(--owned); stroke-width: 2.5; }
+.arch .node:focus-visible { outline: none; }
+.arch .node:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
+.arch .edge path { fill: none; stroke: var(--rented); stroke-width: 1.5; marker-end: url(#a); }
+.arch .edge text { fill: var(--muted); font-size: 11px; paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; stroke-linejoin: round; }
+.arch .edge.on path { stroke: var(--owned); stroke-width: 3; marker-end: url(#b); }
+.arch .edge.on text { fill: var(--owned); font-weight: 700; }
+.arch marker path.a { fill: var(--rented); }
+.arch marker path.b { fill: var(--owned); }
+.detail { margin-bottom: 28px; }
+.detail-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.detail h2 { margin: 0; }
+.detail h3 { font-size: 13.5px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
+.detail p { margin: 8px 0 0; max-width: 80ch; }
+.where { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
+.badge { font-size: 12.5px; border: 1px solid var(--warn); color: var(--warn); border-radius: 3px; padding: 2px 8px; }
+.badge a { color: inherit; }
+ul.calls { margin: 0; padding-left: 18px; }
+ul.calls li { margin: 4px 0; }
+ul.calls code { white-space: pre-wrap; word-break: break-word; }
+.risk { border-left: 3px solid var(--fail); padding-left: 10px; }
+.sys-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-bottom: 28px; }
+@media (max-width: 960px) { .sys-grid { grid-template-columns: minmax(0, 1fr); } }
+.wire { max-height: 420px; overflow: auto; }
+.wire ol { list-style: none; margin: 0; padding: 0; }
+.wire li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.wire li:last-child { border-bottom: 0; }
+.wire li.fresh { animation: fresh 1.6s ease-out; }
+.wire time { color: var(--muted); font-size: 12px; padding-top: 1px; }
+.wire .who { font-weight: 600; margin-bottom: 3px; }
+.wire .who a { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+.wire code { display: block; white-space: pre-wrap; word-break: break-word; color: var(--owned); }
+.wire .res { color: var(--muted); margin-top: 3px; word-break: break-word; }
+.wire .empty { padding: 16px; margin: 0; color: var(--muted); }
+pre.term { background: #0E1422; color: #D5DAE3; border-radius: 6px; padding: 14px 16px; height: 420px; overflow: auto; margin: 0; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+pre.term .c { color: #B9BCFF; }
+pre.term .d { color: #9AA3B4; }
+pre.term .p, pre.term .add { color: #4CC08E; }
+pre.term .f, pre.term .del { color: #FF7A6E; }
+pre.filebox { max-height: 320px; margin-top: 0; border-top-left-radius: 0; }
+@media (prefers-reduced-motion: reduce) { .wire li.fresh { animation: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp.land, .log .fresh { animation: none; }
+  .trainbar b { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#/">Graduate</a>
+    <nav class="primary" aria-label="Main">
+      <a href="#/" data-nav="overview">Overview</a>
+      <a href="#/system" data-nav="system">Under the hood</a>
+      <a href="#/setup" data-nav="setup">Setup</a>
+    </nav>
+    <div class="proxy"><span class="dot" id="conn-dot" aria-hidden="true"></span><span id="conn" role="status">Connecting…</span></div>
+  </div>
+</header>
+
+<main><div class="wrap" id="app"><p class="lede">Loading…</p></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const GH = "https://github.com/ayaangazali/jelly/issues/";
+const BW = 190, BH = 56;
+const COL = { A: 40, B: 290, C: 580, D: 820 }, ROW = { 1: 20, 2: 130, 3: 240, 4: 350, 5: 460 };
+const NODES = [
+  { id: "runner", c: "A", r: 1, label: "Runner", sub: "graduate run", issues: [34],
+    what: "Runs one task as one session. Gives it a session id, launches OpenCode, runs the task's test command after the agent exits, and writes the result to the ledger.",
+    calls: ["opencode run \"<task prompt>\"   env GRADUATE_SESSION=sess-…", "pytest -q tests/test_mod_05.py   → exit code", "memorable ingest data/traces/<session>.json"], files: ["ledger.jsonl"] },
+  { id: "memorable", c: "B", r: 1, ext: true, label: "Memorable", sub: "recall · ingest", issues: [4, 20, 36],
+    what: "Procedure memory. Its matcher names the task type for each new session, and every passing session is fed back in so matching improves with use.",
+    calls: ["memorable recall \"<first prompt>\" --single   → 0.91 procedures/7c2e19ab-fix-failing-test [lexical]", "memorable ingest trace.json   (harness: opencode, verify step with exit_code)"],
+    leaves: "The prompt and allow-listed tool arguments (paths, commands). No file contents, no command output." },
+  { id: "openai", c: "C", r: 1, ext: true, label: "OpenAI", sub: "frontier model", issues: [13, 17],
+    what: "The expensive general model. Handles every task type until it graduates, and stays the fallback forever.",
+    calls: ["POST https://api.openai.com/v1/chat/completions   stream: true, stream_options.include_usage: true"],
+    leaves: "The full request, exactly as it would without GRADUATE." },
+  { id: "opencode", c: "A", r: 2, label: "OpenCode", sub: "the coding agent", issues: [5],
+    what: "The agent, unmodified. The only change is a provider in opencode.json whose baseURL is http://localhost:4141/v1 and whose apiKey is the session id.",
+    calls: ["POST http://localhost:4141/v1/chat/completions   Authorization: Bearer sess-…"], files: ["edits files in demo-repo/"] },
+  { id: "router", c: "B", r: 2, label: "Router :4141", sub: "/v1/chat/completions", issues: [13, 17, 20, 35, 37],
+    what: "An OpenAI-compatible proxy. Classifies each session once, reads the registry, sends the call to OpenAI or to your River model, streams the answer back untouched, and logs the call.",
+    calls: ["memorable recall … --single   (first call of a session only)", "registry.json → state of the task type", "POST api.openai.com/v1/chat/completions   or   POST <river deployment>/chat/completions"], files: ["sessions/<id>.jsonl", "metrics.jsonl"] },
+  { id: "river", c: "C", r: 2, ext: true, label: "River model", sub: "your LoRA, served", issues: [2, 37],
+    what: "Your trained model, served by River. Uses a River deployment endpoint if River enables deployments for our team; otherwise the proxy calls the checkpoint through River's API and streams the result itself.",
+    calls: ["POST <deployment.base_url>/chat/completions   model=<deployment.model>", "fallback: client.chat_complete_from_checkpoint(messages, checkpoint_path=\"river://…\")"],
+    leaves: "The request for graduated task types.", risk: "Deployments are gated: River has to switch them on for our team (asked in #2). Tool calling on this endpoint is unconfirmed." },
+  { id: "dashboard", c: "D", r: 2, label: "Dashboard", sub: "GET /state every 1s", issues: [15, 24],
+    what: "What the judges watch. It reads /state from the router once a second and renders the registry, the ledger totals and the event log." },
+  { id: "pytest", c: "A", r: 3, label: "Test suite", sub: "verify → exit code", issues: [5, 34],
+    what: "The task's own test command. Its exit code is the only label anything is trained on. It runs once per session, after the agent exits.",
+    calls: ["pytest -q tests/test_mod_05.py"] },
+  { id: "disk", c: "B", r: 3, label: "Session log", sub: "sessions/ · metrics.jsonl", issues: [35, 17],
+    what: "Every request and response, kept on this machine. Training data comes from here. Memorable only keeps summarized steps, so it can't be used for training.",
+    files: ["sessions/<session>.jsonl", "metrics.jsonl"] },
+  { id: "registry", c: "C", r: 3, label: "registry.json", sub: "state per task type", issues: [18],
+    what: "One JSON file holding each task type's state: Learning, Ready, Training, Graduated or On probation. Every component reads it, and writes are atomic.", files: ["registry.json"] },
+  { id: "consent", c: "D", r: 3, label: "You", sub: "approve training data", issues: [25],
+    what: "Nothing is sent to River until you approve the exact records on the consent screen.", calls: ["POST /api/consent/<task type>"] },
+  { id: "ledger", c: "A", r: 4, label: "ledger.jsonl", sub: "one row per session", issues: [34],
+    what: "One row per session: task type, which model handled it, turns, tokens, cost and the test exit code. Graduation is counted from here.", files: ["ledger.jsonl"] },
+  { id: "watcher", c: "B", r: 4, label: "Watcher", sub: "counts passing runs", issues: [19],
+    what: "Counts passing frontier sessions per task type. At 5 it marks the task type Ready and asks for your approval." },
+  { id: "rivertrain", c: "C", r: 4, ext: true, label: "River training", sub: "LoRA SFT API", issues: [3, 22],
+    what: "River's training API. River runs the forward and backward passes on its GPUs. The loop that calls it is ours, and runs on this machine.",
+    calls: ["model.train_step(batch, loss_fn=\"cross_entropy\", lr=2e-4)", "model.save_weights(\"fix-failing-test-v1\", mode=\"inference\")"],
+    leaves: "Only the approved training records, as tokens.", risk: "River publishes no wall-clock numbers for training. #3 measures it tonight; #7 pre-trains a fallback." },
+  { id: "registrar", c: "D", r: 4, label: "Registrar", sub: "dataset + trainer", issues: [21, 22, 7],
+    what: "Turns passing sessions into tokenized training records with the base model's chat template, runs the River training loop, and marks the task type Graduated with the new checkpoint.",
+    calls: ["tokenizer.apply_chat_template(messages, tools=…)", "session.create_model(\"Qwen3.6-35B-A3B-FP8\", lora=LoraConfig(rank=32))", "registry.transition(\"GRADUATED\", model=\"river://…\")"], files: ["data/<task>.tok.jsonl", "data/<task>.loss.jsonl"] },
+  { id: "escalator", c: "A", r: 5, label: "Escalator", sub: "reset · rerun on frontier", issues: [23],
+    what: "When your model's attempt fails the tests, it saves the diff, resets the repo, reruns the task forced to the frontier, and keeps the failure as a negative example. After 3 failures the task type goes on probation.",
+    calls: ["git diff > sessions/<id>.diff", "git checkout -- . && git clean -fd", "graduate run --force-frontier   (header x-graduate-force: frontier)"], files: ["data/<task>.neg.jsonl"] },
+];
+const NODE = Object.fromEntries(NODES.map((n) => [n.id, { ...n, x: COL[n.c], y: ROW[n.r] }]));
+const EDGES = [
+  { id: "launch", d: "M135,76 V130", lx: 141, ly: 107, t: "launches", a: "start" },
+  { id: "ingest", d: "M230,48 H290", lx: 260, ly: 42, t: "ingest", a: "middle" },
+  { id: "chat", d: "M230,158 H290", lx: 260, ly: 152, t: "chat calls", a: "middle" },
+  { id: "recall", d: "M385,130 V76", lx: 391, ly: 107, t: "recall", a: "start" },
+  { id: "frontier", d: "M480,146 H530 V48 H580", lx: 536, ly: 98, t: "not graduated", a: "start" },
+  { id: "owned", d: "M480,172 H580", lx: 530, ly: 166, t: "graduated", a: "middle" },
+  { id: "log", d: "M385,186 V240", lx: 379, ly: 206, t: "logs every call", a: "end" },
+  { id: "reads", d: "M580,262 H545 V214 H455 V186", lx: 500, ly: 229, t: "reads state", a: "middle" },
+  { id: "verify", d: "M40,48 H22 V268 H40", lx: 30, ly: 216, t: "verify", a: "start" },
+  { id: "exit", d: "M135,296 V350", lx: 141, ly: 327, t: "exit code", a: "start" },
+  { id: "tail", d: "M230,378 H290", lx: 260, ly: 372, t: "tails", a: "middle" },
+  { id: "ready", d: "M480,378 H530 V278 H580", lx: 536, ly: 332, t: "5 passing → Ready", a: "start" },
+  { id: "ask", d: "M770,268 H820", lx: 795, ly: 262, t: "asks", a: "middle" },
+  { id: "approved", d: "M915,296 V350", lx: 921, ly: 327, t: "approved", a: "start" },
+  { id: "train", d: "M820,392 H770", lx: 795, ly: 418, t: "trains", a: "middle" },
+  { id: "serve", d: "M770,362 H796 V158 H770", lx: 802, ly: 205, t: "checkpoint", a: "start" },
+  { id: "graduate", d: "M870,350 V316 H720 V296", lx: 752, ly: 311, t: "Graduated", a: "middle" },
+  { id: "state", d: "M960,186 V214 H745 V240", lx: 952, ly: 208, t: "GET /state", a: "end" },
+  { id: "failed", d: "M135,406 V460", lx: 141, ly: 437, t: "your model failed", a: "start" },
+  { id: "rerun", d: "M230,488 H260 V178 H290", lx: 266, ly: 470, t: "rerun on frontier", a: "start" },
+];
+
+const STATE_URL = new URLSearchParams(location.search).get("state") || "/state";
+const STATE_TEXT = { LEARNING: "Learning", READY: "Ready to train", TRAINING: "Training", GRADUATED: "Graduated", PROBATION: "On probation" };
+const FLOW = ["LEARNING", "READY", "TRAINING", "GRADUATED", "PROBATION"];
+const HINT = { LEARNING: "Under N passing runs", READY: "N passing runs, waiting for approval", TRAINING: "Training on River", GRADUATED: "Routed to your model, verified every run", PROBATION: "Failed too often, back on frontier" };
+
+let S = null, lastJson = "", prevState = {}, stampFor = null, stampUntil = 0, selNode = "router", fileTab = "registry", setupTab = "claude";
+const consentCache = {};
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = (v) => v == null ? "—" : "$" + (v < 0.1 ? v.toFixed(3) : v.toFixed(2));
+const round = (v) => v == null ? "—" : Math.round(v);
+const clock = (ts, sec) => ts ? new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", ...(sec ? { second: "2-digit" } : {}), hour12: false }) : "";
+const tasks = () => S.registry.task_types;
+const N = () => S.config.n;
+
+function toast(msg) { const el = $("#toast"); el.textContent = msg; el.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove("show"), 2600); }
+
+async function poll() {
+  try {
+    const r = await fetch(STATE_URL, { cache: "no-store" });
+    if (!r.ok) throw new Error(String(r.status));
+    const text = await r.text();
+    $("#conn").textContent = "Connected to " + (STATE_URL === "/state" ? location.host || "localhost:4141" : STATE_URL);
+    $("#conn-dot").style.background = "var(--pass)";
+    if (text === lastJson) return;
+    lastJson = text;
+    S = JSON.parse(text);
+    for (const [k, t] of Object.entries(tasks())) {
+      if (t.state === "GRADUATED" && prevState[k] && prevState[k] !== "GRADUATED") { stampFor = k; stampUntil = Date.now() + 1500; }
+      prevState[k] = t.state;
+    }
+    if (stampFor && route()[0] === "") location.hash = `#/task/${stampFor}`;
+    render();
+  } catch {
+    $("#conn").textContent = S ? "Reconnecting… showing the last state" : "Can't reach " + STATE_URL + ". Is the router running?";
+    $("#conn-dot").style.background = "var(--warn)";
+  }
+}
+
+function route() { const [, r = "", a = ""] = (location.hash || "#/").split("/"); return [r, decodeURIComponent(a)]; }
+
+function stateCell(t) {
+  const n = N();
+  let extra = "";
+  if (t.state === "LEARNING" || t.state === "READY") extra = `<div class="pips" aria-label="${Math.min(t.verified_runs, n)} of ${n} verified runs">${Array.from({ length: n }, (_, i) => `<i class="${i < t.verified_runs ? "on" : ""}"></i>`).join("")}</div>`;
+  const sub = t.state === "LEARNING" ? `<div style="font-size:12.5px;color:var(--muted)">${t.verified_runs} of ${n} verified</div>` : "";
+  return `<span class="state ${t.state}">${STATE_TEXT[t.state]}</span>${sub}${extra}`;
+}
+
+function viewOverview() {
+  const rows = Object.entries(tasks()).map(([k, t]) => {
+    const b = t.baseline || {}, c = t.state === "GRADUATED" ? t.current : null;
+    const num = (a, z, f = round) => c ? `<s>${f(a)}</s> ${f(z)}` : f(a);
+    const goes = t.state === "GRADUATED" ? `<span class="route owned">Your model</span>` : `<span class="route">Frontier</span>`;
+    return `<tr data-go="#/task/${encodeURIComponent(k)}">
+      <td class="name"><a href="#/task/${encodeURIComponent(k)}">${esc(t.title || k)}</a><code>${esc(t.verify_command)}</code></td>
+      <td data-label="State">${stateCell(t)}</td>
+      <td class="num" data-label="Turns">${num(b.turns, c?.turns)}</td>
+      <td class="num" data-label="Tool calls">${num(b.tool_calls, c?.tool_calls)}</td>
+      <td class="num" data-label="Cost per run">${num(b.cost_usd, c?.cost_usd, money)}</td>
+      <td data-label="Goes to">${goes}</td></tr>`;
+  }).join("");
+  const ready = Object.entries(tasks()).find(([, t]) => t.state === "READY" && !t.consent);
+  const tot = S.totals;
+  return `
+    <div class="savings"><span class="amount">${money(tot.saved_usd)}</span>
+      <span class="what">saved across ${tot.owned_runs} runs your own models handled<small>Compared with the same runs on the frontier model with prompt caching on.</small></span></div>
+    ${ready ? `<div class="banner"><p><strong>${esc(ready[1].title || ready[0])}</strong> has ${N()} verified runs and can graduate. Nothing is sent for training until you approve it.</p><a class="btn owned" href="#/consent/${encodeURIComponent(ready[0])}">Review training data</a></div>` : ""}
+    <div class="cols">
+      <section aria-labelledby="roster-h"><h2 id="roster-h">Task types</h2>
+        <div class="sheet"><table class="roster">
+          <thead><tr><th>Task type</th><th>State</th><th>Turns</th><th>Tool calls</th><th>Cost per run</th><th>Goes to</th></tr></thead>
+          <tbody>${rows}<tr class="unclassified"><td colspan="6">${tot.unclassified_runs} requests didn't match a known task type and went to the frontier model.</td></tr></tbody>
+        </table></div>
+        <p class="note">A task type graduates after ${N()} runs that pass their verify command. Every run on your model is still verified, and a failure goes back to the frontier model.</p>
+      </section>
+      <aside class="sheet log" aria-labelledby="log-h"><header><h2 id="log-h">Activity</h2><span>Newest first</span></header>
+        <ol>${S.registry.events.map((e) => `<li><time>${clock(e.ts)}</time><span class="${e.kind === "probation" || e.kind === "failed" ? "fail" : e.kind === "graduated" ? "owned" : ""}">${esc(e.text)}</span></li>`).join("")}</ol></aside>
+    </div>`;
+}
+
+function viewTask(k) {
+  const t = tasks()[k];
+  if (!t) return `<a class="back" href="#/">Back to overview</a><h1>No task type called “${esc(k)}”</h1><p class="lede">Pick one from the overview.</p>`;
+  const idx = FLOW.indexOf(t.state);
+  const life = FLOW.map((s, i) => {
+    const done = t.state === "PROBATION" ? i < 4 : i < idx;
+    return `<li class="${s === t.state ? `now ${s}` : done ? "done" : ""}"><b>${STATE_TEXT[s]}</b>${HINT[s].replace("N", N())}</li>`;
+  }).join("");
+  const land = stampFor === k && Date.now() < stampUntil ? " land" : "";
+  const stamp = t.state === "GRADUATED" ? `<div class="stamp${land}">Graduated<small>${clock(t.graduated_at)} · ${t.trained_on_runs} runs</small></div>`
+    : t.state === "PROBATION" ? `<div class="stamp probation">Probation<small>${t.failures_since_graduation} failed checks</small></div>` : "";
+  const b = t.baseline || {}, c = t.current;
+  const bar = (label, unit, bv, cv, fmt = round) => {
+    if (bv == null) return "";
+    const max = Math.max(bv, cv ?? 0) || 1;
+    return `<div class="metric"><div class="label"><span>${label}</span><span>${cv != null ? Math.round((1 - cv / bv) * 100) + "% less" : "Not graduated yet"}</span></div>
+      <div class="bar rented"><span>Frontier</span><span class="track"><span class="fill" style="width:${(bv / max) * 100}%;display:block"></span></span><span class="v">${fmt(bv)}${unit}</span></div>
+      ${cv != null ? `<div class="bar owned"><span>Your model</span><span class="track"><span class="fill" style="width:${Math.max((cv / max) * 100, 1.5)}%;display:block"></span></span><span class="v">${fmt(cv)}${unit}</span></div>` : ""}</div>`;
+  };
+  const runs = S.ledger.filter((r) => r.task_type === k).slice().reverse();
+  const handled = (r) => r.escalated_from ? "Your model, then frontier" : r.routed_to === "owned" ? `<span style="color:var(--owned);font-weight:600">Your model</span>` : "Frontier";
+  const actions = t.state === "READY" && !t.consent ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Review training data</a>`
+    : t.state === "PROBATION" ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Retrain with the failed runs</a>` : "";
+  return `
+    <a class="back" href="#/">Back to overview</a>
+    <div class="detail-head"><div><h1>${esc(t.title || k)}</h1><p class="lede">Verified by <code>${esc(t.verify_command)}</code>. ${t.verified_runs} passing runs, ${t.failed_runs} failing.</p></div>${stamp}</div>
+    <ol class="lifecycle" aria-label="Lifecycle">${life}</ol>
+    <div class="grid2">
+      <section class="sheet pad" aria-labelledby="cmp-h"><h2 id="cmp-h">Frontier versus your model, per run</h2>
+        <div class="compare">${bar("Turns", "", b.turns, c?.turns)}${bar("Tool calls", "", b.tool_calls, c?.tool_calls)}${bar("Cost", "", b.cost_usd, c?.cost_usd, money)}${bar("Time", "s", b.wall_secs, c?.wall_secs)}</div>
+        <p class="note">Frontier numbers are the average of this task type's verified runs with prompt caching on.</p></section>
+      <section class="sheet pad" aria-labelledby="facts-h"><h2 id="facts-h">Model</h2>
+        <dl class="facts">
+          <dt>State</dt><dd><span class="state ${t.state}">${STATE_TEXT[t.state]}</span></dd>
+          <dt>Model</dt><dd>${t.model ? `<code>${esc(t.model)}</code>` : "None yet"}</dd>
+          <dt>Served from</dt><dd>${t.serving === "deployment" ? "River deployment" : t.serving === "checkpoint" ? "River checkpoint" : "—"}</dd>
+          <dt>Trained on</dt><dd>${t.trained_on_runs ? `${t.trained_on_runs} verified runs` : "Not trained"}</dd>
+          <dt>Since graduating</dt><dd>${t.model ? `${t.verified_since_graduation} passed, ${t.failures_since_graduation} failed (limit ${S.config.fail_limit})` : "—"}</dd>
+          <dt>Training data</dt><dd>${t.consent ? "Approved" : "Not approved"}</dd>
+        </dl><div class="actions">${actions}</div></section>
+    </div>
+    <section aria-labelledby="runs-h"><h2 id="runs-h">Recent runs</h2>
+      <div class="sheet tbl-scroll"><table class="runs">
+        <thead><tr><th>Time</th><th>Request</th><th>Handled by</th><th>Turns</th><th>Tool calls</th><th>Cost</th><th>Verify</th></tr></thead>
+        <tbody>${runs.length ? runs.map((r) => `<tr><td>${clock(r.ended_at)}</td><td>${esc(r.prompt)}</td><td>${handled(r)}</td><td>${r.turns}</td><td>${r.tool_calls}</td><td>${money(r.cost_usd)}</td><td class="exit${r.exit_code ? 1 : 0}">exit ${r.exit_code}</td></tr>`).join("") : `<tr><td colspan="7">No runs in the ledger yet.</td></tr>`}</tbody>
+      </table></div></section>`;
+}
+
+async function loadConsent(k) {
+  try {
+    const r = await fetch(`/api/consent/${encodeURIComponent(k)}`, { cache: "no-store" });
+    consentCache[k] = r.ok ? await r.json() : { error: `The consent endpoint answered ${r.status}.` };
+  } catch { consentCache[k] = { error: "The consent endpoint isn't reachable yet." }; }
+  if (route()[0] === "consent") render(true);
+}
+
+function viewConsent(k) {
+  const t = tasks()[k];
+  if (!t) return viewTask(k);
+  const d = consentCache[k];
+  if (!d) loadConsent(k);
+  const n = d?.records ?? (t.state === "PROBATION" ? t.verified_runs + t.failed_runs : t.verified_runs);
+  return `<div class="consent">
+    <a class="back" href="#/task/${encodeURIComponent(k)}">Back to ${esc((t.title || k).toLowerCase())}</a>
+    <h1>Send ${n} runs to River to train “${esc(t.title || k)}”?</h1>
+    <p class="lede">Graduate trains a small model on River with these runs, using your River key. The weights are saved to your River account. After that, matching requests go to it, and each one is still checked with <code>${esc(t.verify_command)}</code>.</p>
+    <section><h2>What gets sent</h2><ul>
+      <li>${t.verified_runs} passing runs as training examples${t.state === "PROBATION" ? `, plus ${t.failed_runs} failing runs as examples of what not to do` : ""}${d?.tokens ? `, ${d.tokens.toLocaleString()} tokens in total` : ""}</li>
+      <li>For each run: the conversation with the model, including its tool calls and their results</li>
+      <li>Destination: your River account. The trained weights are yours.</li></ul></section>
+    <section><h2>What stays on this machine</h2><ul><li>Runs from other task types</li><li>The run ledger, metrics and trace logs</li><li>Anything from sessions that failed their tests, unless this is a retrain</li></ul></section>
+    <section><h2>One record, exactly as it would be sent</h2>
+      ${d?.sample ? `<pre class="sample">${esc(JSON.stringify(d.sample, null, 2))}</pre>` : `<p class="note">${esc(d?.error || "Loading the sample record…")}</p>`}</section>
+    <div class="actions"><button class="btn owned" data-act="approve" data-k="${esc(k)}"${d?.sample ? "" : " disabled"}>Approve and train</button><a class="btn quiet" href="#/task/${encodeURIComponent(k)}">Not now</a></div>
+  </div>`;
+}
+
+async function approve(k) {
+  try {
+    const r = await fetch(`/api/consent/${encodeURIComponent(k)}`, { method: "POST" });
+    if (!r.ok) throw new Error(String(r.status));
+    toast("Approved. Training started.");
+    location.hash = "#/";
+  } catch (e) { toast(`Approval didn't go through (${e.message}). Nothing was sent.`); }
+}
+
+function viewSetup() {
+  const tabs = {
+    claude: { label: "Claude Code", body: `<p>Claude Code talks the Anthropic Messages API. Point it at the proxy and turn on the headers Graduate uses to count turns:</p><pre class="cmd">export ANTHROPIC_BASE_URL=http://localhost:4141\nexport ANTHROPIC_AUTH_TOKEN=graduate-local\nexport CLAUDE_CODE_GATEWAY_HINT_HEADERS=1</pre><p class="note">Supported once #26 lands. The demo uses OpenCode.</p>` },
+    opencode: { label: "OpenCode", body: `<p>Add a provider in <code>opencode.json</code>:</p><pre class="cmd">"provider": { "graduate": {\n  "npm": "@ai-sdk/openai-compatible",\n  "options": { "baseURL": "http://localhost:4141/v1", "apiKey": "{env:GRADUATE_SESSION}" }\n} }</pre><p class="note">This is the harness the demo uses.</p>` },
+    aider: { label: "Aider and scripts", body: `<p>Anything that speaks OpenAI Chat Completions:</p><pre class="cmd">export OPENAI_API_BASE=http://localhost:4141/v1</pre><p class="note">The variable name differs by tool. Aider reads OPENAI_API_BASE, the OpenAI SDK reads OPENAI_BASE_URL.</p>` },
+    codex: { label: "Codex", body: `<p>Codex only talks the OpenAI Responses API, which Graduate doesn't serve. Codex runs go straight to OpenAI.</p>` },
+  };
+  return `<div class="setup"><h1>Point your agent at Graduate</h1>
+    <p class="lede">Graduate sits between your agent and the model. You change one setting per tool, and your agent works exactly as before.</p>
+    <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button role="tab" aria-selected="${k === setupTab}" data-tab="${k}">${v.label}</button>`).join("")}</div>
+    <div class="tabpanel" role="tabpanel">${tabs[setupTab].body}</div></div>`;
+}
+
+function activeTrace() {
+  const last = S.trace[S.trace.length - 1];
+  if (!last) return { n: new Set(), e: new Set() };
+  const fresh = new Date(S.generated_at) - new Date(last.ts) <= 3000;
+  return fresh ? { n: new Set(last.nodes), e: new Set(last.edges) } : { n: new Set(), e: new Set() };
+}
+
+function lastCallFor(id) {
+  for (let i = S.trace.length - 1; i >= 0; i--) if (S.trace[i].nodes.includes(id)) return S.trace[i];
+  return null;
+}
+
+function archSvg() {
+  const on = activeTrace();
+  const edges = EDGES.map((e) => `<g class="edge${on.e.has(e.id) ? " on" : ""}"><path d="${e.d}"/><text x="${e.lx}" y="${e.ly}" text-anchor="${e.a}">${e.t}</text></g>`).join("");
+  const nodes = Object.values(NODE).map((n) => `<g class="node${n.ext ? " ext" : ""}${on.n.has(n.id) ? " on" : ""}${selNode === n.id ? " sel" : ""}" data-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.label)}: ${esc(n.sub)}">
+      <rect x="${n.x}" y="${n.y}" width="${BW}" height="${BH}" rx="6"/><text x="${n.x + 14}" y="${n.y + 24}">${esc(n.label)}</text><text class="sub" x="${n.x + 14}" y="${n.y + 42}">${esc(n.sub)}</text></g>`).join("");
+  return `<svg viewBox="0 0 1030 530" role="img" aria-label="GRADUATE architecture, lit up from the latest real call"><defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="a" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="b" d="M0,0 L10,5 L0,10 z"/></marker></defs>${edges}${nodes}</svg>`;
+}
+
+function nodeDetail() {
+  const n = NODE[selNode], last = lastCallFor(n.id);
+  const list = (a) => `<ul class="calls">${a.map((c) => `<li><code>${esc(c)}</code></li>`).join("")}</ul>`;
+  return `<div class="sheet pad detail"><div class="detail-top"><h2>${esc(n.label)} <span class="where">${n.ext ? "Outside service" : "On your machine"}</span></h2>
+      <span class="badge">${last ? `Last call ${clock(last.ts, true)}` : "No calls yet"} · ${n.issues.map((i) => `<a href="${GH}${i}" target="_blank" rel="noopener">#${i}</a>`).join(" ")}</span></div>
+    <p>${esc(n.what)}</p>${n.calls ? `<h3>Calls it makes</h3>${list(n.calls)}` : ""}${n.files ? `<h3>Writes</h3>${list(n.files)}` : ""}
+    ${n.leaves ? `<h3>What leaves your machine</h3><p>${esc(n.leaves)}</p>` : ""}${n.risk ? `<p class="risk"><strong>Open risk.</strong> ${esc(n.risk)}</p>` : ""}</div>`;
+}
+
+function termClass(l) {
+  if (l.startsWith("$ ")) return "c";
+  if (/^\+/.test(l)) return "add";
+  if (/^-/.test(l)) return "del";
+  if (/FAILED|failed|exit [1-9]/.test(l)) return "f";
+  if (/passed|exit 0|saved /.test(l)) return "p";
+  return "d";
+}
+
+function viewSystem() {
+  const files = {
+    registry: JSON.stringify(S.registry.task_types, null, 2),
+    ledger: S.ledger.slice(-8).map((r) => JSON.stringify(r)).join("\n") || "No ledger rows yet.",
+    session: S.session_log.map((r) => JSON.stringify(r)).join("\n") || "No calls logged yet.",
+  };
+  return `<h1>Under the hood</h1>
+    <p class="lede">What each part does, what it calls, and where your data goes. The diagram lights up from the latest real call.</p>
+    <figure class="arch sheet">${archSvg()}<figcaption>Solid boxes run on your machine. Dashed boxes are outside services, so data leaves your machine there. Indigo is the latest call. Click any box for its calls.</figcaption></figure>
+    ${nodeDetail()}
+    <div class="sys-grid">
+      <section aria-labelledby="wire-h"><h2 id="wire-h">Every call, newest first</h2>
+        <div class="sheet wire">${S.trace.length ? `<ol>${S.trace.slice().reverse().map((w) => `<li><time>${clock(w.ts, true)}</time><div><div class="who">${esc(w.who)} <a href="${GH}${w.issue}" target="_blank" rel="noopener">#${w.issue}</a></div><code>${esc(w.call)}</code><div class="res">${esc(w.result)}</div></div></li>`).join("")}</ol>` : `<p class="empty">No calls yet. Run a task with <code>graduate run</code>.</p>`}</div></section>
+      <section aria-labelledby="term-h"><h2 id="term-h">Terminal</h2>
+        <pre class="term" id="term">${S.terminal.length ? S.terminal.map((l) => `<span class="${termClass(l)}">${esc(l)}</span>`).join("\n") : `<span class="d">Waiting for a task…</span>`}</pre></section>
+    </div>
+    <section aria-labelledby="files-h"><h2 id="files-h">Files on disk</h2>
+      <div class="tabs" role="tablist">${[["registry", "registry.json"], ["ledger", "ledger.jsonl"], ["session", "sessions/…jsonl"]].map(([k, l]) => `<button role="tab" aria-selected="${fileTab === k}" data-file="${k}">${l}</button>`).join("")}</div>
+      <pre class="sample filebox">${esc(files[fileTab])}</pre></section>`;
+}
+
+function render() {
+  if (!S) return;
+  const [r, a] = route();
+  document.querySelectorAll("[data-nav]").forEach((x) => x.removeAttribute("aria-current"));
+  const nav = { "": "overview", system: "system", setup: "setup" }[r];
+  if (nav) $(`[data-nav="${nav}"]`).setAttribute("aria-current", "page");
+  const html = r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? viewSystem() : viewOverview();
+  const y = window.scrollY;
+  $("#app").innerHTML = html;
+  window.scrollTo(0, y);
+  const tm = $("#term");
+  if (tm) tm.scrollTop = tm.scrollHeight;
+}
+
+document.addEventListener("click", (e) => {
+  const act = e.target.closest("[data-act]");
+  if (act) { approve(act.dataset.k); return; }
+  const node = e.target.closest("[data-node]");
+  if (node) { selNode = node.dataset.node; render(); return; }
+  const file = e.target.closest("[data-file]");
+  if (file) { fileTab = file.dataset.file; render(); return; }
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { setupTab = tab.dataset.tab; render(); return; }
+  const row = e.target.closest("tr[data-go]");
+  if (row && !e.target.closest("a")) location.hash = row.dataset.go;
+});
+document.addEventListener("keydown", (e) => {
+  const node = e.target.closest && e.target.closest("[data-node]");
+  if (node && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selNode = node.dataset.node; render(); $(`[data-node="${selNode}"]`)?.focus(); }
+});
+window.addEventListener("hashchange", () => render());
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>
