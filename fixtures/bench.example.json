@@ -1,0 +1,96 @@
+{
+  "bench_id": "bench-20260927T211000Z",
+  "started_at": "2026-09-27T21:10:00Z",
+  "git_sha": "fdd1e0e",
+  "tasks": [
+    "01",
+    "07"
+  ],
+  "budget": {
+    "cap_usd": 1.0,
+    "estimate_usd": 0.9,
+    "spent_usd": 0.9496
+  },
+  "arms": {
+    "frontier": {
+      "model": "gpt-5.6-terra",
+      "note": null,
+      "runs": 2,
+      "passed": 2,
+      "input_tokens": 291000,
+      "cached_input_tokens": 262000,
+      "output_tokens": 25800,
+      "cost_usd": 0.42,
+      "turns": 16,
+      "tool_calls": 5,
+      "wall_secs_p50": 94,
+      "latency_ms_p50": 2310
+    },
+    "small": {
+      "model": "gpt-5.4-mini",
+      "note": null,
+      "runs": 2,
+      "passed": 1,
+      "input_tokens": 180000,
+      "cached_input_tokens": 153000,
+      "output_tokens": 9100,
+      "cost_usd": 0.0522,
+      "turns": 11,
+      "tool_calls": 6,
+      "wall_secs_p50": 71,
+      "latency_ms_p50": 1500
+    },
+    "owned": {
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "note": null,
+      "runs": 2,
+      "passed": 2,
+      "input_tokens": 6600,
+      "cached_input_tokens": 0,
+      "output_tokens": 540,
+      "cost_usd": 0.0026,
+      "turns": 3,
+      "tool_calls": 3,
+      "wall_secs_p50": 21,
+      "latency_ms_p50": 610
+    }
+  },
+  "sessions": [
+    {
+      "arm": "frontier",
+      "task": "01",
+      "session_id": "sess-4d2e81a09f3c",
+      "exit_code": 0
+    },
+    {
+      "arm": "frontier",
+      "task": "07",
+      "session_id": "sess-1b7c0e44a2d9",
+      "exit_code": 0
+    },
+    {
+      "arm": "small",
+      "task": "01",
+      "session_id": "sess-5e19f2c7b803",
+      "exit_code": 0
+    },
+    {
+      "arm": "small",
+      "task": "07",
+      "session_id": "sess-c02a8d61f4e5",
+      "exit_code": 1
+    },
+    {
+      "arm": "owned",
+      "task": "01",
+      "session_id": "sess-8b30c11e2d7a",
+      "exit_code": 0
+    },
+    {
+      "arm": "owned",
+      "task": "07",
+      "session_id": "sess-77e0b3a9c1d4",
+      "exit_code": 0
+    }
+  ]
+}
