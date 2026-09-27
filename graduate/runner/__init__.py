@@ -24,7 +24,7 @@ from pathlib import Path
 
 import httpx
 
-from graduate import escalator, ledger, memorable, trace
+from graduate import a2a, escalator, ledger, memorable, trace
 from graduate.reward import parse_pytest_summary
 
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
@@ -95,10 +95,12 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         },
     )
 
+    note = task_type and a2a.get(task_type, session_id)
+    sent = f"## Notes from other agents\n{note}\n\n{prompt}" if note else prompt
     started_at, t0 = _now(), time.monotonic()
     trace.emit(
         "Runner → OpenCode",
-        f'opencode run "{prompt}"',
+        f'opencode run "{sent}"',
         f"env GRADUATE_SESSION={session_id}",
         ISSUE,
         ["runner", "opencode"],
@@ -109,7 +111,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     env = {**os.environ, "GRADUATE_SESSION": session_id, "PWD": os.path.abspath(repo)}
     env.pop("OPENAI_API_KEY", None)  # only the router holds it, as in demo.sh (#97)
     proc = subprocess.Popen(
-        [OPENCODE, "run", prompt],
+        [OPENCODE, "run", sent],
         cwd=repo,
         text=True,
         start_new_session=True,
@@ -185,6 +187,10 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     if routed_to == "frontier" and exit_code == 0:
         row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)
     escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
+    if task_type and row["exit_code"] == 0:  # verified, and not forced to fail
+        diff = ["git", "diff-tree", "-r", "--name-only", before, _tree(repo)]
+        files = [f for f in subprocess.run(diff, cwd=repo, capture_output=True, text=True).stdout.split() if "__pycache__" not in f]
+        a2a.put(task_type, f"{session_id} passed: changed {', '.join(files) or 'nothing'}; `{verify}` went green.", session_id)
     ledger.append(row)
     trace.emit(
         "Runner → Ledger",

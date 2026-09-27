@@ -28,7 +28,7 @@ def turn(body):
     if not body.get("tools"):
         return "Fix failing test", None
     msgs = json.dumps(body["messages"])
-    n = re.search(r"test_mod_(\d\d)", msgs).group(1)
+    n = re.findall(r"test_mod_(\d\d)", msgs)[-1]  # the task, after any A2A notes (#142)
     # The repo OpenCode runs in (a `graduate swarm` agent's own copy), else the checkout's demo-repo.
     repo = re.search(r"Working directory: ([^\\\s\"]+)", msgs)
     path = str(Path(repo.group(1) if repo else ROOT / "demo-repo") / f"calc/mod_{n}.py")
