@@ -178,8 +178,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
 
 
 def main():
-    p = argparse.ArgumentParser(prog="graduate")
-    p.add_argument("cmd", choices=["run"])
+    p = argparse.ArgumentParser(prog="graduate run")
     p.add_argument("--task-file", required=True)
     p.add_argument("--repo", required=True)
     p.add_argument("--force-frontier", action="store_true")
