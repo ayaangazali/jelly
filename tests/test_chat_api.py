@@ -126,3 +126,18 @@ def test_errors_never_echo_a_key(router, stub, river, monkeypatch):
         and SERVER_KEY not in r.text
         and "[key]" in errors["small"]
     )
+
+
+def test_your_model_is_the_newest_graduated_river_checkpoint(workdir, monkeypatch):
+    monkeypatch.delenv("CHAT_OWNED_MODEL", raising=False)
+    assert chat_api.small_model() == chat_api.OLD_SMALL  # no registry.json yet
+    tt = lambda state, model, at: {"state": state, "model": model, "graduated_at": at}
+    (workdir / "registry.json").write_text(json.dumps({"task_types": {
+        "a": tt("GRADUATED", "river://old/sampler_weights/a", "2026-09-27T10:00:00Z"),
+        "b": tt("GRADUATED", "river://new/sampler_weights/b", "2026-09-27T12:00:00Z"),
+        "c": tt("PROBATION", "river://newest/sampler_weights/c", "2026-09-27T13:00:00Z"),
+        "d": tt("GRADUATED", "/local/checkpoint", "2026-09-27T14:00:00Z"),
+    }}))
+    assert chat_api.small_model() == "river://new/sampler_weights/b"
+    monkeypatch.setenv("CHAT_OWNED_MODEL", "river://pinned/x")
+    assert chat_api.small_model() == "river://pinned/x"
