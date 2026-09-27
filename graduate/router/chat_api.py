@@ -26,7 +26,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from graduate import trace
+from graduate import registry, trace
 from graduate.registrar import train
 from graduate.router import metrics, upstream
 from graduate.router.app import app, call_hooks
@@ -37,10 +37,18 @@ MAX_USD = 5.0
 MAX_REQUESTS = 200
 BUDGET_PATH = Path("chat-budget.json")
 BIG_MODEL = os.environ.get("CHAT_BIG_MODEL", "gpt-5.5")
-SMALL_MODEL = os.environ.get(
-    "CHAT_OWNED_MODEL",
-    "river://9a2699b3-ce6f-4182-9da8-824a68de9c84/sampler_weights/fix-failing-test-v1",
-)
+OLD_SMALL = "river://9a2699b3-ce6f-4182-9da8-824a68de9c84/sampler_weights/fix-failing-test-v1"
+
+
+def small_model():
+    """CHAT_OWNED_MODEL, else the newest GRADUATED task type's river:// model in registry.json, else OLD_SMALL."""
+    if env := os.environ.get("CHAT_OWNED_MODEL"):
+        return env
+    try:
+        grads = [t for t in registry.load().get("task_types", {}).values() if t.get("state") == "GRADUATED" and str(t.get("model") or "").startswith("river://")]
+    except Exception:
+        grads = []
+    return max(grads, key=lambda t: t.get("graduated_at") or "")["model"] if grads else OLD_SMALL
 # The most one request can cost: 2,000 chars of prompt (<= 2,000 tokens) plus 400 output tokens, per side.
 WORST = metrics.cost(
     {"input_tokens": MAX_PROMPT, "cached_input_tokens": 0, "output_tokens": MAX_OUT},
@@ -174,12 +182,12 @@ async def _big(prompt, sid, put):
     await put(done)
 
 
-def _river(prompt):
+def _river(prompt, model):
     """Your model through the backend river.py serves graduated calls with (train.RiverBackend), capped at 400 tokens."""
     rb = train.RiverBackend()
     r = rb._client().chat_complete_from_checkpoint(
         [{"role": "user", "content": prompt}],
-        checkpoint_path=SMALL_MODEL,
+        checkpoint_path=model,
         base_model=rb.BASE,
         max_tokens=MAX_OUT,
         temperature=0,
@@ -194,15 +202,15 @@ def _river(prompt):
     return text, body.get("usage") or {}
 
 
-async def _small(prompt, sid, put):
+async def _small(prompt, sid, put, model):
     request = {
-        "model": SMALL_MODEL,
+        "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": MAX_OUT,
     }
     start = time.monotonic()
     try:
-        text, usage = await asyncio.to_thread(_river, prompt)
+        text, usage = await asyncio.to_thread(_river, prompt, model)
     except Exception as e:
         trace.emit(
             "Router → River",
@@ -234,7 +242,7 @@ async def _small(prompt, sid, put):
         ],
         "usage": usage,
     }
-    done = _done("small", sid, request, body, usage, start, "owned", SMALL_MODEL)
+    done = _done("small", sid, request, body, usage, start, "owned", model)
     trace.emit(
         "Router → River",
         "chat-compare",
@@ -263,11 +271,12 @@ async def chat_compare(req: Request):
     if refusal := _reserve():
         return JSONResponse({"error": refusal}, 429)
     sid = f"chat-{uuid.uuid4().hex[:12]}"
+    small = small_model()
     q = asyncio.Queue()
     # Both calls are scheduled before either runs, so they leave together.
-    for side, model in (("big", BIG_MODEL), ("small", SMALL_MODEL)):
+    for side, model in (("big", BIG_MODEL), ("small", small)):
         q.put_nowait({"side": side, "type": "start", "t_ms": round((time.monotonic() - t0) * 1000), "model": model})
-    tasks = [asyncio.create_task(f(prompt, sid, q.put)) for f in (_big, _small)]
+    tasks = [asyncio.create_task(_big(prompt, sid, q.put)), asyncio.create_task(_small(prompt, sid, q.put, small))]
     for t in tasks:
         t.add_done_callback(lambda _: q.put_nowait(None))
 
