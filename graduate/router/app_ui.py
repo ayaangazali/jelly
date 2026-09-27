@@ -77,3 +77,14 @@ def replay():
         name = p.name.removesuffix(".loss.jsonl")
         loss[re.sub(r"-v\d+$", "", name)] = {"name": name, "steps": state.jsonl(p, 1000)}
     return {"runs": runs, "loss": loss}
+
+
+PROVIDER = re.compile(r"Memorable|GBrain|River|OpenAI|Anthropic|Superset")
+
+
+@app.get("/api/provider-calls")
+def provider_calls():
+    """Every traced call to an outside provider, over the whole trace (up to its last 20,000 events), oldest first."""
+    from graduate import trace
+
+    return [e for e in state.jsonl(trace.TRACE_PATH, 20_000) if PROVIDER.search(str(e.get("who", "")))]
