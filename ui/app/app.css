@@ -634,3 +634,4 @@ td.actions { white-space: nowrap; }
   nav.side a { flex: 0 0 auto; }
 }
 .kpis { flex: 1 1 auto; margin-left: 0; }
+.train p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.8em; }
