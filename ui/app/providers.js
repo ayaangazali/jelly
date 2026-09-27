@@ -97,7 +97,7 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
 <li><b>Not used:</b> GBrain search and embeddings, and hosted access.</li>
 <li><b>Memorable's store, not migrated:</b> Memorable keeps its 23 procedures in its own encrypted local store. We tried migrating them to GBrain with Memorable's native integration (<code>memorable init gbrain</code>, then GBrain's <code>integrations.memorable</code> switch); GBrain refused it (<code>writer_coordinator_required</code>): a new writer on the shared brain needs a deliberate ownership change by its operator, not made at the freeze. So the migration was rolled back at once and nothing moved. After the rollback a real recall on task 09 scored 0.727. Memorable and GBrain run side by side.</li>
 </ul></section>
-<section class="panel pviz"><h2>Notes between agents</h2>${notesDiagram(calls)}<details><summary>Raw calls (${calls.length})</summary>${feedOf([...calls].reverse())}</details></section>`);
+<section class="panel pviz"><h2>Notes between agents</h2>${notesDiagram(calls)}<details ${notesRawOpen ? "open" : ""} ontoggle="notesRawOpen = this.open"><summary>Raw calls (${calls.length})</summary>${feedOf([...calls].reverse())}</details></section>`);
   }
   if (id === "frontier") {
     const rows = ledger.filter((r) => r.routed_to === "frontier"), top = Math.max(...rows.map((r) => r.cost_usd || 0), 0.0001);
@@ -115,34 +115,54 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
 const allCalls = () => (Array.isArray(data.calls) ? data.calls : data.state.trace || []);
 const bigName = (m) => (/claude/i.test(m) ? "Anthropic Claude Haiku 4.5" : /gpt|openai/i.test(m) ? `OpenAI ${m}` : m);
 
-// The notes diagram: the GBrain page in the centre, each agent session around it; "wrote" is agent -> page, "read" is
-// page -> agent, numbered by the agent's first call in time order with a count; a fallback write goes dashed to the
-// shared notes file (the page was busy or GBrain was missing).
+// The notes timeline: time runs left to right, one column per agent run (order of its first a2a call). The band on top
+// is the GBrain page and how many fixes it held after each run; ↓ the run read the page before starting, ↑ its verified
+// fix was appended. A write that fell back to the local notes file (GBrain busy) is a small muted marker on its column.
+// The runner's calls carry the run's session id; an unsessioned one folds into the run before it.
+let notesRawOpen = false; // the raw-call list stays open across the timer's re-renders
+const NOTES_KEEP = 10; // graduate/a2a.py KEEP: the page keeps the newest 10 fixes
 function notesDiagram(calls) {
-  const ev = calls.filter((e) => /read|get|write|put/.test(e.call));
+  const is = (e, k) => (e.edges || []).includes(k);
+  const ev = calls.filter((e) => is(e, "a2a-read") || is(e, "a2a-write")).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
   if (!ev.length) return empty("No notes read or written yet.");
-  const page = (ev.map((e) => (String(e.call).match(/a2a[-/][\w-]+/) || [])[0]).find(Boolean) || "a2a notes").replace(/\.md$/, "").replace("a2a/", "a2a-");
-  const agents = [...new Set(ev.map((e) => e.session_id || "agent"))];
-  const W = 1000, H = 600, cx = 500, cy = 270, RX = 400, RY = 215, n = agents.length;
-  // agents on an ellipse, leaving the bottom sector free for the shared-file node
-  const pos = agents.map((a, i) => { const t = (-Math.PI / 2) + ((Math.PI * 1.6) * (i + 0.5)) / n - Math.PI * 0.8 + Math.PI * 0.0; return [cx + Math.cos(t) * RX, cy + Math.sin(t) * RY]; });
-  const fx = cx, fy = 560, fall = (e) => /shared notes file/.test(e.result);
-  const edges = [], labels = [];
-  agents.forEach((a, i) => {
-    const mine = ev.filter((e) => (e.session_id || "agent") === a), order = ev.indexOf(mine[0]) + 1;
-    const w = mine.filter((e) => /write|put/.test(e.call) && !fall(e)).length, r = mine.filter((e) => /read|get/.test(e.call) && !fall(e)).length;
-    const fw = mine.filter((e) => fall(e)).length, [x, y] = pos[i];
-    const k = 0.62, lx = x + (cx - x) * (1 - k), ly = y + (cy - y) * (1 - k);
-    if (w) edges.push(`<path class="nw" d="M${x},${y} L${cx - 4},${cy - 4}" marker-end="url(#na)"/>`);
-    if (r) edges.push(`<path class="nr" d="M${cx + 4},${cy + 4} L${x + 4},${y + 4}" marker-end="url(#nb)"/>`);
-    if (fw) edges.push(`<path class="nf" d="M${x},${y} L${fx},${fy - 26}" marker-end="url(#na)"/>`);
-    labels.push(`<text x="${lx}" y="${ly}">#${order}${w ? ` · wrote ${w}` : ""}${r ? ` · read ${r}` : ""}${fw ? ` · file ${fw}` : ""}</text>`);
+  const pageOf = (e) => ((String(e.call).match(/a2a[-/][\w-]+/) || [])[0] || "a2a notes").replace("a2a/", "a2a-");
+  const tally = {};
+  ev.forEach((e) => { tally[pageOf(e)] = (tally[pageOf(e)] || 0) + 1; });
+  const page = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
+  const fell = (e) => /shared notes file/.test(e.result), count = (e) => +((String(e.result).match(/(\d+) procedures/) || [])[1] ?? NaN);
+  const runs = [];
+  ev.forEach((e) => {
+    let r = e.session_id ? runs.find((x) => x.id === e.session_id) : runs[runs.length - 1];
+    if (!r) runs.push((r = { id: e.session_id, ev: [] }));
+    r.ev.push(e);
   });
-  const box = (x, y, t, sub, cls) => `<g class="nnode ${cls}"><rect x="${x - 78}" y="${y - 22}" width="156" height="44" rx="6"/><text x="${x}" y="${y - 3}">${esc(t)}</text><text class="sub" x="${x}" y="${y + 13}">${esc(sub)}</text></g>`;
-  return `<svg class="notes-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Notes between agents through GBrain"><defs>
-<marker id="na" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#F5B94A"/></marker>
-<marker id="nb" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9A9DFF"/></marker></defs>
-${edges.join("")}${labels.join("")}${box(cx, cy, `GBrain · ${page}`, "the shared page", "hub")}${ev.some(fall) ? box(fx, fy, "shared notes file", "fallback when GBrain is busy", "file") : ""}
-${agents.map((a, i) => box(pos[i][0], pos[i][1], a === "agent" ? "runner" : a.slice(0, 13), a === "agent" ? "no session id" : `agent ${i + 1}`, "agent")).join("")}</svg>
-<p class="muted notes-cap">Arrows into the page: an agent wrote what worked after its tests passed. Arrows out: an agent read the page before its task. #n is the order of each agent's first note; dashed: the page was busy, so the note went to the shared file.</p>`;
+  const led = data.state.ledger || [], sw = (data.swarm && data.swarm.agents) || [];
+  const task = (id) => {
+    const m = String((led.find((x) => x.session_id === id) || {}).verify_command || "").match(/test_mod_(\d+)/);
+    return m ? m[1] : (sw.find((a) => a.session_id === id) || {}).task || "";
+  };
+  const COL = 72, PAD = 16, H = 250, W = Math.max(PAD * 2 + runs.length * COL, 560), fixes = (k) => `${k} fix${k === 1 ? "" : "es"}`;
+  let held = 0;
+  const cols = runs.map((r, i) => {
+    const cx = PAD + COL * i + COL / 2, on = r.ev.filter((e) => pageOf(e) === page), t = task(r.id), before = held;
+    const read = on.find((e) => is(e, "a2a-read")), wrote = on.filter((e) => is(e, "a2a-write") && !fell(e));
+    const local = on.filter((e) => is(e, "a2a-write") && fell(e)), other = r.ev.filter((e) => pageOf(e) !== page && is(e, "a2a-write"));
+    on.filter((e) => !fell(e) && !isNaN(count(e))).forEach((e) => { held = count(e); });
+    const busy = local.some((e) => /busy/.test(e.result)) ? "GBrain busy" : "GBrain not installed";
+    const tip = [`run ${i + 1}${t ? ` · task ${t}` : ""}${r.id ? ` · ${r.id}` : ""}`,
+      ...r.ev.map((e) => `${(e.ts || "").slice(11, 19)} ${is(e, "a2a-read") ? "read" : "wrote"} ${pageOf(e)}: ${e.result}`)].join("\n");
+    const band = held ? `<rect class="nfill" x="${cx - COL / 2 + 1}" y="${80 - (26 * Math.min(held, NOTES_KEEP)) / NOTES_KEEP}" width="${COL - 2}" height="${(26 * Math.min(held, NOTES_KEEP)) / NOTES_KEEP}"/>${held !== before ? `<text class="ncount" x="${cx}" y="48">${fixes(held)}</text>` : ""}` : "";
+    const wLabel = wrote.length ? `<text class="nw" x="${cx}" y="220">wrote 1 fix</text>` : local.length ? `<text class="nm" x="${cx}" y="220">local file</text>` : other.length ? `<text class="nm" x="${cx}" y="220">other page</text>` : "";
+    return `<g class="ncol"><title>${esc(tip)}</title><rect class="nhit" x="${cx - COL / 2}" y="84" width="${COL}" height="${H - 84}"/>${band}
+${read ? `<path class="${fell(read) ? "nm" : "nr"}" d="M${cx - 12},88 V140" marker-end="url(#ntl-${fell(read) ? "m" : "r"})"/><text class="${fell(read) ? "nm" : "nr"}" x="${cx}" y="204">read ${isNaN(count(read)) ? "" : count(read)}</text>` : ""}
+${wrote.length ? `<path class="nw" d="M${cx + 12},142 V90" marker-end="url(#ntl-w)"/>` : ""}${local.length ? `<circle class="nbusy" cx="${cx + 12}" cy="115" r="6"><title>saved to local notes file, ${busy}</title></circle>` : ""}
+<rect class="nbox" x="${cx - 30}" y="146" width="60" height="40" rx="6"/><text class="nrun" x="${cx}" y="163">run ${i + 1}</text>${t ? `<text class="nsub" x="${cx}" y="179">task ${esc(t)}</text>` : ""}
+${wLabel}<text class="nsub" x="${cx}" y="240">${esc((r.ev[0].ts || "").slice(11, 16))}${i ? "" : " UTC"}</text></g>`;
+  });
+  const mk = (id, c) => `<marker id="ntl-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`;
+  return `<div class="ntl-wrap"><svg class="ntl" viewBox="0 0 ${W} ${H}" style="min-width:${W}px;max-width:${Math.round(W * 1.4)}px" role="img" aria-label="Timeline of agent runs reading and writing the GBrain page ${esc(page)}">
+<defs>${mk("r", "#9A9DFF")}${mk("w", "#F5B94A")}${mk("m", "#8A94A8")}</defs>
+<text class="ntitle" x="${PAD}" y="16">GBrain page <tspan>${esc(page)}</tspan> · keeps the newest ${NOTES_KEEP} fixes · hover a run for its session</text>
+<rect class="nband" x="${PAD}" y="24" width="${runs.length * COL}" height="58" rx="6"/>${cols.join("")}</svg></div>
+<p class="muted notes-cap"><b class="nr">↓ read</b> at start (fixes seen) · <b class="nw">↑ wrote 1 fix</b>, tests passed${ev.some(fell) ? ` · <b class="nm">◌</b> local file, GBrain busy` : ""}</p>`;
 }
