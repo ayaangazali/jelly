@@ -5,9 +5,9 @@ GET /api/race feeds its Compare page: one pair per owned run in the ledger, race
 the same prompt (a first-try run before an escalation rerun), each with its session log (null when none was kept),
 plus the frontier rerun that rescued the owned run if it failed. Newest owned run first."""
 
-import json
 from pathlib import Path
 
+from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from graduate.router.app import app
@@ -22,14 +22,10 @@ def product_app():
 
 
 def _log(session_id):
-    path = sessionlog.SESSIONS_DIR / f"{session_id}.jsonl"
-    if not sessionlog._NAME.fullmatch(session_id or "") or not path.is_file():
+    try:
+        return sessionlog.session_log(session_id)
+    except HTTPException:
         return None
-    return [
-        json.loads(l)
-        for l in path.read_text(encoding="utf-8").splitlines()
-        if l.strip()
-    ]
 
 
 @app.get("/api/race")

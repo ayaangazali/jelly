@@ -418,7 +418,7 @@ pre.term {
 }
 
 .race-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
-.race-bar select { font: inherit; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); color: var(--ink); max-width: 36em; }
+.race-bar select { font: inherit; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); color: var(--ink); max-width: 28em; }
 .race-bar a { margin-left: auto; color: var(--muted); }
 .race { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .pane { background: var(--sheet); border: 1px solid var(--rule); border-top: 4px solid var(--rented); border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; min-width: 0; }
@@ -438,3 +438,12 @@ pre.term {
 .verify.fail { color: var(--fail); }
 .diff { margin: 16px 0 0; padding: 14px 18px; background: var(--owned-wash); border-radius: 8px; font-size: 1.15em; }
 .diff.fail { background: transparent; border: 1px solid var(--fail); color: var(--fail); }
+@media (max-height: 800px) {
+  main { padding-top: 16px; }
+  .banner { margin-bottom: 12px; padding: 6px 12px; }
+  h1 { font-size: 1.6em; }
+  .lede { margin-bottom: 0.8em; }
+  .pane { padding: 12px 14px; }
+  .pane header p { margin-bottom: 6px; }
+  .turns { height: clamp(100px, 100vh - 560px, 460px); }
+}
