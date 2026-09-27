@@ -50,6 +50,7 @@ async function poll() {
   if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "chat", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "pricing") data.pricing = await get("/api/pricing");
+  if (page() === "bench" && !data.bench) data.bench = await get("/bench/latest/results.json");
   if (page() === "providers" && !data.replay) data.replay = await get("/api/replay");
   if (["providers", "under-the-hood"].includes(page())) { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
   if (page() === "live" && !data.replay) {
@@ -277,9 +278,33 @@ function compare() {
 
 <div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(pairLabel(x))}</option>`).join("")}</select>
 
-<a href="/ui/index.html#/compare">Benchmark table →</a></div>
+<a href="/app/bench">Benchmark table →</a></div>
 <div id="race" class="race stage"><section class="term owned"></section><section class="term frontier"></section></div><div id="verdict"></div>
 <p class="muted prompt-line">${p.match === "task_type" ? `Same task type, different task. Yours: ${esc(o.prompt)} · Big model: ${esc(p.frontier.row.prompt)}` : `Task prompt: ${esc(o.prompt)}`}</p>`;
+}
+
+// /app/bench: `graduate bench`'s table (GET /bench/latest/results.json, the classic Compare's endpoint): the same tasks
+// through each model, output tokens first; an arm without runs says n/a. Numbers as measured: no saving is inferred.
+function bench() {
+  const b = data.bench;
+  if (!b) return `<h1>Benchmark</h1><p class="lede">Loading…</p>`;
+  if (b.error || !b.arms) return `<h1>Benchmark</h1>${empty(`No benchmark yet: ${esc(b.error || "no results")} Run <code>graduate bench</code>.`)}`;
+  const arms = [["frontier", "Big model"], ["small", "Small model"], ["owned", "Your model"]].filter(([k]) => b.arms[k]);
+  const name = (a) => (String(a.model || "").startsWith("river://") ? "Qwen3.5-9B · River" : a.model || "");
+  const cell = (a, k, f) => (a.runs > 0 && a[k] != null ? f(a[k], a) : `<span class="muted">${esc(a.note || "n/a")}</span>`);
+  const row = (label, k, f, cls = "") => `<tr class="${cls}"><th>${label}</th>${arms.map(([id]) => `<td class="num">${cell(b.arms[id], k, f)}</td>`).join("")}</tr>`;
+  const bud = b.budget || {};
+  return `<h1>Benchmark</h1>
+<p class="lede">The same demo tasks (${(b.tasks || []).map(esc).join(", ")}) through each model, from <code>graduate bench</code> at ${esc(String(b.started_at || "").slice(0, 16).replace("T", " "))}Z${bud.spent_usd != null ? `. Spent ${money(bud.spent_usd)} of a ${money(bud.cap_usd)} cap.` : "."}</p>
+<div class="scroll"><table><thead><tr><th>Per run (mean)</th>${arms.map(([id, l]) => `<th class="num">${l}<br><small class="muted">${esc(name(b.arms[id]))}</small></th>`).join("")}</tr></thead><tbody>
+${row("Output tokens", "output_tokens", num, "lead")}
+${row("Input tokens", "input_tokens", (v, a) => `${num(v)} <span class="muted">${Math.round(((a.cached_input_tokens || 0) / (v || 1)) * 100)}% cached</span>`)}
+${row("Cost", "cost_usd", money)}
+${row("Turns", "turns", (v) => Math.round(v * 10) / 10)}
+${row("Wall time (median)", "wall_secs_p50", (v) => `${Math.round(v * 10) / 10}s`)}
+${row("Tests pass", "passed", (v, a) => `${v} of ${a.runs}`)}
+</tbody></table></div>
+<p class="muted">Means over each model's runs. Cost is tokens × list prices. n/a: that model has no runs in this benchmark.</p>`;
 }
 
 function activity() {
@@ -293,8 +318,9 @@ function activity() {
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing, "under-the-hood": underTheHood, setup };
-PAGES.activity = activity; // /app/activity; /app/logs still works
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing, "under-the-hood": underTheHood, setup , bench };
+// One Activity page (the captain's merge): the architecture diagram on top, the call feed and terminal, then parts and files.
+PAGES.activity = PAGES.logs = PAGES["under-the-hood"] = () => underTheHood().replace("<h1>Under the hood</h1>", "<h1>Activity</h1>");
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 

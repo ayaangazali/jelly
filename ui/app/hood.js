@@ -58,11 +58,12 @@ function underTheHood() {
   const cls = (l) => (l.startsWith("$ ") ? "c" : /FAILED|failed|exit [1-9]/.test(l) ? "f" : /passed|exit 0/.test(l) ? "p" : "");
   return `<h1>Under the hood</h1>
 <figure class="panel arch-fig">${archSvg(trace)}<figcaption class="muted">Solid boxes run on this machine; dashed boxes are outside services. Indigo is the latest real call; faded boxes have not been called yet.</figcaption></figure>
-<div class="parts">${parts.map((p) => `<div class="part${p.n ? " on" : ""}"><b>${esc(p.name)}</b><span>${p.n ? `${p.n} calls · last ${time(p.last.ts)}` : "not wired: no calls yet"}</span></div>`).join("")}</div>
 <div class="cols">
-<section><h2>Every call, newest first</h2>${trace.length ? `<ul class="feed">${[...trace].reverse().slice(0, 40).map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(String(e.call).slice(0, 120))}</code><br><span class="muted">${esc(String(e.result).slice(0, 160))}</span></span></li>`).join("")}</ul>` : empty("No calls yet.")}</section>
+<section><h2>Activity, newest first</h2>${trace.length ? `<ul class="feed">${[...trace].reverse().slice(0, 40).map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(String(e.call).slice(0, 120))}</code><br><span class="muted">${esc(String(e.result).slice(0, 160))}</span></span></li>`).join("")}</ul>` : empty("No calls yet.")}</section>
 <section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${s.terminal.slice(-80).map((l) => `<span class="${cls(l)}">${esc(l)}</span>`).join("\n")}</pre>` : empty("Waiting for a task…")}</section>
 </div>
+<h2>Parts</h2>
+<div class="parts">${parts.map((p) => `<div class="part${p.n ? " on" : ""}"><b>${esc(p.name)}</b><span>${p.n ? `${p.n} calls · last ${time(p.last.ts)}` : "not wired: no calls yet"}</span></div>`).join("")}</div>
 <h2>Files on disk</h2>
 <div class="race-bar">${[["registry", "registry.json"], ["ledger", "ledger.jsonl"], ["session", "sessions/…jsonl"]].map(([k, l]) => `<button class="btn${hoodFile === k ? " owned" : ""}" data-file="${k}">${l}</button>`).join("")}</div>
 <pre class="filebox">${esc(files[hoodFile])}</pre>`;
