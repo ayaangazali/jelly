@@ -97,12 +97,12 @@ def _agent(a, record, work, timeout):
           f"{row.get('started_at', '?')} → {row.get('ended_at', '?')}", flush=True)
 
 
-def swarm(tasks, agents, timeout=600, launcher="local"):
+def swarm(tasks, agents, timeout=600):
     now = datetime.now(timezone.utc)
     record = {
         "swarm_id": f"swarm-{now:%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:4]}",
         "started": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "launcher": launcher,
+        "launcher": "local",
         "agents": [
             {"agent": f"a{i + 1}", "task": t, "task_type": json.loads((DEMO / f"tasks/{t}.json").read_text()).get("task_type"),
              "session_id": None, "status": "queued", "exit_code": None, "turns": None, "a2a_read": False, "a2a_write": False}
@@ -171,7 +171,7 @@ def main():
     elif runner._router("GET", "/state") is None:
         sys.exit(f"no router at {runner.ROUTER}: start `graduate up` first, or use --offline")
     try:
-        record = swarm(tasks, a.agents, a.timeout, a.launcher)
+        record = swarm(tasks, a.agents, a.timeout)
     finally:
         for proc in procs:
             proc.terminate()
