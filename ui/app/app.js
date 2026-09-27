@@ -31,7 +31,7 @@ function render() {
 
 // Replace an element's HTML only when what we render changed (compared with what we last wrote, not the live DOM, which
 // an opened <details> alters), and keep every opened expander and scroll position across the replacement.
-const SCROLLERS = ".drawer, .oc-body, .filebox, .scroll, .turns, .tbody, .log";
+const SCROLLERS = ".drawer, .oc-body, .filebox, .scroll, .turns, .tbody, .log, .feed, .procs, .bars, .serve, pre.term";
 function swap(el, html) {
   if (!el || el.dataset.html === html) return false;
   const open = new Set([...el.querySelectorAll("details[open] > summary")].map((x) => x.textContent));
@@ -309,12 +309,12 @@ ${row("Tests pass", "passed", (v, a) => `${v} of ${a.runs}`)}
 
 function activity() {
   const s = data.state;
-  const trace = [...(s.trace || [])].reverse().slice(0, 40);
+  const trace = [...(s.trace || [])].reverse();
   return `<h1>Activity</h1>
 
 <div class="cols">
 <section><h2>Call trace</h2>${trace.length ? `<ul class="feed">${trace.map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No calls traced yet.")}</section>
-<section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.slice(-60).join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
+<section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
 </div>`;
 }
 

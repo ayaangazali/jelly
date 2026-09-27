@@ -294,7 +294,7 @@ function realView() {
   set("k-yours", rows.length ? `${Math.round((mine.length / rows.length) * 100)}%` : "0%");
   set("k-saved", money(tot.saved_usd || 0)); set("k-saved-l", mine.length ? `saved · ${mine.length} runs` : `saved · ${notYet(true)}`);
   const steps = Object.fromEntries(((data.replay && data.replay.runs) || []).map((r) => [r.session_id, r.steps || []]));
-  document.getElementById("log").innerHTML = [...rows].reverse().slice(0, 18).map((r) => {
+  document.getElementById("log").innerHTML = [...rows].reverse().map((r) => {
     const m = r.routed_to === "owned", st = (steps[r.session_id] || []).slice(-1)[0] || String(r.prompt || "").slice(0, 60);
     return `<li style="animation:none"><time>${esc(String(r.started_at).slice(11, 19))}</time><span class="who ${m ? "mine" : "big"}">${m ? "your model" : esc(r.model || "big model")}</span><span class="what">${esc(st.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(r.output_tokens || 0)} tok</span><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></li>`;
   }).join("");

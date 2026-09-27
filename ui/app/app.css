@@ -817,3 +817,9 @@ details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
 .turn.sys b { display: inline; }
 .states-line { margin: -0.6em 0 1em; }
 .ttypes td.tname small { white-space: normal; }
+/* Lists show every row the data has, inside a fixed-height box that scrolls (the captain's rule). */
+.feed, .procs, .bars, .serve, .scroll.box, .gnotes { max-height: 360px; overflow-y: auto; }
+.scroll.box thead th { position: sticky; top: 0; background: var(--sheet); z-index: 1; }
+.live .log { overflow-y: auto; }
+pre.term { max-height: 360px; overflow-y: auto; }
+.cols .feed, .cols pre.term { max-height: 480px; }

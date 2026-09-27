@@ -13,8 +13,8 @@ function pricing() {
 <div class="kpis ptot">${[["all calls", calls], ...models.map((m) => [m, calls.filter((c) => name(c) === m)])].map(([m, rs]) =>
     `<div class="kpi"><b>${money(sum(rs, "cost_usd"))}</b><span>${esc(m)} · ${rs.length} calls</span></div>`).join("")}</div>
 <div class="race-bar"><select id="pmodel"><option value="">All models</option>${models.map((m) => `<option ${m === pick ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></div>
-${shown.length ? `<div class="scroll"><table class="plog"><thead><tr><th>Time</th><th>Model</th><th class="num">Input</th><th class="num">Cached</th><th class="num">Output</th><th class="num">Price per 1M in / out</th><th class="num">Cost</th></tr></thead><tbody>
-${shown.slice(0, 300).map((c) => `<tr><td><code>${esc(String(c.ts || "").slice(11, 19))}</code></td><td>${esc(name(c))}</td><td class="num">${num(c.input_tokens || 0)}</td><td class="num">${num(c.cached_input_tokens || 0)}</td><td class="num">${num(c.output_tokens || 0)}</td><td class="num">${price(c)}</td><td class="num">${money(c.cost_usd || 0)}</td></tr>`).join("")}
+${shown.length ? `<div class="scroll box"><table class="plog"><thead><tr><th>Time</th><th>Model</th><th class="num">Input</th><th class="num">Cached</th><th class="num">Output</th><th class="num">Price per 1M in / out</th><th class="num">Cost</th></tr></thead><tbody>
+${shown.map((c) => `<tr><td><code>${esc(String(c.ts || "").slice(11, 19))}</code></td><td>${esc(name(c))}</td><td class="num">${num(c.input_tokens || 0)}</td><td class="num">${num(c.cached_input_tokens || 0)}</td><td class="num">${num(c.output_tokens || 0)}</td><td class="num">${price(c)}</td><td class="num">${money(c.cost_usd || 0)}</td></tr>`).join("")}
 </tbody></table></div>` : empty("No model calls recorded yet.")}`;
 }
 document.addEventListener("change", (e) => { if (e.target.id === "pmodel") { data.pricingModel = e.target.value; render(); } });

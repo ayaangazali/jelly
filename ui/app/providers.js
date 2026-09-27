@@ -54,7 +54,7 @@ ${owned ? `<p class="muted">Your model now: ${String(owned.model).startsWith("ri
     return `<section class="${calls.length || x.sessions ? "lit" : ""}"><h2><a href="/app/providers/${p.id}">${esc(x.name)} →</a></h2>
 <p class="muted">${esc(p.role)}</p>
 <p>${status} ${calls.length} call${calls.length === 1 ? "" : "s"} traced${x.sessions ? ` · ${x.sessions} session${x.sessions === 1 ? "" : "s"}` : ""}${x.note ? ` · <span class="muted">${esc(x.note)}</span>` : ""}</p>
-${calls.length ? `<ul class="feed">${calls.slice(0, 5).map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(String(e.call).slice(0, 90))}</code><br><span class="muted">${esc(String(e.result).slice(0, 140))}</span></span></li>`).join("")}</ul>` : empty("No calls in the current trace.")}
+${calls.length ? `<ul class="feed">${calls.map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(String(e.call).slice(0, 90))}</code><br><span class="muted">${esc(String(e.result).slice(0, 140))}</span></span></li>`).join("")}</ul>` : empty("No calls in the current trace.")}
 </section>`;
   }).join("")}</div>`;
 }
@@ -75,7 +75,7 @@ function providerPage(id) {
     return page("River", "trains your small model with LoRA and serves it", g ? ["s-passed", "live"] : ["", "not trained here yet"], `
 <div class="kpis">${stat("Qwen3.5-9B", "base model")}${stat(c.length || "–", `training steps${g ? ` on ${g[1].trained_on_runs || "?"} real runs` : ""}`)}${stat(c.length ? `${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)}` : "–", "loss")}${stat(c.length ? `${Math.round(c[c.length - 1].secs || 0)} s` : "–", "training time")}${stat(served.length, "runs served")}</div>
 <section class="panel pviz"><h2>Training loss${c.length ? ` · ${c.length} steps` : ""}</h2>${c.length ? `<svg viewBox="-10 -10 ${w + 20} ${h + 30}" class="loss"><polyline points="${pts}" pathLength="100"/>${c.map((x, i) => `<circle cx="${(i / Math.max(c.length - 1, 1)) * w}" cy="${h - (x.loss / max) * h}" r="4" style="animation-delay:${0.1 * i}s"/>`).join("")}<text x="0" y="${h + 18}">step 1</text><text x="${w}" y="${h + 18}" text-anchor="end">step ${c.length}</text></svg>` : empty("No training log in this directory yet.")}</section>
-<section class="panel pviz"><h2>Runs served by your model</h2><div class="serve">${served.slice(-6).map((r) => `<div class="srv"><b>Task ${esc((String(r.verify_command || r.prompt || "").match(/test_mod_(\d+)/) || [])[1] || "?")}</b><span>${r.turns} turns · ${money(r.cost_usd || 0)}</span><em class="${r.exit_code === 0 ? "" : "bad"}">${r.exit_code === 0 ? "✓ tests passed" : "✗ re-run on the big model"}</em></div>`).join("") || empty("No runs served yet.")}</div></section>
+<section class="panel pviz"><h2>Runs served by your model</h2><div class="serve">${served.map((r) => `<div class="srv"><b>Task ${esc((String(r.verify_command || r.prompt || "").match(/test_mod_(\d+)/) || [])[1] || "?")}</b><span>${r.turns} turns · ${money(r.cost_usd || 0)}</span><em class="${r.exit_code === 0 ? "" : "bad"}">${r.exit_code === 0 ? "✓ tests passed" : "✗ re-run on the big model"}</em></div>`).join("") || empty("No runs served yet.")}</div></section>
 ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
   }
   if (id === "memorable") {
