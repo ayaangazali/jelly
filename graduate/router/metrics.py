@@ -54,9 +54,17 @@ def _add(rec):
 
 
 def _load():
-    if METRICS_PATH.exists():
-        for line in METRICS_PATH.read_text(encoding="utf-8").splitlines():
+    if not METRICS_PATH.exists():
+        return
+    text = METRICS_PATH.read_text(encoding="utf-8")
+    if text and not text.endswith("\n"):
+        with open(METRICS_PATH, "a", encoding="utf-8") as f:
+            f.write("\n")
+    for line in text.splitlines():
+        try:
             _add(json.loads(line))
+        except (ValueError, KeyError, TypeError):
+            pass
 
 
 def record(session_id, request, response, usage, latency_ms, upstream, model):
