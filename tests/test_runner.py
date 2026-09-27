@@ -193,7 +193,7 @@ def test_main_says_what_to_fix_before_launching_anything(repo, workdir, monkeypa
 @pytest.mark.parametrize(
     "upstreams, routed_to, counted",
     [
-        (["owned", "frontier", "frontier"], "mixed", 0),  # the owned model errored, the frontier finished (#133)
+        (["owned", "frontier", "frontier"], "mixed", 0),
         (["frontier", "frontier"], "frontier", 1),
         (["owned", "owned"], "owned", 0),
     ],
@@ -205,7 +205,7 @@ def test_only_an_all_frontier_session_is_a_verified_frontier_run(repo, workdir, 
 
     call = example("fixtures/session.example.jsonl")
 
-    def router(method, path, **kw):  # the router's session log and aggregate for whatever id the runner picked
+    def router(method, path, **kw):
         if not path.endswith("/log"):
             return {"task_type": "fix-failing-test"}
         sid = path.split("/")[3]
@@ -216,7 +216,7 @@ def test_only_an_all_frontier_session_is_a_verified_frontier_run(repo, workdir, 
 
     monkeypatch.setattr(runner, "_router", router)
     monkeypatch.setattr(registry, "GRADUATE_N", 1)
-    monkeypatch.setattr(dataset, "renderer", lambda tokenizer=None: None)  # CI has no river_client; counts, not tokens
+    monkeypatch.setattr(dataset, "renderer", lambda tokenizer=None: None)
     monkeypatch.setattr(dataset, "wire", lambda rend, chat: ({"input_ids": []}, False))
     agent = workdir / "agent"
     agent.write_text(AGENT.format(FIX))
