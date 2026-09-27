@@ -50,7 +50,7 @@ def decide(session_id, request, headers, hint=None):
     }
     if session_id not in _announced:
         _announced.add(session_id)
-        why = "forced by header" if force in ("owned", "frontier") else state
+        why = f"forced to {force}" if force in ("owned", "frontier") else state
         trace.emit("Router → registry.json", f'registry["{task_type}"].state',
                    f"{why} → route to {'your River model' if owned else 'frontier'}", 20,
                    nodes=["router", "registry", "river" if owned else "openai"],
