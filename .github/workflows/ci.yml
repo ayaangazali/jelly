@@ -45,3 +45,22 @@ jobs:
           path: |
             backups/
             terminal.log
+
+  # The stage demo from a clean checkout (#97): scripts/demo.sh --offline on the stub frontier, real OpenCode, $0.
+  # --use-checkpoint river://: no River key here, so step 5 shows the fall-back to the frontier. ~1 min.
+  demo-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .[test] 'river-client>=0.12,<0.13'  # the dataset step; torch is not needed
+      - run: curl -fsSL https://opencode.ai/install | bash -s -- --version 1.18.32 --no-modify-path
+      - run: scripts/demo.sh --offline --auto-approve --use-checkpoint river://run-ci/sampler_weights/fix-failing-test-v1
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-offline
+          path: backups/demo-*/

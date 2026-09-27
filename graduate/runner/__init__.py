@@ -92,6 +92,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         # OpenCode takes its project dir from $PWD, not the process cwd.
         env={
             **os.environ,
+            "OPENAI_API_KEY": "",  # only the router holds it (#97)
             "GRADUATE_SESSION": session_id,
             "PWD": os.path.abspath(repo),
         },
