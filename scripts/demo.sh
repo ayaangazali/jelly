@@ -58,6 +58,15 @@ run() { # run NN: plant broken state NN, one `graduate run`
  graduate run --task-file "demo-repo/tasks/$1.json" --repo demo-repo --timeout 600
 }
 
+# The River trap (#25): with RIVER_API_KEY set, training picks River, and an unfunded key fails on stage. Local unless
+# the operator exports GRADUATE_OWNED_BACKEND (the export beats .env, where graduate init may have picked river itself).
+if [ -z "${GRADUATE_OWNED_BACKEND:-}" ]; then
+ [ -z "${RIVER_API_KEY:-}" ] && ! grep -qs '^RIVER_API_KEY=.' .env ||
+  printf '\033[1;31mWARNING: RIVER_API_KEY is set and GRADUATE_OWNED_BACKEND is not: training on this machine (local), not River. GRADUATE_OWNED_BACKEND=river trains on River.\033[0m\n'
+ export GRADUATE_OWNED_BACKEND=local
+fi
+echo "owned backend: $GRADUATE_OWNED_BACKEND (GRADUATE_OWNED_BACKEND=$GRADUATE_OWNED_BACKEND)"
+
 say "reset: earlier state -> $out/before/, demo-repo clean"
 ! curl -sf localhost:$PORT/healthz >/dev/null || die ":$PORT is taken: stop the other router first"
 python -c 'import river_client' 2>/dev/null || die "step 2 builds River training records: pip install -e '.[test,train]' (Python 3.12+)"

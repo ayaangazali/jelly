@@ -36,9 +36,18 @@ COMMANDS = {
         "graduate.cli:up",
         "start the router and watcher on :4141 and serve the dashboard (--demo: no key)",
     ),
-    "bench": ("graduate.bench:main", "frontier vs small vs owned on the demo tasks: output tokens, cost, turns, pass rate"),
-    "results": ("graduate.results:main", "freeze the dashboard state to results/state.json; view it with ?state= (no key)"),
-    "train": ("graduate.registrar.train:main", "LoRA-train a task type's model, then TRAINING -> GRADUATED"),
+    "bench": (
+        "graduate.bench:main",
+        "frontier vs small vs owned on the demo tasks: output tokens, cost, turns, pass rate",
+    ),
+    "results": (
+        "graduate.results:main",
+        "freeze the dashboard state to results/state.json; view it with ?state= (no key)",
+    ),
+    "train": (
+        "graduate.registrar.train:main",
+        "LoRA-train a task type's model, then TRAINING -> GRADUATED",
+    ),
 }
 
 # The repo root in a checkout; site-packages in a wheel, where ui/ and fixtures/ ship beside graduate/.
@@ -136,7 +145,9 @@ def init():
     except httpx.HTTPError as e:
         sys.exit(f"cannot reach {base}/models: {e!r}")
     if r.status_code != 200:
-        sys.exit(f"key rejected: GET {base}/models -> HTTP {r.status_code}; get a key at https://platform.openai.com/api-keys, or try `graduate up --demo` (no key)")
+        sys.exit(
+            f"key rejected: GET {base}/models -> HTTP {r.status_code}; get a key at https://platform.openai.com/api-keys, or try `graduate up --demo` (no key)"
+        )
     print(f"key ok: GET {base}/models -> 200")
 
     backend = a.backend or (
@@ -187,6 +198,36 @@ def _demo_dir():
     return work
 
 
+def _owned_backend():
+    """Print the backend Approve trains a new run on, as train.backend() picks it, and warn about the River trap:
+    with RIVER_API_KEY set and GRADUATE_OWNED_BACKEND unset it picks River, and an unfunded key fails there."""
+    from graduate.registrar import train
+
+    name = os.environ.get("GRADUATE_OWNED_BACKEND")
+    try:
+        river = isinstance(train.backend(), train.RiverBackend)
+    except RuntimeError:  # GRADUATE_OWNED_BACKEND=none
+        return print(
+            "owned backend: none (GRADUATE_OWNED_BACKEND=none): Approve trains nothing, the frontier serves every call"
+        )
+    why = (
+        f"GRADUATE_OWNED_BACKEND={name}"
+        if name
+        else "RIVER_API_KEY is set"
+        if river
+        else "no RIVER_API_KEY"
+    )
+    print(
+        f"owned backend: {'river' if river else 'local'} ({why}): Approve trains {'on River' if river else 'on this machine'}"
+    )
+    if river and not name:
+        print(
+            "WARNING: RIVER_API_KEY is set and GRADUATE_OWNED_BACKEND is not, so Approve trains on River; an unfunded "
+            "River account fails with insufficient_funds. GRADUATE_OWNED_BACKEND=local trains on this machine.",
+            file=sys.stderr,
+        )
+
+
 def up():
     p = argparse.ArgumentParser(prog="graduate up")
     p.add_argument(
@@ -195,11 +236,17 @@ def up():
         help="no key: serve the dashboard on fixture state",
     )
     a = p.parse_args()
-    if socket.socket().connect_ex(("127.0.0.1", 4141)) == 0:  # #84: a bind check would trip on TIME_WAIT
-        sys.exit("port 4141 is taken: stop the other `graduate up` or `make dev` (find it: lsof -i :4141)")
+    if (
+        socket.socket().connect_ex(("127.0.0.1", 4141)) == 0
+    ):  # #84: a bind check would trip on TIME_WAIT
+        sys.exit(
+            "port 4141 is taken: stop the other `graduate up` or `make dev` (find it: lsof -i :4141)"
+        )
     if a.demo:
         os.chdir(_demo_dir())
-        os.environ["GRADUATE_SAMPLE"] = "1"  # the dashboard labels fixture numbers as sample data (#87)
+        os.environ["GRADUATE_SAMPLE"] = (
+            "1"  # the dashboard labels fixture numbers as sample data (#87)
+        )
     elif not (os.environ.get("OPENAI_API_KEY") or _dotenv().get("OPENAI_API_KEY")):
         sys.exit(
             "no OPENAI_API_KEY here: run `graduate init` first, or `graduate up --demo`"
@@ -214,8 +261,14 @@ def up():
         not a.demo
     ):  # the demo's registry is a fixture; a watcher would rebuild it from the ledger
         threading.Thread(target=watch, daemon=True).start()
+    _owned_backend()
     print("dashboard: http://localhost:4141/   (Ctrl-C stops)", flush=True)
-    uvicorn.run(app, host=os.environ.get("GRADUATE_HOST", "127.0.0.1"), port=4141, log_level="warning")  # 0.0.0.0 in Docker (#58)
+    uvicorn.run(
+        app,
+        host=os.environ.get("GRADUATE_HOST", "127.0.0.1"),
+        port=4141,
+        log_level="warning",
+    )  # 0.0.0.0 in Docker (#58)
     print("stopped")
 
 

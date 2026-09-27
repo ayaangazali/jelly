@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -160,3 +161,56 @@ def test_the_wheel_ships_every_dashboard_file():
     pats = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]["package-data"]["ui"]
     shipped = {f for pat in pats for f in (ROOT / "ui").glob(pat) if f.is_file()}
     assert {f for f in (ROOT / "ui").rglob("*") if f.is_file()} <= shipped
+
+
+@pytest.mark.parametrize(
+    "env, said, warns",
+    [
+        ({}, "owned backend: local (no RIVER_API_KEY): Approve trains on this machine", False),
+        ({"RIVER_API_KEY": "rk"}, "owned backend: river (RIVER_API_KEY is set): Approve trains on River", True),
+        ({"RIVER_API_KEY": "rk", "GRADUATE_OWNED_BACKEND": "local"}, "owned backend: local (GRADUATE_OWNED_BACKEND=local)", False),
+        ({"GRADUATE_OWNED_BACKEND": "none"}, "owned backend: none", False),
+    ],
+)
+def test_up_names_the_owned_backend_and_warns_on_the_river_trap(workdir, monkeypatch, capsys, env, said, warns):
+    """#25: an unfunded River key on the demo laptop would make Approve fail with insufficient_funds."""
+    import types
+
+    monkeypatch.setenv("GRADUATE_SAMPLE", "")  # recorded, so the 1 that up --demo sets is undone after the test
+    for k in ("RIVER_API_KEY", "GRADUATE_OWNED_BACKEND"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    free = types.SimpleNamespace(connect_ex=lambda addr: 111)  # :4141 is free, whatever else runs on this host
+    monkeypatch.setattr(cli, "socket", types.SimpleNamespace(socket=lambda: free))
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
+    cli.main(["up", "--demo"])
+    out, err = capsys.readouterr()
+    assert said in out and out.index("owned backend") < out.index("dashboard:")
+    assert ("WARNING: RIVER_API_KEY is set" in err) == warns
+
+
+@pytest.mark.parametrize(
+    "env, said, warns",
+    [
+        ({}, "owned backend: local", False),
+        ({"RIVER_API_KEY": "rk"}, "owned backend: local", True),
+        ({"RIVER_API_KEY": "rk", "GRADUATE_OWNED_BACKEND": "river"}, "owned backend: river", False),
+    ],
+)
+def test_demo_sh_trains_locally_unless_told_and_warns_on_the_river_trap(tmp_path, env, said, warns):
+    (tmp_path / "scripts").mkdir()
+    shutil.copy(ROOT / "scripts/demo.sh", tmp_path / "scripts")
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin/curl").write_text("#!/bin/sh\n")  # every port looks taken: demo.sh stops before starting anything
+    (tmp_path / "bin/curl").chmod(0o755)
+    base = {k: v for k, v in os.environ.items() if k not in ("RIVER_API_KEY", "GRADUATE_OWNED_BACKEND")}
+    r = subprocess.run(
+        [tmp_path / "scripts/demo.sh", "--offline"],
+        env={**base, **env, "PATH": f"{tmp_path}/bin:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert "is taken" in r.stdout and f"{said} (GRADUATE_OWNED_BACKEND=" in r.stdout
+    assert ("WARNING: RIVER_API_KEY is set" in r.stdout) == warns
