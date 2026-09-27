@@ -34,6 +34,7 @@ TOOL_CALLS = [
 @pytest.fixture(autouse=True)
 def offline_memorable(monkeypatch):
     monkeypatch.setenv("MEMORABLE_BIN", "false")
+    monkeypatch.setenv("GBRAIN_BIN", "false")
 
 
 def example(name):

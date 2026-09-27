@@ -17,7 +17,7 @@ import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from graduate import trace
+from graduate import gbrain, trace
 
 REGISTRY_PATH = "registry.json"
 LOCK_PATH = "registry.lock"
@@ -156,6 +156,11 @@ def transition(task_type: str, to_state: str, **fields) -> dict:
         nodes,
         edges,
     )
+    if to_state in ("GRADUATED", "PROBATION"):
+        gbrain.publish(
+            reg["task_types"],
+            os.path.join(os.path.dirname(REGISTRY_PATH), "GRADUATED.md"),
+        )
     return tt
 
 
@@ -212,6 +217,7 @@ if __name__ == "__main__":
         os.path.join(tmp, "registry.lock"),
     )
     trace.TRACE_PATH = os.path.join(tmp, "trace.jsonl")
+    os.environ["GBRAIN_BIN"] = "false"
     GRADUATE_N = 5
 
     # The fixture loads, and a locked write keeps the rest of it intact.
