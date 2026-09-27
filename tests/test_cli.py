@@ -122,3 +122,12 @@ def test_demo_dir_serves_the_fixture_state(workdir):
     )
     for key in ("registry", "ledger", "trace", "terminal", "session_log"):
         assert state[key] == fixture[key], key
+
+
+def test_the_wheel_ships_every_dashboard_file():
+    """#82: package-data globs like setuptools does (`*` stops at `/`), so ui/fonts/ needs its own pattern."""
+    import tomllib
+
+    pats = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]["package-data"]["ui"]
+    shipped = {f for pat in pats for f in (ROOT / "ui").glob(pat) if f.is_file()}
+    assert {f for f in (ROOT / "ui").rglob("*") if f.is_file()} <= shipped
