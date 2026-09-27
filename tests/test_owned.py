@@ -345,3 +345,15 @@ def test_river_model_without_key_says_why(router, stub, monkeypatch):
                json={"model": "graduate", "messages": [{"role": "user", "content": "fix it"}]})
     assert r.status_code == 200 and len(stub.requests) == 1
     assert "no River key: set RIVER_API_KEY or use a local checkpoint" in registry.load()["events"][0]["text"]
+
+
+def test_checkpoint_remembers_its_run_count_for_use_checkpoint(workdir, fake):
+    task("READY", trained_on_runs=0)
+    (workdir / "data").mkdir()
+    (workdir / f"data/{TT}.chat.jsonl").write_text((ROOT / "fixtures/sft-chat.example.json").read_text().replace("\n", "") + "\n")
+    fake.train = lambda chats, name, log, steps=None: (workdir / name).mkdir() or str(workdir / name)
+    ckpt = train.run(TT)
+    task("READY", trained_on_runs=0)  # a fresh demo: the registry knows nothing about the checkpoint
+    (workdir / ckpt / "adapter_config.json").write_text("{}")
+    train.run(TT, use_checkpoint=ckpt)
+    assert registry.load()["task_types"][TT]["trained_on_runs"] == 1  # the stamp never says "trained on 0 runs"

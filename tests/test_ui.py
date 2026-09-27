@@ -43,3 +43,9 @@ def test_router_serves_the_latest_bench_for_compare(router, workdir):
     (workdir / "bench" / "latest").symlink_to("bench-1")  # how graduate bench points at its newest run
     r = router("GET", "/bench/latest/results.json")
     assert r.status_code == 200 and r.json()["arms"]["owned"]["output_tokens"] == 540
+
+
+def test_demo_router_says_its_numbers_are_sample_data(router, monkeypatch):
+    assert router("GET", "/api/sample").json() == {"sample": False}
+    monkeypatch.setenv("GRADUATE_SAMPLE", "1")  # what `graduate up --demo` sets
+    assert router("GET", "/api/sample").json() == {"sample": True}
