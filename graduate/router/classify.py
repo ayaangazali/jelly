@@ -8,8 +8,8 @@ from pathlib import Path
 
 from graduate import trace
 
-RECALL_LINE = re.compile(r"^\s*(?P<score>[0-9]*\.?[0-9]+)\s+(?P<slug>procedures/\S+)\s+\[(?P<matcher>\w+)\]", re.M)
-MIN_SCORE = float(os.environ.get("GRADUATE_RECALL_MIN", "0.75"))
+RECALL_LINE = re.compile(r"^\s*(?P<score>[0-9]*\.?[0-9]+)\s+(?P<slug>procedures/\S+)\s+\[(?P<matcher>[^\]]+)\]", re.M)
+MIN_SCORE = float(os.environ.get("GRADUATE_RECALL_MIN", "0.6"))
 TIMEOUT = float(os.environ.get("GRADUATE_RECALL_TIMEOUT", "1.5"))
 _cache = {}
 
