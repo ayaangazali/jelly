@@ -22,7 +22,6 @@ function cacheOverview() {
       <span class="what">saved by the verified cache: ${c.hits} of ${c.turns} calls replayed at $0, ${Math.round(c.hit_rate * 100)}% hit rate<small>What the frontier would have charged for those calls. Not your model's savings; the tests still decide every session. ${c.entries} answers cached, ${c.evicted} evicted.</small></span></div>`;
 }
 
-NODES.push({ id: "cache", c: "D", r: 1, label: "Cache", sub: "verified replays, $0", issues: [144],
+NODES.push(NODE.cache = { id: "cache", c: "D", r: 1, x: COL.D, y: ROW[1], label: "Cache", sub: "verified replays, $0", issues: [144],
   what: "Answers a call from an earlier verified frontier session when the whole conversation so far and the tools match exactly. No model runs, and the task's tests still decide the session. A replay that fails its tests is evicted.",
   calls: ["sha256(messages + tools) → sessions/<verified id>.jsonl"], files: [] });
-NODE.cache = { ...NODES[NODES.length - 1], x: COL.D, y: ROW[1] };
