@@ -14,7 +14,8 @@ cd "$(dirname "$0")/.."
 offline=
 [ "${1:-}" != --offline ] || offline=1
 T=fix-failing-test PORT=${PORT:-4171}
-CORPUS_DIR=$(realpath -m "${CORPUS_DIR:-$([ -n "$offline" ] && echo backups/live-offline-corpus || echo ~/jelly-corpus-live)}")
+CORPUS_DIR=${CORPUS_DIR:-$([ -n "$offline" ] && echo backups/live-offline-corpus || echo ~/jelly-corpus-live)}
+case $CORPUS_DIR in /*) ;; *) CORPUS_DIR=$PWD/$CORPUS_DIR ;; esac # absolute, not realpath -m: GNU-only (#120)
 export GRADUATE_ROUTER=http://localhost:$PORT OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"http://localhost:'$PORT'/v1"}}}}'
 pids=()
 trap 'kill "${pids[@]}" 2>/dev/null || true' EXIT
