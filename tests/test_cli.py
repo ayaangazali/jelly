@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -27,7 +28,7 @@ def test_dispatch_strips_the_command_name(monkeypatch, capsys):
         with pytest.raises(SystemExit) as e:
             cli.main(argv)
         assert e.value.code == code
-    assert "  echo  test only" in capsys.readouterr().err
+    assert re.search(r"^  echo +test only$", capsys.readouterr().err, re.M)
 
 
 @pytest.fixture
