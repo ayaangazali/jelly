@@ -212,7 +212,7 @@ def up():
     ):  # the demo's registry is a fixture; a watcher would rebuild it from the ledger
         threading.Thread(target=watch, daemon=True).start()
     print("dashboard: http://localhost:4141/   (Ctrl-C stops)", flush=True)
-    uvicorn.run(app, host="127.0.0.1", port=4141, log_level="warning")
+    uvicorn.run(app, host=os.environ.get("GRADUATE_HOST", "127.0.0.1"), port=4141, log_level="warning")  # 0.0.0.0 in Docker (#58)
     print("stopped")
 
 
