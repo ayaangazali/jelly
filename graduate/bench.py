@@ -9,7 +9,7 @@ OPENAI_MODEL=<arm model>, runs each task through `graduate.runner.run` (reset-de
 then aggregates that arm's ledger rows plus metrics.jsonl latency.
 
 Budget: prints the plan and estimate first, refuses when the estimate crosses --max-usd or today's DAILY_CAP_USD,
-checks before every run, and a watchdog kills OpenCode mid-run once spend reaches the cap. Spend is metrics.jsonl
+checks before every run, and a watchdog stops the router mid-run once spend reaches the cap. Spend is metrics.jsonl
 (every model call the bench's routers served), priced per model with contracts §9.
 
 Writes bench/<stamp>/results.json (shape: fixtures/bench.example.json; token counts, cost, turns and tool calls are
@@ -20,7 +20,6 @@ import argparse
 import json
 import os
 import random
-import signal
 import socket
 import statistics
 import subprocess
@@ -55,15 +54,9 @@ FIELDS = (
 )
 
 
-def price(model, upstream):
-    if upstream == "owned":
-        return PRICES["owned"]
-    return SMALL if model == SMALL["model"] else PRICES["frontier"]
-
-
 def cost(rec, upstream):
     """Contracts §9 at the model's own prices: the router prices every frontier-side call as the frontier."""
-    p = price(rec["model"], upstream)
+    p = PRICES["owned"] if upstream == "owned" else SMALL if rec["model"] == SMALL["model"] else PRICES["frontier"]
     fresh = rec["input_tokens"] - rec["cached_input_tokens"]
     usd = (
         fresh * p["input"]
@@ -153,23 +146,11 @@ def start_router(model, log):
     raise SystemExit(f"router for {model} did not start; see {log.name}")
 
 
-def watchdog(stop, cap, since, spare):
-    """At the cap, kill every process group this process leads a child of (OpenCode), except the router's."""
+def watchdog(stop, cap, since, router):
+    """At the cap, stop the arm's router: the only path to the model. The run in flight then fails."""
     while not stop.wait(1):
-        if spent(since) < cap:
-            continue
-        ps = subprocess.run(
-            ["pgrep", "-P", str(os.getpid())], capture_output=True, text=True
-        ).stdout.split()
-        for pid in map(int, ps):
-            try:
-                if (
-                    pid != spare and os.getpgid(pid) == pid
-                ):  # a session leader: OpenCode, never the verify shell
-                    os.killpg(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        return
+        if spent(since) >= cap:
+            return router.terminate()
 
 
 def summarize(model, rows, note=None):
@@ -333,7 +314,7 @@ def main():
         )
         stop = threading.Event()
         threading.Thread(
-            target=watchdog, args=(stop, a.max_usd, since, router.pid), daemon=True
+            target=watchdog, args=(stop, a.max_usd, since, router), daemon=True
         ).start()
         try:
             for task in tasks * a.repeat:
