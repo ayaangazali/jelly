@@ -1,0 +1,187 @@
+{
+  "task_types": {
+    "fix-failing-test": {
+      "title": "Fix a failing test",
+      "state": "LEARNING",
+      "consent": false,
+      "verify_command": "pytest -q tests/",
+      "procedure_slug": "procedures/7c2e19ab-fix-failing-test",
+      "verified_runs": 4,
+      "failed_runs": 1,
+      "baseline": {
+        "turns": 16,
+        "tool_calls": 5,
+        "cost_usd": 0.42,
+        "wall_secs": 94
+      },
+      "current": null,
+      "model": null,
+      "serving": null,
+      "deployment": null,
+      "trained_on_runs": 0,
+      "graduated_at": null,
+      "verified_since_graduation": 0,
+      "failures_since_graduation": 0
+    },
+    "update-changelog": {
+      "title": "Update the changelog",
+      "state": "GRADUATED",
+      "consent": true,
+      "verify_command": "python scripts/check_changelog.py",
+      "procedure_slug": "procedures/19be02c4-update-changelog",
+      "verified_runs": 6,
+      "failed_runs": 0,
+      "baseline": {
+        "turns": 9,
+        "tool_calls": 4,
+        "cost_usd": 0.18,
+        "wall_secs": 41
+      },
+      "current": {
+        "turns": 2,
+        "tool_calls": 2,
+        "cost_usd": 0.004,
+        "wall_secs": 6
+      },
+      "model": "river://run-4c1e/sampler_weights/update-changelog-v1",
+      "serving": "checkpoint",
+      "deployment": null,
+      "trained_on_runs": 6,
+      "graduated_at": "2026-09-27T04:40:00Z",
+      "verified_since_graduation": 23,
+      "failures_since_graduation": 0
+    },
+    "add-endpoint": {
+      "title": "Add an API endpoint",
+      "state": "LEARNING",
+      "consent": false,
+      "verify_command": "pytest -q tests/api",
+      "procedure_slug": "procedures/5d71aa09-add-endpoint",
+      "verified_runs": 2,
+      "failed_runs": 0,
+      "baseline": {
+        "turns": 22,
+        "tool_calls": 9,
+        "cost_usd": 0.71,
+        "wall_secs": 160
+      },
+      "current": null,
+      "model": null,
+      "serving": null,
+      "deployment": null,
+      "trained_on_runs": 0,
+      "graduated_at": null,
+      "verified_since_graduation": 0,
+      "failures_since_graduation": 0
+    },
+    "bump-dependency": {
+      "title": "Bump a dependency",
+      "state": "PROBATION",
+      "consent": true,
+      "verify_command": "pytest -q && ruff check",
+      "procedure_slug": "procedures/a3f8e611-bump-dependency",
+      "verified_runs": 7,
+      "failed_runs": 3,
+      "baseline": {
+        "turns": 12,
+        "tool_calls": 6,
+        "cost_usd": 0.31,
+        "wall_secs": 70
+      },
+      "current": {
+        "turns": 4,
+        "tool_calls": 3,
+        "cost_usd": 0.012,
+        "wall_secs": 11
+      },
+      "model": "river://run-9a07/sampler_weights/bump-dependency-v1",
+      "serving": "deployment",
+      "deployment": {
+        "base_url": "https://<deployment-host>/v1",
+        "model": "dep-9a07"
+      },
+      "trained_on_runs": 7,
+      "graduated_at": "2026-09-27T05:15:00Z",
+      "verified_since_graduation": 9,
+      "failures_since_graduation": 3
+    },
+    "write-migration": {
+      "title": "Write a migration",
+      "state": "READY",
+      "consent": false,
+      "verify_command": "pytest -q tests/migrations",
+      "procedure_slug": "procedures/0be4c7d2-write-migration",
+      "verified_runs": 5,
+      "failed_runs": 1,
+      "baseline": {
+        "turns": 14,
+        "tool_calls": 6,
+        "cost_usd": 0.37,
+        "wall_secs": 82
+      },
+      "current": null,
+      "model": null,
+      "serving": null,
+      "deployment": null,
+      "trained_on_runs": 0,
+      "graduated_at": null,
+      "verified_since_graduation": 0,
+      "failures_since_graduation": 0
+    },
+    "fix-lint": {
+      "title": "Fix lint errors",
+      "state": "TRAINING",
+      "consent": true,
+      "verify_command": "ruff check .",
+      "procedure_slug": "procedures/6e92b1f0-fix-lint",
+      "verified_runs": 5,
+      "failed_runs": 0,
+      "baseline": {
+        "turns": 8,
+        "tool_calls": 3,
+        "cost_usd": 0.15,
+        "wall_secs": 33
+      },
+      "current": null,
+      "model": null,
+      "serving": null,
+      "deployment": null,
+      "trained_on_runs": 0,
+      "graduated_at": null,
+      "verified_since_graduation": 0,
+      "failures_since_graduation": 0
+    }
+  },
+  "events": [
+    {
+      "ts": "2026-09-27T21:30:00Z",
+      "kind": "run",
+      "task_type": "update-changelog",
+      "text": "update-changelog went to your model. Verify exit 0."
+    },
+    {
+      "ts": "2026-09-27T21:21:00Z",
+      "kind": "run",
+      "task_type": "fix-failing-test",
+      "text": "fix-failing-test went to frontier. Verify exit 0. 4 of 5 verified runs."
+    },
+    {
+      "ts": "2026-09-27T21:10:00Z",
+      "kind": "training",
+      "task_type": "fix-lint",
+      "text": "Training started on River with 5 runs."
+    },
+    {
+      "ts": "2026-09-27T20:58:00Z",
+      "kind": "ready",
+      "task_type": "write-migration",
+      "text": "write-migration has 5 verified runs. Waiting for you to approve the training data."
+    },
+    {
+      "ts": "2026-09-27T20:05:00Z",
+      "kind": "probation",
+      "task_type": "bump-dependency",
+      "text": "bump-dependency failed verification 3 times and moved to probation. Requests go to frontier until it retrains."
+    }
+  ]
+}
