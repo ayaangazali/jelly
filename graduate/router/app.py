@@ -166,10 +166,11 @@ async def chat_completions(request: Request):
     log.info(
         "session %s -> frontier %s: %s", session_id, frontier.MODEL, resp.status_code
     )
+    error = " · " + (await resp.aread())[:300].decode("utf-8", "replace") if resp.status_code == 429 else ""
     trace.emit(
         "Router → OpenAI",
         call,
-        f"{resp.status_code} · {frontier.MODEL} · {'stream' if stream else 'json'}",
+        f"{resp.status_code} · {frontier.MODEL} · {'stream' if stream else 'json'}{error}",
         13,
         nodes,
         edges,

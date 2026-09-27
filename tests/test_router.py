@@ -80,6 +80,13 @@ def test_upstream_errors_unchanged_and_unlogged(
     )
 
 
+def test_a_session_failed_upstream_keeps_its_task_type(router, stub, sid):
+    router("POST", "/api/sessions", json={"session_id": sid, "prompt": "fix", "task_type": "fix-failing-test"})
+    stub.fail = (429, b'{"error": {"message": "Rate limit reached on requests per day (RPD)"}}')
+    assert post(router, sid).status_code == 429
+    assert router("GET", f"/api/sessions/{sid}").json()["task_type"] == "fix-failing-test"
+
+
 def test_unreachable_frontier_is_502(router, stub, sid):
     stub.fail = httpx.ConnectError("connection refused")
     r = post(router, sid)
