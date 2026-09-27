@@ -1,4 +1,5 @@
 {
+  "task_type": "fix-failing-test",
   "prompt": "The test tests/test_mod_01.py is failing. Fix the code so it passes.",
   "verify": "pytest -q tests/test_mod_01.py"
 }
