@@ -2,8 +2,8 @@
 
 Serves the repo root on a free port, opens ui/index.html?state=<fixture>&bench=fixtures/bench.example.json in Chromium (Playwright) and saves
 docs/screens/<fixture>-<view>-<size>.png. Fails on console errors, failed requests, horizontal overflow, a view
-cut off at the bottom, text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), and on the presenter showcase
-a wrong 5-of-5 count.
+cut off at the bottom, text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), on the presenter showcase
+a wrong 5-of-5 count, and on presenter Under the hood a ticker without the latest trace event.
 Offline; needs `pip install playwright && playwright install chromium`.
 """
 
@@ -20,10 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "screens"
 FIXTURES = ["state.example", "state.graduated"]
 SIZES = [(1920, 1080), (1280, 720)]
-# (name, hash, query, what must sit fully on screen: the whole view, or on Under the hood the diagram; its logs scroll below)
+# (name, hash, query, what must sit fully on screen)
 VIEWS = [("show", "#/show", "", ".show"), ("show-present", "#/show", "&present", "#app"),
          ("compare", "#/compare", "", ".cmp"), ("compare-present", "#/compare", "&present", "#app"),
-         ("overview-present", "#/", "&present", "#app"), ("system-present", "#/system", "&present", "figure.arch")]
+         ("overview-present", "#/", "&present", "#app"), ("system-present", "#/system", "&present", "#app")]
 
 # [overflow-x (page or a box its content spills out of), cut off at the bottom, smallest text px and its text]; SVG text is measured on screen, not in user units.
 MEASURE = """(fold) => {
@@ -82,6 +82,9 @@ def main():
                         t = next(t for t in state["registry"]["task_types"].values() if t["state"] == k)
                         want = str(min(t["verified_runs"], state["config"]["n"]))
                         problems += [f"verified {page.inner_text('[data-qa=verified]')} != {want}"] * (page.inner_text("[data-qa=verified]") != want)
+                    if view == "system-present":
+                        who = state["trace"][-1]["who"]
+                        problems += [f"ticker lacks the latest call {who!r}"] * (who not in page.inner_text("[data-qa=ticker]"))
                     print(f"{'FAIL' if problems else 'ok  '} {name:38} smallest text {px}px", *problems, sep="\n     " if problems else "")
                     failures += problems
                     page.close()
