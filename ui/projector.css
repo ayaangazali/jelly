@@ -32,11 +32,9 @@ html.present .cols .note { display: none; }
 html.present .roster :is(th, td) { padding: calc(var(--u) * 0.6) calc(var(--u) * 1); }
 html.present .log { max-height: none; }
 html.present .log li:nth-child(n+4), html.present .roster .name code { display: none; }  /* fits 720p: 3 newest events; verify commands are on each task page */
-html.present #app:has(.arch) > .lede { display: none; }
-html.present figure.arch svg { width: min(100%, (100vh - var(--u) * 26) * 1030 / 530); min-width: 0; margin: 0 auto; }
 html.present :is(.log li, .wire li) { grid-template-columns: auto 1fr; }
-html.present .arch .node text { font-size: 17px; }
-html.present :is(.arch .node text.sub, .arch .edge text) { font-size: 16px; font-stretch: 75%; }
+html.present .arch .node text { font-size: 18px; }
+html.present :is(.arch .node text.sub, .arch .edge text) { font-size: 17px; font-stretch: 70%; }
 html.present #app [style*="font-size"] { font-size: calc(var(--u) * 2.5) !important; }
 html.present .pips i { width: calc(var(--u) * 2.4); height: calc(var(--u) * 1); }
 html.blackout body { visibility: hidden; background: #000; }
@@ -102,3 +100,18 @@ html.present .hero { font-size: calc(var(--u) * 15); }
 .cmp-table .lead td.chg { font-size: calc(var(--u) * 4); }
 .cmp-table .lead td.frontier, .cmp-table .lead td.small { color: var(--rented); }
 .cmp-foot { margin: 0; }
+
+/* Presenter Under the hood (stage D): diagram as large as the text floor needs, ticker and terminal around it. */
+#app:has(.stage-d) { max-width: none; padding: 0 3vw; }
+html.present main:has(.stage-d) { padding: calc(var(--u) * 1.5) 0; }
+.stage-d { display: grid; gap: calc(var(--u) * 1.4); }
+.stage-head { display: flex; align-items: baseline; gap: 2vw; min-width: 0; }
+.stage-head h1 { font-size: calc(var(--u) * 4.4); margin: 0; white-space: nowrap; }
+.ticker { margin: 0; min-width: 0; display: flex; gap: 0.6em; white-space: nowrap; font: 500 calc(var(--u) * 2.6) "JetBrains Mono", monospace; }
+.ticker :is(time, .res) { color: var(--muted); flex: none; }
+.ticker b { color: var(--owned); font-family: "Archivo", sans-serif; flex: none; }
+.ticker .call { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stage-d figure.arch { margin: 0; padding: 0; }
+.stage-d figure.arch svg { width: min(100%, var(--u) * 70 * 1030 / 530); min-width: 0; margin: 0 auto; }
+.stage-d .legend { margin: 0; color: var(--muted); }
+html.present pre.stage-term { height: auto; font-size: calc(var(--u) * 2.6); padding: calc(var(--u) * 1) calc(var(--u) * 1.6); }
