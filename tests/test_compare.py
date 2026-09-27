@@ -1,5 +1,6 @@
 """scripts/compare.py (#118): the issue's tests 1-4 on the fixture ledgers in tests/compare/."""
 
+import json
 import shutil
 import subprocess
 import sys
@@ -45,7 +46,9 @@ def test_each_arm_prints_its_numbers_and_row_ids():
     ]
     assert "training wall time 412.6 s" in out[owned + 3]
     assert out[owned + 4] == "  escalation reruns, in neither arm: sess-7b4c1e02d9a5"
-    assert out[owned + 5].startswith(
+    assert out[owned + 5] == "  mixed sessions, in neither arm: none"
+    assert out[owned + 6] == "  cache sessions, in neither arm: none"
+    assert out[owned + 7].startswith(
         "  fewer turns: no (owned 7.00 vs frontier 6.67); lower cost: River list yes"
     )
 
@@ -87,3 +90,31 @@ def test_real_run_on_the_init_default_model_is_accepted(tmp_path):
     assert r.returncode == 0, r.stderr
     assert "pass rate 3/3" in r.stdout
 
+
+def test_a_mixed_session_is_in_neither_arm(tmp_path):
+    """#133: a passing session with owned and frontier calls moves no arm's numbers and is listed on its own line."""
+    rows = (FIXTURES / "ledger.jsonl").read_text().splitlines()
+    mixed = json.loads(rows[0]) | {"session_id": "sess-00000000abcd", "routed_to": "mixed", "turns": 40}
+    outs = []
+    for name, extra in (("before", []), ("after", [json.dumps(mixed)])):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "ledger.jsonl").write_text("\n".join(rows + extra) + "\n")
+        outs.append(compare(tmp_path / name / "ledger.jsonl").stdout.splitlines()[1:])
+    before, after = outs
+    line = before.index("  mixed sessions, in neither arm: none")
+    assert after[line] == "  mixed sessions, in neither arm: sess-00000000abcd"
+    assert after[:line] + after[line + 1 :] == before[:line] + before[line + 1 :]
+
+def test_a_cache_session_is_in_neither_arm(tmp_path):
+    """#144: a session replayed from the cache moves no arm's numbers and is listed on its own line."""
+    rows = (FIXTURES / "ledger.jsonl").read_text().splitlines()
+    cached = json.loads(rows[0]) | {"session_id": "sess-00000000cafe", "routed_to": "cache", "cost_usd": 0.0}
+    outs = []
+    for name, extra in (("before", []), ("after", [json.dumps(cached)])):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "ledger.jsonl").write_text("\n".join(rows + extra) + "\n")
+        outs.append(compare(tmp_path / name / "ledger.jsonl").stdout.splitlines()[1:])
+    before, after = outs
+    line = before.index("  cache sessions, in neither arm: none")
+    assert after[line] == "  cache sessions, in neither arm: sess-00000000cafe"
+    assert after[:line] + after[line + 1 :] == before[:line] + before[line + 1 :]

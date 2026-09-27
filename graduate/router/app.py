@@ -25,6 +25,7 @@ import inspect
 import json
 import logging
 import pkgutil
+import re
 import time
 
 import httpx
@@ -130,9 +131,13 @@ async def chat_completions(request: Request):
     bearer = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
     session_id = bearer if bearer.startswith("sess-") else "sess-anon"
     for route in _routes:
-        served = route(session_id, body)
-        if inspect.isawaitable(served):
-            served = await served
+        try:
+            served = route(session_id, body)
+            if inspect.isawaitable(served):
+                served = await served
+        except Exception:
+            log.exception("route %s failed for %s; the frontier answers", route.__name__, session_id)
+            continue
         if served is not None:
             return served
 
@@ -166,10 +171,13 @@ async def chat_completions(request: Request):
     log.info(
         "session %s -> frontier %s: %s", session_id, frontier.MODEL, resp.status_code
     )
+    error = ""
+    if resp.status_code == 429:
+        error = " · " + re.sub(r"org-[A-Za-z0-9]+", "org-…", (await resp.aread())[:300].decode("utf-8", "replace"))
     trace.emit(
         "Router → OpenAI",
         call,
-        f"{resp.status_code} · {frontier.MODEL} · {'stream' if stream else 'json'}",
+        f"{resp.status_code} · {frontier.MODEL} · {'stream' if stream else 'json'}{error}",
         13,
         nodes,
         edges,
