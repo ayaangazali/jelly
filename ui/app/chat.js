@@ -163,5 +163,25 @@ document.addEventListener("submit", (e) => {
 });
 PAGES.chat = chat;
 // Race and Chat are one page: the live chat on top, the recorded race pairs of real runs below.
-PAGES.race = () => `${chat()}<h2 class="rec-h">Recorded races</h2>${compare().replace(/<h1>[^<]*<\/h1>/, "")}`;
+PAGES.race = () => `${chat()}<h2 class="rec-h">Recorded races</h2>${whyTasks()}${compare().replace(/<h1>[^<]*<\/h1>/, "")}`;
+
+// "Why these tasks": which runs trained your model, which raced it, and which never reached it, all from the ledger
+// and the registry's graduated_at (no task numbers written here by hand).
+function whyTasks() {
+  const s = data.state; if (!s) return "";
+  const reg = s.registry.task_types || {}, rows = s.ledger || [];
+  const [slug, g] = Object.entries(reg).find(([, t]) => t.state === "GRADUATED" && t.graduated_at) || [];
+  if (!g) return "";
+  const n = (r) => (String(r.verify_command || r.prompt || "").match(/test_mod_(\d+)/) || [])[1];
+  const list = (rs) => { const x = [...new Set(rs.map(n).filter(Boolean))].sort(); return x.length > 1 ? `${x.slice(0, -1).join(", ")} and ${x.at(-1)}` : x[0] || ""; };
+  const before = rows.filter((r) => r.task_type === slug && r.routed_to === "frontier" && r.exit_code === 0 && String(r.started_at) < g.graduated_at);
+  const raced = rows.filter((r) => r.task_type === slug && r.routed_to === "owned" && r.exit_code === 0 && String(r.started_at) >= g.graduated_at);
+  const other = rows.filter((r) => r.task_type !== slug);
+  const types = [...new Set(other.map((r) => (reg[r.task_type] || {}).title || r.task_type))];
+  const lines = [];
+  if (before.length) lines.push(`Tasks ${list(before)} were your model's training data: the big model solved them first and your model learned from those runs, so racing on them would grade it on questions it studied.`);
+  if (raced.length) lines.push(`After it graduated, new tasks went to your model: it passed ${list(raced)}, none of which it had seen. The big model was then run on the same tasks so both sides face the same unseen task.`);
+  if (other.length) lines.push(`${other.length === 1 ? "Task" : "Tasks"} ${list(other)} ${other.length === 1 ? "was" : "were"} classified as a different task type (${types.map((t) => `“${esc(t)}”`).join(", ")}), still learning, so ${other.length === 1 ? "it" : "they"} went to the big model and never reached your model.`);
+  return lines.length ? `<section class="panel why-tasks"><h2>Why these tasks</h2>${lines.map((l) => `<p>${l}</p>`).join("")}</section>` : "";
+}
 PAGES.chat = PAGES.race;
