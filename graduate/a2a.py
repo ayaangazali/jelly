@@ -1,7 +1,10 @@
-"""Agent-to-agent notes (#142): what the last verified agent did on a task type, for the next agent on it.
+"""Agent-to-agent procedures (#142): how verified agents fixed a task type, for the next agent on it.
 
-GBrain (`gbrain get/put a2a-<task_type>`, GBRAIN_BIN as in gbrain.py) when installed and working, otherwise a
-shared file `a2a/<task_type>.md` in the working directory. Fails open: a2a never fails a run.
+Each verified run APPENDS one procedure (files touched, the fix in one line, the verify command, turns and
+cost) to the task type's page; the page keeps the newest KEEP. The next agent's prompt gets only the newest
+procedure plus a count. GBrain (`gbrain get/put a2a-<task_type>`, GBRAIN_BIN as in gbrain.py) when installed
+and working, otherwise a shared file `a2a/<task_type>.md` in the working directory. Fails open: a2a never
+fails a run.
 """
 
 import os
@@ -11,7 +14,9 @@ from pathlib import Path
 from graduate import trace
 
 ISSUE = 142
+KEEP = 10
 FILE_LABEL = "shared notes file (GBrain not installed)"
+HEAD = "### "
 
 
 def _gbrain(*args, text=None):
@@ -33,41 +38,126 @@ def _names(task_type):
     return f"a2a-{task_type}", Path("a2a", f"{task_type}.md")
 
 
-def get(task_type, session_id=None):
+def _read(task_type):
+    """(procedures oldest first, call, where), or None when there is no page."""
     slug, path = _names(task_type)
+    page = _gbrain("get", slug)
+    if page is not None:  # the page follows its YAML frontmatter
+        body, call, where = page.split("\n---\n", 1)[-1], f"gbrain get {slug}", "GBrain"
+    elif path.is_file():
+        body, call, where = path.read_text(encoding="utf-8"), f"read {path}", FILE_LABEL
+    else:
+        return None
+    return [HEAD + p.strip() for p in ("\n" + body).split("\n" + HEAD)[1:]], call, where
+
+
+def render(task_type, procedures):
+    return (
+        f"# A2A procedures: {task_type}\n\n"
+        f"How verified agents fixed {task_type}, newest last (keeps the newest {KEEP}).\n\n"
+        + "\n\n".join(procedures)
+        + "\n"
+    )
+
+
+def fix(removed, added):
+    """The fix in one line: the first line taken out → the first line put in."""
+    old = next((l.strip() for l in removed if l.strip()), "")
+    new = next((l.strip() for l in added if l.strip()), "")
+    return (
+        f"`{old}` → `{new}`"
+        if old and new
+        else f"added `{new}`"
+        if new
+        else f"removed `{old}`"
+        if old
+        else "no line changed"
+    )
+
+
+def procedure(row, files, fix_line):
+    return "\n".join(
+        [
+            f"{HEAD}{row['session_id']} · {row.get('ended_at') or 'unknown time'}",
+            f"- files: {', '.join(files) or 'none'}",
+            f"- fix: {fix_line}",
+            f"- verify: `{row['verify_command']}` (exit {row['exit_code']})",
+            f"- run: {row['turns']} turns · ${row['cost_usd']:.4f} · {row.get('model', 'unknown')}",
+        ]
+    )
+
+
+def record(task_type, row, repo, before, after):
+    """A verified run: diff the repo's trees before and after, then append its procedure."""
     try:
-        page = _gbrain("get", slug)
-        if page is not None:  # the page follows its YAML frontmatter
-            note, call, where = (
-                page.split("\n---\n", 1)[-1],
-                f"gbrain get {slug}",
-                "GBrain",
-            )
-        elif path.is_file():
-            note, call, where = (
-                path.read_text(encoding="utf-8"),
-                f"read {path}",
-                FILE_LABEL,
-            )
-        else:
+
+        def git(*a):
+            return subprocess.run(
+                ["git", *a, before, after], cwd=repo, capture_output=True, text=True
+            ).stdout
+
+        files = [
+            f
+            for f in git("diff-tree", "-r", "--name-only").split()
+            if "__pycache__" not in f
+        ]
+        diff = [
+            l
+            for l in git("diff", "-U0").splitlines()
+            if not l.startswith(("---", "+++"))
+        ]
+        line = fix(
+            [l[1:] for l in diff if l.startswith("-")],
+            [l[1:] for l in diff if l.startswith("+")],
+        )
+        put(task_type, procedure(row, files, line), row["session_id"])
+    except Exception as e:
+        print(f"a2a record skipped: {e!r}")
+
+
+def get(task_type, session_id=None):
+    """The short summary an agent's prompt gets: the newest procedure and how many the page holds."""
+    try:
+        got = _read(task_type)
+        if not got or not got[0]:
             return None
-        note = note.strip()
-        trace.emit("Runner → GBrain", call, f"read {len(note)} chars · {where}", ISSUE, ["runner", "gbrain"], ["a2a-read"], session_id)
+        procedures, call, where = got
+        note = f"Newest of {len(procedures)} verified procedures for {task_type}:\n{procedures[-1]}"
+        trace.emit(
+            "Runner → GBrain",
+            call,
+            f"read {len(procedures)} procedures · {where}",
+            ISSUE,
+            ["runner", "gbrain"],
+            ["a2a-read"],
+            session_id,
+        )
         return note
     except Exception as e:
         print(f"a2a get skipped: {e!r}")
         return None
 
 
-def put(task_type, text, session_id):
+def put(task_type, entry, session_id):
+    """Append one procedure to the page, keeping the newest KEEP."""
     slug, path = _names(task_type)
     try:
+        procedures = [*((_read(task_type) or ([],))[0]), entry.strip()][-KEEP:]
+        text = render(task_type, procedures)
         if _gbrain("put", slug, "--force", text=text) is not None:
             call, where = f"gbrain put {slug} --force", "GBrain"
         else:
             path.parent.mkdir(exist_ok=True)
             path.write_text(text, encoding="utf-8")
             call, where = f"write {path}", FILE_LABEL
-        trace.emit("Runner → GBrain", call, f"wrote {len(text)} chars · {where}", ISSUE, ["runner", "gbrain"], ["a2a-write"], session_id)
+        trace.emit(
+            "Runner → GBrain",
+            call,
+            f"appended, {len(procedures)} procedures · {where}",
+            ISSUE,
+            ["runner", "gbrain"],
+            ["a2a-write"],
+            session_id,
+        )
     except Exception as e:
         print(f"a2a put skipped: {e!r}")

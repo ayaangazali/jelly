@@ -188,9 +188,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)
     escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
     if task_type and row["exit_code"] == 0:  # verified, and not forced to fail
-        diff = ["git", "diff-tree", "-r", "--name-only", before, _tree(repo)]
-        files = [f for f in subprocess.run(diff, cwd=repo, capture_output=True, text=True).stdout.split() if "__pycache__" not in f]
-        a2a.put(task_type, f"{session_id} passed: changed {', '.join(files) or 'nothing'}; `{verify}` went green.", session_id)
+        a2a.record(task_type, row, repo, before, _tree(repo))
     ledger.append(row)
     trace.emit(
         "Runner → Ledger",
