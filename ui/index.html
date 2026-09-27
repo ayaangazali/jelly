@@ -236,6 +236,9 @@ figure.arch figcaption { color: var(--muted); font-size: 13px; margin-top: 10px;
 .where { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
 .badge { font-size: 12.5px; border: 1px solid var(--warn); color: var(--warn); border-radius: 3px; padding: 2px 8px; }
 .badge a { color: inherit; }
+.badge.live { border-color: var(--pass); color: var(--pass); }
+.arch .node.idle { opacity: .45; }
+.arch .node.idle.sel { opacity: .8; }
 ul.calls { margin: 0; padding-left: 18px; }
 ul.calls li { margin: 4px 0; }
 ul.calls code { white-space: pre-wrap; word-break: break-word; }
@@ -493,7 +496,7 @@ function viewTask(k) {
 async function loadConsent(k) {
   try {
     const r = await fetch(`/api/consent/${encodeURIComponent(k)}`, { cache: "no-store" });
-    consentCache[k] = r.ok ? await r.json() : { error: `The consent endpoint answered ${r.status}.` };
+    consentCache[k] = r.ok ? await r.json() : { error: (await r.json().catch(() => ({}))).error || `The consent endpoint answered ${r.status}.` };
   } catch { consentCache[k] = { error: "The consent endpoint isn't reachable yet." }; }
   if (route()[0] === "consent") render(true);
 }
@@ -522,7 +525,7 @@ function viewConsent(k) {
 async function approve(k) {
   try {
     const r = await fetch(`/api/consent/${encodeURIComponent(k)}`, { method: "POST" });
-    if (!r.ok) throw new Error(String(r.status));
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || String(r.status));
     toast("Approved. Training started.");
     location.hash = "#/";
   } catch (e) { toast(`Approval didn't go through (${e.message}). Nothing was sent.`); }
@@ -544,7 +547,7 @@ function viewSetup() {
 function activeTrace() {
   const last = S.trace[S.trace.length - 1];
   if (!last) return { n: new Set(), e: new Set() };
-  const fresh = new Date(S.generated_at) - new Date(last.ts) <= 3000;
+  const fresh = new Date(S.generated_at) - new Date(last.ts) <= 2000;
   return fresh ? { n: new Set(last.nodes), e: new Set(last.edges) } : { n: new Set(), e: new Set() };
 }
 
@@ -556,7 +559,8 @@ function lastCallFor(id) {
 function archSvg() {
   const on = activeTrace();
   const edges = EDGES.map((e) => `<g class="edge${on.e.has(e.id) ? " on" : ""}"><path d="${e.d}"/><text x="${e.lx}" y="${e.ly}" text-anchor="${e.a}">${e.t}</text></g>`).join("");
-  const nodes = Object.values(NODE).map((n) => `<g class="node${n.ext ? " ext" : ""}${on.n.has(n.id) ? " on" : ""}${selNode === n.id ? " sel" : ""}" data-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.label)}: ${esc(n.sub)}">
+  const wired = new Set(S.trace.flatMap((t) => t.nodes));
+  const nodes = Object.values(NODE).map((n) => `<g class="node${n.ext ? " ext" : ""}${on.n.has(n.id) ? " on" : ""}${wired.has(n.id) ? "" : " idle"}${selNode === n.id ? " sel" : ""}" data-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.label)}: ${esc(n.sub)}">
       <rect x="${n.x}" y="${n.y}" width="${BW}" height="${BH}" rx="6"/><text x="${n.x + 14}" y="${n.y + 24}">${esc(n.label)}</text><text class="sub" x="${n.x + 14}" y="${n.y + 42}">${esc(n.sub)}</text></g>`).join("");
   return `<svg viewBox="0 0 1030 530" role="img" aria-label="GRADUATE architecture, lit up from the latest real call"><defs>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="a" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -567,7 +571,7 @@ function nodeDetail() {
   const n = NODE[selNode], last = lastCallFor(n.id);
   const list = (a) => `<ul class="calls">${a.map((c) => `<li><code>${esc(c)}</code></li>`).join("")}</ul>`;
   return `<div class="sheet pad detail"><div class="detail-top"><h2>${esc(n.label)} <span class="where">${n.ext ? "Outside service" : "On your machine"}</span></h2>
-      <span class="badge">${last ? `Last call ${clock(last.ts, true)}` : "No calls yet"} · ${n.issues.map((i) => `<a href="${GH}${i}" target="_blank" rel="noopener">#${i}</a>`).join(" ")}</span></div>
+      <span class="badge${last ? " live" : ""}">${last ? `Last call ${clock(last.ts, true)}` : "Not wired: no calls yet"} · ${n.issues.map((i) => `<a href="${GH}${i}" target="_blank" rel="noopener">#${i}</a>`).join(" ")}</span></div>
     <p>${esc(n.what)}</p>${n.calls ? `<h3>Calls it makes</h3>${list(n.calls)}` : ""}${n.files ? `<h3>Writes</h3>${list(n.files)}` : ""}
     ${n.leaves ? `<h3>What leaves your machine</h3><p>${esc(n.leaves)}</p>` : ""}${n.risk ? `<p class="risk"><strong>Open risk.</strong> ${esc(n.risk)}</p>` : ""}</div>`;
 }
@@ -589,7 +593,7 @@ function viewSystem() {
   };
   return `<h1>Under the hood</h1>
     <p class="lede">What each part does, what it calls, and where your data goes. The diagram lights up from the latest real call.</p>
-    <figure class="arch sheet">${archSvg()}<figcaption>Solid boxes run on your machine. Dashed boxes are outside services, so data leaves your machine there. Indigo is the latest call. Click any box for its calls.</figcaption></figure>
+    <figure class="arch sheet">${archSvg()}<figcaption>Solid boxes run on your machine. Dashed boxes are outside services, so data leaves your machine there. Indigo is the latest call. Faded boxes haven't made a real call yet. Click any box for its calls.</figcaption></figure>
     ${nodeDetail()}
     <div class="sys-grid">
       <section aria-labelledby="wire-h"><h2 id="wire-h">Every call, newest first</h2>
