@@ -1,0 +1,17 @@
+{
+  "task_types": {},
+  "events": [
+    {
+      "ts": "2026-09-27T17:38:44Z",
+      "kind": "graduated",
+      "task_type": "fix-failing-test",
+      "text": "fix-failing-test graduated: fix-failing-test-v4, trained on 3 runs in 412.6 s."
+    },
+    {
+      "ts": "2026-09-27T17:31:51Z",
+      "kind": "training",
+      "task_type": "fix-failing-test",
+      "text": "Training started on this machine with 3 runs."
+    }
+  ]
+}
