@@ -59,7 +59,7 @@ function underTheHood() {
   return `<h1>Under the hood</h1>
 <figure class="panel arch-fig">${archSvg(trace)}<figcaption class="muted">Solid boxes run on this machine; dashed boxes are outside services. Indigo is the latest real call; faded boxes have not been called yet.</figcaption></figure>
 <div class="cols">
-<section><h2>Activity, newest first</h2>${trace.length ? `<ul class="feed">${[...trace].reverse().map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(String(e.call).slice(0, 120))}</code><br><span class="muted">${esc(String(e.result).slice(0, 160))}</span></span></li>`).join("")}</ul>` : empty("No calls yet.")}</section>
+<section><h2>Activity, newest first</h2>${trace.length ? `${trace.length > 500 ? `<p class="muted">Showing the newest 500 of ${trace.length}.</p>` : ""}<ul class="feed">${[...trace].reverse().slice(0, 500).map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(String(e.call).slice(0, 120))}</code><br><span class="muted">${esc(String(e.result).slice(0, 160))}</span></span></li>`).join("")}</ul>` : empty("No calls yet.")}</section>
 <section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${s.terminal.map((l) => `<span class="${cls(l)}">${esc(l)}</span>`).join("\n")}</pre>` : empty("Waiting for a task…")}</section>
 </div>
 <h2>Parts</h2>

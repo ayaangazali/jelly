@@ -36,10 +36,12 @@ const SCROLLERS = ".drawer, .oc-body, .filebox, .scroll, .turns, .tbody, .log, .
 function swap(el, html) {
   if (!el || el.dataset.html === html) return false;
   const open = new Set([...el.querySelectorAll("details[open] > summary")].map((x) => x.textContent));
-  const tops = [...el.querySelectorAll(SCROLLERS)].map((x) => x.scrollTop);
+  const key = (x, i, all) => `${x.closest("section, .panel, figure")?.querySelector("h2, h3")?.textContent || ""}|${x.className}|${all.filter((y) => y.className === x.className).indexOf(x)}`;
+  const was = [...el.querySelectorAll(SCROLLERS)], tops = new Map(was.map((x, i) => [key(x, i, was), x.scrollTop]));
   el.innerHTML = html; el.dataset.html = html;
   el.querySelectorAll("details > summary").forEach((x) => { if (open.has(x.textContent)) x.parentElement.open = true; });
-  el.querySelectorAll(SCROLLERS).forEach((x, i) => { if (tops[i]) x.scrollTop = tops[i]; });
+  const now = [...el.querySelectorAll(SCROLLERS)];
+  now.forEach((x, i) => { const t = tops.get(key(x, i, now)); if (t) x.scrollTop = t; });
   return true;
 }
 
@@ -310,7 +312,7 @@ ${row("Tests pass", "passed", (v, a) => `${v} of ${a.runs}`)}
 
 function activity() {
   const s = data.state;
-  const trace = [...(s.trace || [])].reverse();
+  const trace = [...(s.trace || [])].reverse().slice(0, 500);
   return `<h1>Activity</h1>
 
 <div class="cols">

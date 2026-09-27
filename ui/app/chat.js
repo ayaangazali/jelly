@@ -30,7 +30,11 @@ function chat() {
 .oc-dim{color:#6B7589;margin:0}
 .oc-cursor{display:inline-block;width:.6em;background:#D6DBE5;animation:ocblink 1s steps(1) infinite}
 @keyframes ocblink{50%{opacity:0}}
-.oc-pane footer{padding:5px 12px;border-top:1px solid #1B2130;font-size:.76em;color:#8A94A8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #1B2130}
+.oc-tiles div{padding:8px 12px;border-right:1px solid #1B2130;min-width:0}.oc-tiles div:last-child{border-right:0}
+.oc-tiles b{display:block;font-size:1.25em;font-weight:700;color:#E8ECF4;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-tiles span{font-size:.72em;color:#8A94A8}
+.oc-tiles .win{background:#0F2A1C}.oc-tiles .win b{color:var(--pass)}
 .oc-prompt{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#07090D;border:1px solid #1B2130;border-radius:6px}
 .oc-prompt b{color:var(--owned)}
 .oc-prompt input{flex:1;min-width:0;background:transparent;border:0;color:#E8ECF4;font:inherit;font-size:.9em;outline:0}
@@ -42,7 +46,7 @@ function chat() {
   if (!env) fetch("/api/chat-preset").then((r) => r.json()).then((p) => { data.preset = p; render(); }).catch(() => {});
   const pane = (id) => `<section class="oc-pane ${id}" id="chat-${id}"><header><b data-f="title">session</b><span data-f="model"></span></header>
 <div class="oc-body"><div class="oc-user" data-f="user"></div><div class="oc-asst" data-f="out"></div><p class="oc-dim" data-f="status"></p></div>
-<footer data-f="foot">tokens – · $– · –s</footer></section>`;
+<footer class="oc-tiles"><div data-t="tokens"><b data-f="tokens">–</b><span>output tokens</span></div><div data-t="cost"><b data-f="cost">–</b><span>cost</span></div><div data-t="time"><b data-f="time">–</b><span>time to complete</span></div></footer></section>`;
   setTimeout(paintChat);
   return `<div class="oc"><p class="oc-bar" id="chat-verdict" hidden></p>
 <div class="oc-panes">${pane("small")}${pane("big")}</div>
@@ -79,13 +83,21 @@ function paintChat() {
     put("title", esc(chatRun.own ? "session · your question" : `session · ${(data.preset && data.preset.title) || "fix the failing test"}`));
     put("model", esc(chatName(s && s.model, id)));
     put("user", userTurn());
-    if (!s) { put("out", ""); put("status", "press enter to send to both"); put("foot", "tokens – · $– · –s"); continue; }
+    const tile = (k, v) => { if (f(k).textContent !== v) f(k).textContent = v; };
+    if (!s) { put("out", ""); put("status", "press enter to send to both"); tile("tokens", "–"); tile("cost", "–"); tile("time", "–"); continue; }
     const secs = ((s.done ? s.done.wall_ms : performance.now() - s.t0) / 1000).toFixed(2);
     put("out", md(s.text) + (!s.done && !s.error && s.text ? `<span class="oc-cursor">&nbsp;</span>` : ""));
     put("status", esc(s.error || (s.done ? "" : s.text ? "" : `thinking… ${secs}s`)));
-    put("foot", s.done ? `tokens ${s.done.output_tokens} · $${s.done.cost_usd.toFixed(6)} · ${secs}s` : `tokens ${s.pieces ? `~${s.pieces}` : "–"} · $– · ${secs}s`);
+    tile("tokens", s.done ? String(s.done.output_tokens) : s.pieces ? `~${s.pieces}` : "–");
+    tile("cost", s.done ? `$${s.done.cost_usd.toFixed(6)}` : "–");
+    tile("time", s.error && !s.done ? "–" : `${secs}s`);
   }
   const v = $("#chat-verdict"), a = chatRun.sides.small && chatRun.sides.small.done, b = chatRun.sides.big && chatRun.sides.big.done;
+  // Once both finish, mark the lower value of each tile (a tie marks neither): never a win the numbers don't show.
+  for (const [k, fa, fb] of [["tokens", a && a.output_tokens, b && b.output_tokens], ["cost", a && a.cost_usd, b && b.cost_usd], ["time", a && a.wall_ms, b && b.wall_ms]]) {
+    const win = a && b && fa !== fb ? (fa < fb ? "small" : "big") : null;
+    for (const id of ["small", "big"]) document.querySelector(`#chat-${id} [data-t="${k}"]`)?.classList.toggle("win", win === id);
+  }
   v.hidden = !(chatRun.note || (a && b));
   if (a && b) {
     const r = a.cost_usd > 0 ? b.cost_usd / a.cost_usd : 0;
