@@ -50,7 +50,7 @@ uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo
 ```bash
 git clone https://github.com/ayaangazali/jelly && cd jelly   # the demo repo and its tasks live here
 python3 -m venv .venv && . .venv/bin/activate
-pip install -e '.[test]'                                     # or: pip install git+https://github.com/ayaangazali/jelly
+pip install -e '.[test]'                                     # editable: graduate bench reads demo-repo/ from here
 graduate init          # checks Python + OpenCode, asks for OPENAI_API_KEY (hidden), validates it with the free GET /v1/models
 graduate up            # router + watcher on :4141, dashboard at http://localhost:4141/; leave it running
 ```
