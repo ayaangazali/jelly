@@ -70,6 +70,7 @@ def check():
         SEEN=os.path.abspath("seen.jsonl"),
         SESSIONS=os.path.abspath("sessions"),
         MEMORABLE_BIN="false",
+        GBRAIN_BIN="false",
     )
     os.environ["GRADUATE_FORCE_FAIL"] = "1"
     graduated("unknown")  # no router: the runner's task type is `unknown`
