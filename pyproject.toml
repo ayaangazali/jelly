@@ -19,5 +19,11 @@ graduate = "graduate.cli:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]  # demo-repo/tests fail on purpose
 
+# ui/ and fixtures/ ship beside graduate/ (site-packages/ui, site-packages/fixtures), where the router's
+# `parents[2]` paths look for the dashboard and prices, so `uvx --from git+... graduate up --demo` works without a clone.
 [tool.setuptools.packages.find]
-include = ["graduate*"]
+include = ["graduate*", "ui", "fixtures"]
+
+[tool.setuptools.package-data]
+ui = ["*"]
+fixtures = ["*.json", "*.jsonl"]
