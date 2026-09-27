@@ -63,3 +63,37 @@ Baseline: mean of the 5 verified frontier runs before graduation (the staged cor
 ## Bench (#56)
 
 No frontier bench table: with no credit, `graduate bench` can only run its frontier arm against the stub, and the stub's scripted sessions measure nothing. The owned arm's rows are in the per-state table above.
+
+## River: the owned model trained and served on River (Qwen3.5-9B)
+
+**2026-09-27, 22:17-22:29Z, live.** The same task type (`fix-failing-test`), trained with LoRA on River instead of this machine's CPU, on a base of at most 9B parameters. `get_capabilities()` listed 13 models; `Qwen/Qwen3.5-9B` is the only one at or under 9B.
+
+**Training data:** the 8 real, verified sessions of the big model, Claude Haiku 4.5, on broken states 01-08 (exit 0 each). Broken states 09 and 10 are held out.
+
+**Training:**
+
+| What | Value |
+|---|---|
+| Base | `Qwen/Qwen3.5-9B`, LoRA rank 16, lr 2e-4, grad clip 1.0 |
+| Records | 8 sessions, compacted to ~2.1-2.5k tokens each (the prompt the model is also served) |
+| Steps | 24 (3 passes over the 8 sessions), one session per step |
+| Loss | 0.261 (step 1) → 0.030 (step 24); per step: 0.261 0.181 0.171 0.176 0.152 0.121 0.203 0.135 0.059 0.079 0.094 0.071 0.065 0.081 0.093 0.073 0.024 0.031 0.054 0.032 0.038 0.043 0.067 0.030 |
+| Time on River | 110 s of training steps (~3.5 s a step), 122 s wall-clock from start to checkpoint saved |
+| Checkpoint | `river://9a2699b3-ce6f-4182-9da8-824a68de9c84/sampler_weights/fix-failing-test-v1` |
+| Registry | `GRADUATED`, `model` = that river:// path, `serving` = `checkpoint` (the contract's value for a checkpoint path; the `river://` scheme picks the River backend) |
+
+**Serving through the router** (real OpenCode, River serves every call of an owned session, a failure escalates to Claude Haiku 4.5):
+
+| State | Kind | Session | What happened | River calls | Wall (s) | Verify |
+|---|---|---|---|---|---|---|
+| 07 | repeat | `sess-dea68a189eb1` | before the fix below: one `read .`, then an empty answer ended the session | 3 | 14.9 | exit 1 → escalated, Claude rerun `sess-532648dffd73` exit 0 ($0.2026) |
+| 09 | held out | `sess-ab8fc7b22291` | the same empty answer after one call | 3 | 14.1 | exit 1 → escalated, Claude rerun `sess-fe2979894c63` exit 0 ($0.1451) |
+| 07 | repeat | `sess-f135b8444c2f` | read the test, read `calc/mod_07.py`, the right edit (`"aeio"` → `"aeiou"`), ran the test, "Test passes." | 7 of 7 | 28.8 | **exit 0 on River alone** |
+| 09 | held out | `sess-d1db6229fc80` | read the test and `calc/mod_09.py`, then the right edit (reverse the word order). The serving cap was reached there, so Claude ran the test and wrote the last message | 5 of 7 | 26.8 | exit 0, **mixed session, not counted as an owned pass** |
+| 09 | held out, clean rerun | `sess-f4139463e73a` | read the test, read `calc/mod_09.py`, the right edit (reverse the word order), ran pytest, "Done. The test now passes." | 8 of 8, **0 frontier calls** | 31.0 | **exit 0 on River alone** |
+
+The empty answers had one cause: River returns the fine-tuned model's whole answer as `reasoning_content` (Qwen3.5's template opens `<think>` and the model never closes it), with its tool calls in Qwen3.5's XML form. The backend now reads both (`graduate/registrar/train.py`, `parse` and `RiverBackend.complete`); the second pair of rows is after that fix.
+
+**Result, honestly:** after the fix, 2 owned passes on River in 2 clean runs: repeat 07 and **held-out 09** (a state not in the training data), each with zero frontier calls. The earlier mixed 09 is not counted. 10 was not run. Two runs are too few for a pass rate.
+
+**Spend on River:** 25 training steps (24 + a 1-step probe) and 28 serving calls (1 probe, 6 before the fix, 1 replay of the empty answer, 12 after, then 8 for the clean 09 under a separate 10-call cap). About 42 k prompt tokens and 2.0 k output tokens served in all. The River SDK exposes no billing call, so the dollar cost is not measured here; at the owned rates in `prices.json` (River's Qwen3.6-35B-A3B preview rates, an upper bound for the 9B) the served calls come to $0.015. **Claude Haiku 4.5 spend** for the two escalations and the two frontier calls in the mixed 09: $0.405.

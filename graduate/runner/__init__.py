@@ -98,6 +98,9 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
 
     note = task_type and a2a.get(task_type, session_id)
     sent = f"## Notes from other agents\n{note}\n\n{prompt}" if note else prompt
+    cfg = task_type and a2a.opencode_config(task_type, session_id, os.environ.get("OPENCODE_CONFIG_CONTENT"))
+    if cfg:  # #142: the agent uses GBrain's MCP tools and skills itself
+        sent = f"{a2a.rules(task_type, session_id)}\n{sent}"
     started_at, t0 = _now(), time.monotonic()
     claude = harness == "claude-code"
     trace.emit(
@@ -112,6 +115,8 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     # OpenCode takes its project dir from $PWD, not the process cwd.
     env = {**os.environ, "GRADUATE_SESSION": session_id, "PWD": os.path.abspath(repo)}
     env.pop("OPENAI_API_KEY", None)  # only the router holds it, as in demo.sh (#97)
+    if cfg:
+        env["OPENCODE_CONFIG_CONTENT"] = cfg
     cmd = [OPENCODE, "run", sent]
     if claude:
         env.pop("ANTHROPIC_API_KEY", None)
@@ -202,9 +207,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code, harness="claude-code" if claude else "opencode")
     escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
     if task_type and row["exit_code"] == 0:  # verified, and not forced to fail
-        diff = ["git", "diff-tree", "-r", "--name-only", before, _tree(repo)]
-        files = [f for f in subprocess.run(diff, cwd=repo, capture_output=True, text=True).stdout.split() if "__pycache__" not in f]
-        a2a.put(task_type, f"{session_id} passed: changed {', '.join(files) or 'nothing'}; `{verify}` went green.", session_id)
+        a2a.record(task_type, row, repo, before, _tree(repo))
     ledger.append(row)
     trace.emit(
         "Runner → Ledger",

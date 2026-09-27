@@ -7,8 +7,8 @@
 const SPONSORS = [
   ["anthropic", "Anthropic · Claude Haiku 4.5", "the big model for today's real runs", "on"],
   ["openai", "OpenAI", "the big model when credited · no credit today", "off"],
-  ["river", "River", "trains and serves your model · key works, a training attempt is in progress; the demo model trained on this machine", "warn"],
-  ["memorable", "Memorable", "recognises the kind of task · CLI not installed here, so it falls back to the task's own label", "warn"],
+  ["river", "River", "trains and serves your model · Qwen3.5-9B LoRA trained on 8 real runs", "on"],
+  ["memorable", "Memorable", "classifies each task by recalling past procedures learned from verified runs", "on"],
   ["gbrain", "GBrain", "agents share notes · live on this host", "on"],
   ["superset", "Superset", "parallel runs · adapter behind a flag, not installed", "off"],
   ["qm", "QM", "fleet provider · stretch goal", "off"],
@@ -28,18 +28,18 @@ function live() {
 <defs><filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 ${Object.entries(EDGES).map(([k, d]) => `<path id="e-${k}" class="edge ${k.startsWith("yours") ? "mine" : ""}" d="${d}"/>`).join("")}
 ${node("agent", "Coding agents", "send every task")}${node("grad", "GRADUATE", "routes · records · checks", "hub")}
-${node("big", "Big model", "Claude Haiku 4.5 · pay per token")}${node("yours", "Your model", "small, trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
+${node("big", "Big model", "pay per token")}${node("yours", "Your model", "small, trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
-<header class="live-top"><div><span class="pulse"></span> <b>Live</b> <span class="muted">every task your agents send, checked by its own tests</span></div>
-<div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs the big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent on models")}${kpi("k-runs", "tasks passed their tests")}${kpi("k-yours", "handled by your model")}</div><span class="tag src">demo data</span></header>
-<section class="panel p-graph"><h2>Request flow <span class="tag src">demo data</span></h2>${svg}</section>
-<section class="panel p-ring"><h2>Graduation <span class="tag src">demo data</span></h2><p class="ring-what" id="ring-what">After 5 passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
+<header class="live-top">
+<div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent")}${kpi("k-runs", "tests passed")}${kpi("k-yours", "on your model")}</div><span class="tag src">demo data</span></header>
+<section class="panel p-graph"><h2>Request flow</h2>${svg}</section>
+<section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">5 passing runs of one kind of task, then your own model takes it over.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
 <div class="ring-mid"><b id="ring-n">0</b><span id="ring-of">of 5 passing runs</span></div></div><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
 <div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div></section>
-<section class="panel p-race"><h2>Same task, both models <span class="tag src">demo data</span></h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
-<section class="panel p-log"><h2>Session log <span class="tag src">demo data</span></h2><ol id="log" class="log"></ol></section>
-<section class="panel p-lanes"><h2>Agents in parallel · sharing tips through GBrain <span class="tag src">demo data</span></h2><div id="lanes" class="lanes"></div></section>
+<section class="panel p-race"><h2>Race</h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
+<section class="panel p-log"><h2>Session log</h2><ol id="log" class="log"></ol></section>
+<section class="panel p-lanes"><h2>Agents · GBrain tips</h2><div id="lanes" class="lanes"></div></section>
 <footer class="sponsors">${SPONSORS.map(([id, name, role, st]) => `<div class="sp ${st}" id="sp-${id}"><i></i><b>${name}</b><span>${role}</span></div>`).join("")}</footer>
 </div>`;
 }
@@ -106,11 +106,18 @@ function startLive() {
   const S = seed();
   sim.dots.forEach((d) => d.els.forEach((el) => el.remove()));
   Object.assign(sim, { S, t: 0, next: 0.2, qi: 0, dots: [], tokens: 0, cost: 0, runs: 0, passed: 0, yours: 0, saved: 0, savedTok: 0, ring: 0, typeIx: 0, graduated: new Set(S.grads), raceT: 0, training: null });
-  document.querySelectorAll("#live-root .tag.src").forEach((t, i) => { // the top tag states the speed-up once
-    t.textContent = !S.real ? "demo data" : i ? "real run" : `recorded real run${S.speed > 1.5 ? ` · replayed ${Math.round(S.speed)}× faster` : ""}`;
-    t.classList.toggle("real", !!S.real);
-  });
+  const tag = document.querySelector("#live-root .tag.src"); // one source tag for the page
+  tag.textContent = S.real ? `replaying real runs${S.speed > 1.5 ? ` · ${Math.round(S.speed)}× speed` : ""}` : "demo data";
+  tag.classList.toggle("real", !!S.real);
   resetRing();
+  // Name only the big model the ledger shows ran; count Memorable's procedures from the verified runs.
+  const rows = (data.state && data.state.ledger) || [], big = rows.filter((r) => r.routed_to === "frontier").map((r) => r.model || "");
+  const top = [...big].sort((a, b) => big.filter((m) => m === b).length - big.filter((m) => m === a).length)[0] || "";
+  const claude = /claude/i.test(top);
+  document.querySelector("#n-big text.sub").textContent = `${claude ? "Claude Haiku 4.5" : top.split("/").pop() || "big model"} · pay per token`;
+  document.getElementById("sp-anthropic").className = `sp ${claude ? "on" : "off"}`;
+  const verified = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from).length;
+  document.querySelector("#sp-memorable span").textContent = `classifies each task by recalling past procedures · ${verified} learned from verified runs`;
   sim.lanes = S.agents.map((a) => ({ a, busy: 0, dur: 1, status: "idle" }));
   document.getElementById("lanes").innerHTML = sim.lanes.map((l, i) => `<div class="lane" id="lane-${i}"><b>${esc(l.a)}</b><div class="bar"><i></i></div><span class="st">idle</span><span class="note"></span></div>`).join("");
   document.getElementById("ring-name").textContent = `“${ringType()}”`;
@@ -247,23 +254,35 @@ function training(dt) {
   }, 6000);
 }
 
+// The River run's recorded numbers (docs/results.md § River), shown when the registry's model is on River and this
+// directory has no loss curve of its own.
+const RIVER_RUN = " · 24 steps · loss 0.261 → 0.030 · 122 s";
+
 // Real mode: the ring is the registry's own count and state for its busiest task type, not the replay's.
+const topType = () => Object.entries((data.state && data.state.registry.task_types) || {}).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
+// Your model's side before it has a run in this directory: training, or live with no run recorded here yet.
+const notYet = (short) => ((topType()[1] || {}).state === "GRADUATED" ? (short ? "no run yet" : "live · no run here yet") : short ? "model training" : `training on ${sim.S.queue.length} real runs`);
+
 function realRing() {
-  const S = sim.S, reg = (data.state.registry.task_types || {}), n = data.state.config.n || 5;
-  const [slug, t] = Object.entries(reg).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
+  const S = sim.S, n = data.state.config.n || 5;
+  const [slug, t] = topType();
   if (!t) return;
-  const v = t.verified_runs || 0, runs = `${v} verified real run${v === 1 ? "" : "s"}`;
+  const v = t.verified_runs || 0, runs = `${v} real run${v === 1 ? "" : "s"}`;
   document.getElementById("ring").style.strokeDashoffset = 100 - (Math.min(v, n) / n) * 100;
   set("ring-n", String(Math.min(v, n))); set("ring-of", `of ${n} needed`); set("ring-name", `“${t.title || slug}” · ${runs}`);
-  const said = { LEARNING: "learning on the big model", READY: "ready · your model is training on these runs", TRAINING: `training your model on these ${runs}`,
-    GRADUATED: "graduated · your model is live for this task", PROBATION: "back on the big model after failures" };
+  const said = { LEARNING: "learning on the big model", READY: "ready · training your model", TRAINING: `training your model on these ${runs}`,
+    GRADUATED: "graduated · your model is live", PROBATION: "back on the big model after failures" };
   set("ring-state", said[t.state] || t.state);
   const wrap = document.querySelector(".p-ring");
   wrap.classList.toggle("training", t.state === "TRAINING"); wrap.classList.toggle("ready", t.state === "READY"); wrap.classList.toggle("graduated", t.state === "GRADUATED");
-  const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, last = curve && curve.steps[curve.steps.length - 1];
-  set("train-line", last ? `LoRA on Qwen2.5-Coder-0.5B · on this machine · ${last.step} steps · loss ${last.loss.toFixed(3)}` : "LoRA on Qwen2.5-Coder-0.5B · on this machine");
-  document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || last ? 1 : 0})`;
-  set("ring-what", `After ${n} passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.`);
+  const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, c = curve && curve.steps;
+  const river = String(t.model || "").startsWith("river://");
+  const where = river ? "LoRA on Qwen3.5-9B · on River" : "LoRA on Qwen2.5-Coder-0.5B · on this machine";
+  const run = c && c.length ? ` · ${c.length} steps · loss ${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)} · ${Math.round(c[c.length - 1].secs || 0)} s`
+    : river ? RIVER_RUN : "";
+  set("train-line", where + run);
+  document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || c ? 1 : 0})`;
+  set("ring-what", `${n} passing runs of one kind of task, then your own model takes it over.`);
 }
 
 function resetRing() {
@@ -321,7 +340,7 @@ function counters(dt) {
   document.getElementById("n-yours").classList.toggle("lit", sim.graduated.size > 0); set("k-cost", money(sim.shown.cost)); set("k-runs", num(sim.runs));
   set("k-yours", sim.runs ? `${Math.round((sim.yours / sim.runs) * 100)}%` : "0%");
   set("k-saved", `${sim.saved < 0 ? "−" : ""}${money(Math.abs(sim.saved))}`);
-  set("k-saved-l", sim.S.real && !sim.S.mine ? `saved: your model is training on these ${sim.S.queue.length} real runs` : `saved vs the big model · ${num(Math.max(0, sim.savedTok))} tokens`);
+  set("k-saved-l", sim.S.real && !sim.S.mine ? `saved · ${notYet(true)}` : `saved · ${short(Math.max(0, sim.savedTok))} tokens`);
 }
 const short = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
@@ -331,7 +350,7 @@ const set = (id, v) => { const el = document.getElementById(id); if (el && el.te
 function raceLoop(dt) {
   const S = sim.S;
   if (!S.mine || !S.big.out) { // real mode before your model has run: the big model's run only
-    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", `training on these ${S.queue.length} real runs`); set("race-verdict", "");
+    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", notYet()); set("race-verdict", "");
     document.getElementById("rb-big").style.transform = "scaleX(1)"; document.getElementById("rb-yours").style.transform = "scaleX(0)";
     return;
   }

@@ -469,7 +469,7 @@ svg.graph { width: 100%; flex: 1; min-height: 0; }
 .edge.mine { stroke: #2B2F66; }
 .node rect { fill: #121A2E; stroke: #2A3654; stroke-width: 1.5; transition: fill 0.4s, stroke 0.4s; }
 .node text { fill: var(--ink); font: 700 24px "Archivo", sans-serif; text-anchor: middle; }
-.node text.sub { fill: var(--muted); font: 400 16px "Archivo", sans-serif; }
+.node text.sub { fill: var(--muted); font: 400 14.5px "Archivo", sans-serif; }
 .node.hub rect { stroke: var(--owned); fill: #151B3D; }
 .node.mine rect { stroke: #5558C8; }
 .node.mine.lit rect { stroke: var(--owned); filter: drop-shadow(0 0 10px #5558C8); }
@@ -607,3 +607,31 @@ td .btn { margin-bottom: 4px; }
 }
 .p-ring > * { flex-shrink: 0; }
 .race-row .rv { white-space: normal; line-height: 1.25; }
+/* Layout rules (the captain's): no sideways scroll, no wrapped controls; tables and control rows scroll inside themselves. */
+html, body { overflow-x: clip; max-width: 100%; }
+main, .panel, .live > * { min-width: 0; max-width: 100%; }
+.btn, nav.side a, .tag, .state, .flag, th, .sp b, .kpi span, .kpi b, .race-bar a, .lane .st, .dots a { white-space: nowrap; }
+.kpi span, .sp b, .race-bar a { overflow: hidden; text-overflow: ellipsis; }
+.kpi span { display: block; }
+.scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
+.scroll table { min-width: max-content; }
+td.actions { white-space: nowrap; }
+.race-bar { flex-wrap: nowrap; overflow-x: auto; }
+.race-bar select { min-width: 0; flex: 1 1 auto; }
+.kpis { flex-wrap: nowrap; overflow-x: auto; min-width: 0; }
+.kpi { flex: 1 1 0; min-width: 0; }
+.live-top { min-width: 0; }
+.live-top .tag { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex-shrink: 1; }
+@media (max-width: 999px) {
+  .live-top { flex-wrap: nowrap; flex-direction: column; align-items: stretch; }
+  .kpis { flex-wrap: nowrap; }
+  .kpi { flex: 0 0 auto; min-width: 9em; }
+  .sponsors { flex-wrap: nowrap; overflow-x: auto; }
+  .sp { flex: 0 0 15em; }
+}
+@media (max-width: 700px) {
+  nav.side { flex-wrap: nowrap; overflow-x: auto; }
+  nav.side a { flex: 0 0 auto; }
+}
+.kpis { flex: 1 1 auto; margin-left: 0; }
+.train p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.8em; }

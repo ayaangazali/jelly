@@ -32,9 +32,9 @@ function render() {
 async function poll() {
   const s = await get("/state");
   const up = !s.error;
-  $("#live").innerHTML = `<span class="dot${up ? " on" : ""}"></span> ${up ? "live · updates every 3s" : "router unreachable"}`;
+  $("#live").textContent = up ? "" : "router unreachable";
   if (up) data.state = s;
-  if (["overview", "agents", "live"].includes(page())) data.swarm = await get("/api/swarm");
+  if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "live" && !data.replay) {
     data.replay = await get("/api/replay");
@@ -82,11 +82,10 @@ function agents() {
   const flags = (a) => `${a.a2a_read ? `<span class="flag">read a note</span>` : ""}${a.a2a_write ? `<span class="flag">left a note</span>` : ""}`;
   const notes = [...(w.a2a || [])].reverse();
   return `<h1>Agents</h1>
-<p class="lede">Parallel agents from <code>graduate swarm</code>, one per task in its own copy of the demo repo. Agents on the same task type share what worked through agent-to-agent notes.</p>
 ${w.error ? empty(esc(w.error)) : `<p class="muted"><code>${esc(w.swarm_id)}</code> · started ${esc((w.started || "").replace("T", " ").slice(0, 19))}Z · launcher ${esc(w.launcher)}</p>`}
-${list.length ? `<table><thead><tr><th>Agent</th><th>Task</th><th>Task type</th><th>Status</th><th class="num">Exit</th><th class="num">Turns</th><th>Notes</th><th>Session</th></tr></thead><tbody>
+${list.length ? `<div class="scroll"><table><thead><tr><th>Agent</th><th>Task</th><th>Task type</th><th>Status</th><th class="num">Exit</th><th class="num">Turns</th><th>Notes</th><th>Session</th></tr></thead><tbody>
 ${list.map((a) => `<tr><td><b>${esc(a.agent)}</b></td><td>${esc(a.task)}</td><td>${a.task_type ? `<code>${esc(a.task_type)}</code>` : `<span class="muted">not yet</span>`}</td><td>${stateTag(a.status)}</td><td class="num">${a.exit_code ?? "–"}</td><td class="num">${a.turns ?? "–"}</td><td>${flags(a)}</td><td><code class="muted">${esc((a.session_id || "–").slice(0, 13))}</code></td></tr>`).join("")}
-</tbody></table>` : ""}
+</tbody></table></div>` : ""}
 <h2>Agent-to-agent notes</h2>
 ${notes.length ? `<ul class="feed">${notes.map((e) => `<li><time>${time(e.ts)}</time><span><b>${(e.edges || []).includes("a2a-write") ? "wrote" : "read"}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No notes read or written yet.")}`;
 }
@@ -97,22 +96,21 @@ function tasks() {
   const approvable = (t) => ["READY", "PROBATION"].includes(t.state) && !data.readOnly;
   const off = data.readOnly ? ` title="${READ_ONLY}"` : "";
   return `<h1>Task types</h1>
-<p class="lede">Each kind of task your agents repeat. At ${N()} verified runs it is ready to train; nothing trains until you approve its data.</p>
-<table><thead><tr><th>Task type</th><th>State</th><th>Progress to graduation</th><th>Consent</th><th>Turns / cost per run</th><th>Actions</th></tr></thead><tbody>
+<div class="scroll"><table><thead><tr><th>Task type</th><th>State</th><th>Progress to graduation</th><th>Consent</th><th>Turns / cost per run</th><th>Actions</th></tr></thead><tbody>
 ${tt.map(([id, t]) => {
     const n = Math.min(t.verified_runs || 0, N());
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
     return `<tr><td><b>${esc(t.title || id)}</b><br><code class="muted">${esc(id)}</code></td>
 <td>${stateTag(t.state)}</td>
-<td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} of ${N()} verified${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
+<td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
 <td>${base ? `big model ${Math.round(base.turns * 10) / 10} turns · ${money(base.cost_usd)}` : `<span class="muted">n/a</span>`}${cur ? `<br><b style="color:var(--owned)">yours ${cur.turns} · ${money(cur.cost_usd)}</b>` : ""}</td>
-<td><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
+<td class="actions"><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
 <button class="btn owned" data-act="approve" data-t="${esc(id)}" ${approvable(t) ? "" : "disabled"}${off}>Approve</button>
 <button class="btn" data-act="revoke" data-t="${esc(id)}" ${approvable(t) && t.consent ? "" : "disabled"}${off}>Revoke</button></td></tr>`;
   }).join("")}
-</tbody></table>
+</tbody></table></div>
 ${data.readOnly ? `<p class="msg muted">${READ_ONLY}</p>` : ""}
 ${data.drawer ? `<aside class="drawer" aria-label="Training data"><button class="btn close" data-act="close">Close</button><h2>${esc(data.drawer)}</h2>${reviewPanel(data.reviews[data.drawer])}</aside>` : ""}`;
 }
@@ -233,7 +231,7 @@ function compare() {
   const key = (x) => x.owned.row.session_id;
   const p = currentPair(ps), o = p.owned.row;
   return `<h1>Same task, side by side</h1>
-<p class="lede">${esc(o.prompt)} <span class="muted">· ${esc(o.task_type)} · big model on the left, your model on the right, replayed at the speed they ran.</span></p>
+<p class="lede">${esc(o.prompt)}</p>
 <div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(x.owned.row.prompt.slice(0, 60))} · ${esc(x.owned.row.started_at.slice(11, 16))} · yours ${x.owned.row.exit_code === 0 ? "passed" : "failed"}</option>`).join("")}</select>
 <button class="btn" data-race="replay">Replay</button>${[1, 4, 16].map((x) => `<button class="btn" data-race="${x}">${x}×</button>`).join("")}
 <a href="/ui/index.html#/compare">Benchmark table →</a></div>
@@ -244,14 +242,14 @@ function activity() {
   const s = data.state;
   const trace = [...(s.trace || [])].reverse().slice(0, 40);
   return `<h1>Activity</h1>
-<p class="lede">Every external call GRADUATE makes, newest first. The full architecture diagram, lit up live, is <a href="/ui/index.html#/system">Under the hood</a> on the classic dashboard.</p>
+
 <div class="cols">
 <section><h2>Call trace</h2>${trace.length ? `<ul class="feed">${trace.map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No calls traced yet.")}</section>
 <section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.slice(-60).join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers };
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 
