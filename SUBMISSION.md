@@ -42,9 +42,10 @@ Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recordin
 uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo   # the dashboard on fixture data, no key
 ```
 
-The full demo runs from a clone with `.venv` active, `pip install -e '.[test,train]'` and OpenCode installed ([README quickstart](README.md#quickstart)). `GRADUATE_CHECKPOINT` is the directory of the v3 LoRA adapter ([`docs/pretrained-model.md`](docs/pretrained-model.md)):
+The full demo runs from a clone with `.venv` active, `pip install -e '.[test,train]'` and OpenCode installed ([README quickstart](README.md#quickstart)):
 
 ```bash
+GRADUATE_CHECKPOINT=<dir of the fix-failing-test-v3 LoRA adapter>   # where it lives: docs/pretrained-model.md
 scripts/demo.sh --offline --use-checkpoint "$GRADUATE_CHECKPOINT"   # zero OpenAI calls; click Approve on http://localhost:4141/
 make record ARGS="--offline --auto-approve --use-checkpoint $GRADUATE_CHECKPOINT"   # the same run, filmed to docs/recordings/offline-rehearsal.mp4
 ```
