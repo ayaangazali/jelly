@@ -31,7 +31,7 @@ def repo(workdir, monkeypatch):
 @pytest.mark.parametrize(
     "action, exit_code, passed",
     [
-        ("sed -i 's/a - b/a + b/' calc.py", 0, 1),  # the agent fixes it
+        ("perl -pi -e 's/a - b/a + b/' calc.py", 0, 1),  # the agent fixes it
         ("true", 1, 0),  # the agent does nothing
         (
             "exec sleep 30",
@@ -47,6 +47,8 @@ def test_run_verifies_and_appends_one_ledger_row(
     agent.write_text(AGENT.format(action))
     agent.chmod(0o755)
     monkeypatch.setattr(runner, "OPENCODE", str(agent))
+    ingested = []
+    monkeypatch.setattr(runner.memorable, "ingest", lambda *a: ingested.append(a) or "procedures/abc-fix-calc")
 
     row = runner.run("Fix calc.", VERIFY, str(repo), timeout=1)
 
@@ -59,6 +61,8 @@ def test_run_verifies_and_appends_one_ledger_row(
         passed,
         1,
     )
+    assert ingested == ([(row["session_id"], "unknown", VERIFY, 0)] if exit_code == 0 else [])
+    assert row["procedure_slug"] == ("procedures/abc-fix-calc" if exit_code == 0 else None)
     assert (row["routed_to"], row["task_type"], row["escalated_from"]) == (
         "frontier",
         "unknown",
