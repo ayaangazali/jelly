@@ -34,8 +34,9 @@ def first_user_text(request):
     return ""
 
 
-def decide(session_id, request, headers, hint=None):
-    task_type, _ = classify(session_id, first_user_text(request), hint=hint)
+def decide(session_id, request, headers, hint=None, prompt=None):
+    # The runner's registered prompt wins: OpenCode's first call is often its title request, not the task.
+    task_type, _ = classify(session_id, prompt or first_user_text(request), hint=hint)
     entry = registry()["task_types"].get(task_type, {})
     state = entry.get("state", "LEARNING")
     force = (headers.get("x-graduate-force") or "").lower()
@@ -83,7 +84,7 @@ async def classify_and_route(session_id, request):
         return None
     reg = _registered.get(session_id, {})
     headers = {"x-graduate-force": "frontier"} if reg.get("force_frontier") else {}
-    d = await asyncio.to_thread(decide, session_id, request, headers, reg.get("task_type"))
+    d = await asyncio.to_thread(decide, session_id, request, headers, reg.get("task_type"), reg.get("prompt"))
     if d["upstream"] != "owned":
         return None
     from graduate.router import river

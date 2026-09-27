@@ -107,3 +107,19 @@ def test_call_logged_in_contract_shapes(router, stub, sid, workdir, stream, tool
         "Router → Metrics",
         "Router → Session log",
     }
+
+
+def test_title_call_first_still_classified_by_registered_session(router, stub, sid):
+    """OpenCode's first call is often its title request; the session keeps the runner's task type and prompt (#20)."""
+    title = [{"role": "user", "content": "Generate a title for this conversation: ..."}]
+    task = "The test tests/test_mod_09.py is failing. Fix the code so it passes."
+    router("POST", "/api/sessions", json={"session_id": sid, "prompt": task, "task_type": "fix-failing-test"})
+    router("POST", "/v1/chat/completions", headers={"Authorization": f"Bearer {sid}"},
+           json={"model": "graduate", "messages": title})
+    assert router("GET", f"/api/sessions/{sid}").json()["task_type"] == "fix-failing-test"
+    # No hint: the registered prompt is classified, not the title request.
+    other = "sess-" + uuid.uuid4().hex[:12]
+    router("POST", "/api/sessions", json={"session_id": other, "prompt": task})
+    router("POST", "/v1/chat/completions", headers={"Authorization": f"Bearer {other}"},
+           json={"model": "graduate", "messages": title})
+    assert router("GET", f"/api/sessions/{other}").json()["task_type"].startswith("the-test")
