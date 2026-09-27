@@ -36,6 +36,7 @@ async function poll() {
   if (up) data.state = s;
   if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
+  if (page() === "providers") { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
   if (page() === "live" && !data.replay) {
     data.replay = await get("/api/replay");
     if (sim.S && (data.replay.runs || []).length && !data.sample) startLive(); // real runs arrived: replay them
@@ -61,7 +62,7 @@ function home() {
   const events = [...(s.registry.events || [])].sort((a, b) => (b.ts || "").localeCompare(a.ts || "")).slice(0, 12);
   const agents = (data.swarm && data.swarm.agents) || [];
   return `<h1>Your agents, getting cheaper</h1>
-<p class="lede">GRADUATE sits between your coding agent and the frontier model. It watches which kinds of task your agents repeat, and once a task type has ${N()} test-verified runs, it trains a small model you own on them and routes that task to it. Every run is still verified; a failure goes back to the frontier.</p>
+<p class="lede">jelly sits between your coding agent and the frontier model. It watches which kinds of task your agents repeat, and once a task type has ${N()} test-verified runs, it trains a small model you own on them and routes that task to it. Every run is still verified; a failure goes back to the frontier.</p>
 <div class="cards">
   <div class="card"><b>${tt.length}</b><span>task types seen</span></div>
   <div class="card"><b>${verified}</b><span>verified runs</span></div>
@@ -170,7 +171,8 @@ function describe(m) {
 }
 
 function startRace(p) {
-  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.frontier), pane(p.owned)], rescue: p.rescue, base: 0, since: performance.now() });
+  // A static comparison: the clock starts past both runs' ends, so each pane shows its finished run.
+  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.frontier), pane(p.owned)], rescue: p.rescue, base: 1e12, since: performance.now() });
 }
 
 const elapsed = () => race.base + (performance.now() - race.since) * race.speed;
@@ -185,7 +187,7 @@ function paneHTML(p, t, side) {
     : { out: shown.reduce((a, s) => a + s.out, 0), turns: shown.length, cost: shown.reduce((a, s) => a + s.cost, 0), ms: t };
   const end = !done ? `<p class="verify muted">working…</p>` : r.exit_code === 0 ? `<p class="verify pass">✓ Tests passed</p>`
     : `<p class="verify fail">✗ Tests failed${race.rescue && side === "owned" ? `: re-run on the big model, which ${race.rescue.exit_code === 0 ? "passed" : "failed too"}` : ""}</p>`;
-  return `<header><b>${side === "owned" ? "Your model" : "Big model"}</b> <code class="muted">${esc(r.model.split("/").pop())}</code><p class="muted">${data.sample ? "sample data" : "recorded run"}, replayed at the speed it ran</p></header>
+  return `<header><b>${side === "owned" ? "Your model" : "Big model"}</b> <code class="muted">${esc(r.model.split("/").pop())}</code><p class="muted">${data.sample ? "sample data" : "recorded run"}</p></header>
 <div class="ctr"><div class="big"><b>${num(c.out)}</b><span>tokens written: the text you pay for</span></div>
 <div><b>${c.turns}</b><span>times it asked the model</span></div><div><b>${money(c.cost)}</b><span>cost of the task</span></div>
 <div><b>${secsOf(c.ms)}</b><span>time until the tests ran</span></div></div>
@@ -197,7 +199,8 @@ function verdictHTML([f, o]) {
   const F = f.row, O = o.row;
   if (O.exit_code !== 0) return `<p class="diff fail">Your model got this one wrong. The tests caught it${race.rescue ? " and it was re-run on the big model" : ""}. No win to claim here.</p>`;
   if (F.exit_code !== 0) return `<p class="diff">The big model failed this one; your model fixed it.</p>`;
-  const fewer = O.output_tokens < F.output_tokens ? `wrote ${(F.output_tokens / (O.output_tokens || 1)).toFixed(0)}× less text` : `wrote ${O.output_tokens > F.output_tokens ? "more" : "the same amount of"} text`;
+  const x = F.output_tokens / (O.output_tokens || 1);
+  const fewer = x >= 1.5 ? `wrote ${x.toFixed(0)}× less text` : x > 1 / 1.5 ? "wrote about as much text" : "wrote more text";
   const caveat = data.sample ? " (sample data)" : bigIsReal() ? "" : " The big model here is a stand-in, not OpenAI, so there is no real saving to claim yet.";
   return `<p class="diff">Both fixed it. Your model ${fewer} and cost ${money(O.cost_usd)} instead of ${money(F.cost_usd)}.${caveat}</p>`;
 }
@@ -216,6 +219,14 @@ function tick() {
 }
 setInterval(tick, 100);
 
+// "Task 05 · fix failing test · your model passed": the demo task's number, its kind, and how your model did.
+function pairLabel(x) {
+  const o = x.owned.row, nn = (String(o.prompt).match(/test_mod_(\d+)/) || [])[1];
+  const kind = ((data.state.registry.task_types || {})[o.task_type] || {}).title || o.task_type || "task";
+  const how = o.exit_code === 0 ? "your model passed" : x.rescue ? "handed to big model" : "your model failed";
+  return `${nn ? `Task ${nn}` : "Task"} · ${kind.toLowerCase()} · ${how}`;
+}
+
 // The pair on screen: the one picked, else the newest where your model passed, else the newest.
 function currentPair(ps) {
   let p = ps.find((x) => x.owned.row.session_id === race.key);
@@ -231,11 +242,12 @@ function compare() {
   const key = (x) => x.owned.row.session_id;
   const p = currentPair(ps), o = p.owned.row;
   return `<h1>Same task, side by side</h1>
-<p class="lede">${esc(o.prompt)}</p>
-<div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(x.owned.row.prompt.slice(0, 60))} · ${esc(x.owned.row.started_at.slice(11, 16))} · yours ${x.owned.row.exit_code === 0 ? "passed" : "failed"}</option>`).join("")}</select>
-<button class="btn" data-race="replay">Replay</button>${[1, 4, 16].map((x) => `<button class="btn" data-race="${x}">${x}×</button>`).join("")}
+
+<div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(pairLabel(x))}</option>`).join("")}</select>
+
 <a href="/ui/index.html#/compare">Benchmark table →</a></div>
-<div id="race" class="race"><section class="pane frontier"></section><section class="pane owned"></section></div><div id="verdict"></div>`;
+<div id="race" class="race"><section class="pane frontier"></section><section class="pane owned"></section></div><div id="verdict"></div>
+<p class="muted prompt-line">Task prompt: ${esc(o.prompt)}</p>`;
 }
 
 function activity() {

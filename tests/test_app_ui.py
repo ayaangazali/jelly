@@ -66,3 +66,10 @@ def test_replay_gives_each_run_its_tool_steps_and_each_task_type_its_newest_loss
     got = router("GET", "/api/replay").json()
     assert [r["steps"] for r in got["runs"]] == [["edit calc/mod_05.py"], []]
     assert got["loss"] == {"fix-failing-test": {"name": "fix-failing-test-v3", "steps": [{"step": 1, "loss": 2.35, "secs": 21.2}]}}
+
+
+def test_provider_calls_cover_the_whole_trace_not_the_last_100(router, workdir):
+    memorable = {"who": "Runner → Memorable", "call": "memorable ingest t.json", "result": "procedures/x"}
+    noise = {"who": "Router → Metrics", "call": "append metrics.jsonl", "result": "ok"}
+    (workdir / "trace.jsonl").write_text(json.dumps(memorable) + "\n" + "".join(json.dumps(noise) + "\n" for _ in range(150)))
+    assert router("GET", "/api/provider-calls").json() == [memorable]
