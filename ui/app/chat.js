@@ -44,10 +44,9 @@ function chat() {
   const env = data.preset, pre = (t) => `<pre>${esc(t)}</pre>`;
   if (!env) fetch("/api/chat-preset").then((r) => r.json()).then((p) => { data.preset = p; render(); }).catch(() => {});
   return `<h1>Chat</h1><p class="lede">One fixed task, sent once. Your trained model and the big model get the same files and the same failing test at the same instant, and propose a fix side by side.</p>
-${env && env.files ? `<div class="chat-env">${env.files.map((f) => `<section class="card"><h3>${esc(f.path)}</h3>${pre(f.text)}</section>`).join("")}</div>
-<section class="card chat-out"><h3>$ ${esc(env.pytest.command)} · exit ${env.pytest.exit_code}</h3>${pre(env.pytest.output)}</section>
-<form class="chat-run" id="chat-form"><button class="btn owned" id="chat-send">Run both</button><p><b>Task:</b> ${esc(env.instruction)} <span class="muted">${esc(env.title)}</span></p></form>` : `<p class="muted">Loading the task…</p>`}
-<form class="chat-ask" id="chat-free"><input id="chat-q" maxlength="2000" placeholder="Or ask both models anything…" autocomplete="off" aria-label="Your own question"><button class="btn" id="chat-free-send">Send</button></form>
+${env && env.files ? `<form class="chat-ask" id="chat-form"><input id="chat-q" maxlength="2000" value="${esc(env.instruction)}" autocomplete="off" aria-label="Prompt for both models"><button class="btn owned" id="chat-send">Send</button></form>
+<div class="chat-env">${env.files.map((f) => `<section class="card"><h3>${esc(f.path)}</h3>${pre(f.text)}</section>`).join("")}</div>
+<section class="card chat-out"><h3>$ ${esc(env.pytest.command)} · exit ${env.pytest.exit_code}</h3>${pre(env.pytest.output)}</section>` : `<p class="muted">Loading the task…</p>`}
 <div class="chat-panes">${pane("small")}${pane("big")}</div><p class="banner chat-verdict" id="chat-verdict" hidden></p>`;
 }
 
@@ -61,7 +60,7 @@ function paintChat() {
     const f = (k) => el.querySelector(`[data-f="${k}"]`);
     f("model").textContent = s && s.model ? chatName(s.model) : id === "small" ? "Qwen3.5-9B on River" : "OpenAI";
     if (!s) {
-      f("status").textContent = "Press Run both.";
+      f("status").textContent = "Press Send.";
       f("out").textContent = "";
       for (const k of ["tokens", "cost", "time"]) f(k).textContent = "–";
       continue;
@@ -125,13 +124,16 @@ async function refusal(r) {
   return "The chat couldn't answer right now. Try again in a moment.";
 }
 
+// One box, prefilled with the task: sent unchanged it runs the preset (with its files); edited, it is the person's own prompt.
 document.addEventListener("submit", (e) => {
-  if (e.target.id === "chat-form") { e.preventDefault(); if (!chatRun.busy) sendChat(); }
-  if (e.target.id === "chat-free") {
-    e.preventDefault();
-    const q = $("#chat-q").value.trim();
-    if (q.length > 2000) { chatRun.note = "Keep it under 2,000 characters."; paintChat(); return; }
-    if (q && !chatRun.busy) sendChat(q);
-  }
+  if (e.target.id !== "chat-form") return;
+  e.preventDefault();
+  const q = $("#chat-q").value.trim();
+  if (q.length > 2000) { chatRun.note = "Keep it under 2,000 characters."; paintChat(); return; }
+  if (!q || chatRun.busy) return;
+  sendChat(data.preset && q === String(data.preset.instruction).trim() ? undefined : q);
 });
 PAGES.chat = chat;
+// Race and Chat are one page: the live chat on top, the recorded race pairs of real runs below.
+PAGES.race = () => `${chat()}<h2 class="rec-h">Recorded races</h2>${compare().replace(/<h1>[^<]*<\/h1>/, "")}`;
+PAGES.chat = PAGES.race;
