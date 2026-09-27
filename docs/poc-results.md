@@ -65,6 +65,19 @@ Runs 1–2 had 10 trained-on tasks and runs 3–4 had 25. The task list was exte
 - **Why Memorable isn't the training text (#151).** Memorable returns condensed procedures, not the full turn text. So the SFT text comes from this environment's own trace log, `frontier.jsonl`, joined on the task and session id `sess-poc-<name>`. Memorable decides which traces to use, and the local log supplies their text.
 - **Routing new prompts (#152).** Held-out recall tops were 0.0 on all 5 easy-set tasks and 0.585–0.72 on the acme held-out tasks. Memorable recall is not yet a reliable router for new prompts.
 
+## Recall threshold, calibrated (#152)
+
+`python scripts/poc_draft_verify.py calibrate` runs `memorable recall` on 70 prompts against the acme store and writes `$POC_OUT/threshold.json`. Positives are the 30 acme prompts (25 train, 5 held-out). A train prompt's own procedure is dropped from its hits, so it can't match itself. Negatives are the 15 easy-set prompts, the 10 `demo-repo/tasks` prompts and 15 unrelated prompts. Candidate cut points are every observed score, and the cut with the best F1 wins. When `threshold.json` exists, the `memorable` stage reads `min_recall` from it, and `POC_MIN_RECALL` still overrides it.
+
+| Rule | Threshold | Precision | Recall | F1 | Held-out acme routed |
+|---|---|---|---|---|---|
+| Top hit ≥ t | 0.467 | 1.0 | 0.767 | 0.868 | 5/5 |
+| ≥ 2 of the top-3 hits ≥ t | 0.504 | 1.0 | 0.5 | 0.667 | 4/5 (`charge_tax` has 1 hit) |
+
+- **Negatives.** All 40 negatives got 0 hits. Any threshold above 0 separates them, so the data gives no upper bound. The chosen 0.467 is simply the lowest positive score seen.
+- **Positives.** 7 of 25 train prompts had no hit besides their own procedure (top 0.0). Held-out tops were 0.585, 0.604, 0.62, 0.641 and 0.72. `refund_all` now scores 0.641, against 0.31 in the earlier run.
+- **What it means.** On this store, whether a prompt gets any hit at all is what separates acme work from other work. The score adds nothing. The 7 unmatched train prompts show the limit: a new acme prompt unlike every stored procedure isn't routed.
+
 ## River training and serving
 
 - **Base model.** `Qwen/Qwen3.5-9B`. The name is picked from River's `get_capabilities()` list, or set with `RIVER_BASE_MODEL`.
@@ -107,6 +120,7 @@ Acme set:
 export POC_SET=acme POC_OUT=data/poc-acme
 PYTHONPATH=$PWD POC_FRONTIER_MODEL=gpt-4.1-mini python scripts/poc_draft_verify.py frontier
 PYTHONPATH=$PWD POC_FRONTIER_MODEL=gpt-4o-mini python scripts/poc_draft_verify.py frontier
+PYTHONPATH=$PWD MEMORABLE_HOME=$PWD/data/poc-acme/memorable python scripts/poc_draft_verify.py calibrate
 PYTHONPATH=$PWD python scripts/poc_draft_verify.py memorable
 PYTHONPATH=$PWD RIVER_API_KEY=... POC_STEPS=60 POC_LR=5e-5 POC_RANK=16 python scripts/poc_draft_verify.py train eval
 ```

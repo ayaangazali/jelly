@@ -14,7 +14,13 @@ DOCS, SDK, TESTKIT = "", "", ""
 SYSTEM = "You are a precise Python assistant. Reply with exactly one ```python code block containing only the requested function, with no explanation."
 FRONTIER = os.environ.get("POC_FRONTIER_MODEL", "gpt-4.1-mini")
 PRICE = {"input": 0.40, "cached_input": 0.10, "output": 1.60}
-MIN_RECALL = float(os.environ.get("POC_MIN_RECALL", "0.55"))
+MIN_RECALL = float(os.environ.get("POC_MIN_RECALL") or (json.loads((OUT / "threshold.json").read_text())["threshold"] if (OUT / "threshold.json").exists() else 0.55))
+UNRELATED = ["Summarize this email for me.", "Write a SQL query for the top 10 customers by revenue.", "Fix the CSS so the button is centered.",
+             "Translate this paragraph into Spanish.", "Write a haiku about autumn.", "Explain how DNS resolution works.",
+             "Draft a polite reply declining the meeting.", "Write a bash script that backs up my home directory.",
+             "What is the capital of Australia?", "Convert this JSON to YAML.", "Write a React component that shows a modal dialog.",
+             "Why is my Docker container exiting immediately?", "Write a regex that matches US phone numbers.",
+             "Give me a weekly workout plan.", "Refactor this JavaScript loop to use map and filter."]
 
 TASKS = [
     ("train", "is_palindrome", "Write `is_palindrome(s: str) -> bool` that ignores case and every non-alphanumeric character.",
@@ -49,6 +55,7 @@ TASKS = [
      "assert digit_sum(1234) == 10\nassert digit_sum(-56) == 11\nassert digit_sum(0) == 0"),
 ]
 
+EASY = TASKS
 
 if os.environ.get("POC_SET") == "acme":
     sys.path.insert(0, str(Path(__file__).parent))
@@ -174,6 +181,39 @@ def stage_memorable():
     print(f"memorable: {len(ingested)} ingested, {len(selected)} traces selected at recall >= {MIN_RECALL}: {selected}")
 
 
+def stage_calibrate():
+    import poc_acme
+    by_slug = {}
+    for i in load("memorable.jsonl")[0]["ingested"]:
+        by_slug.setdefault(i["slug"], set()).add(i["name"])
+    demo = [json.loads(p.read_text())["prompt"] for p in sorted(Path("demo-repo/tasks").glob("*.json"))]
+    cases = [(True, split, name, prompt) for split, name, prompt, _ in poc_acme.TASKS] + [(False, "easy", n, p) for _, n, p, _ in EASY]
+    cases += [(False, "demo", f"demo{i + 1:02}", p) for i, p in enumerate(demo)] + [(False, "unrelated", f"unrelated{i + 1:02}", p) for i, p in enumerate(UNRELATED)]
+    rows = []
+    for acme, split, name, prompt in cases:
+        out = memorable("recall", prompt)
+        hits = sorted(((float(s), slug) for s, slug in re.findall(r"^\s*([0-9.]+)\s+(procedures/\S+)", out.stdout, re.M)
+                       if split != "train" or name not in by_slug.get(slug, ())), reverse=True)[:3]
+        votes = sorted((s for s, slug in hits if slug in by_slug), reverse=True)
+        rows.append({"acme": acme, "split": split, "name": name, "top": hits[0][0] if hits else 0.0,
+                     "second_acme": votes[1] if len(votes) > 1 else 0.0, "top3": hits})
+        print(f"recall {split:9} {name:18} top {rows[-1]['top']:.3f} top3 {hits}")
+
+    def score(key, t):
+        tp = sum(r[key] >= t and r["acme"] for r in rows)
+        fp = sum(r[key] >= t and not r["acme"] for r in rows)
+        fn = sum(r[key] < t and r["acme"] for r in rows)
+        p, rc = tp / (tp + fp) if tp + fp else 0.0, tp / (tp + fn) if tp + fn else 0.0
+        return {"threshold": t, "precision": round(p, 3), "recall": round(rc, 3), "f1": round(2 * p * rc / (p + rc) if p + rc else 0.0, 3),
+                "heldout_routed": sorted(r["name"] for r in rows if r["split"] == "heldout" and r[key] >= t)}
+
+    rules = {k: max((score(k, t) for t in sorted({r[k] for r in rows} - {0.0})), key=lambda x: (x["f1"], x["threshold"])) for k in ("top", "second_acme")}
+    dist = {g: sorted(r["top"] for r in rows if r["split"] == g) for g in ("train", "heldout", "easy", "demo", "unrelated")}
+    result = {"threshold": rules["top"]["threshold"], "single_score": rules["top"], "top3_vote": rules["second_acme"], "top_scores": dist, "prompts": rows}
+    (OUT / "threshold.json").write_text(json.dumps(result, indent=1))
+    print(json.dumps({k: v for k, v in result.items() if k != "prompts"}, indent=1))
+
+
 def river():
     import river_client
 
@@ -280,6 +320,6 @@ def stage_local():
 
 
 if __name__ == "__main__":
-    stages = {"frontier": stage_frontier, "memorable": stage_memorable, "train": stage_train, "eval": stage_eval, "local": stage_local}
+    stages = {"frontier": stage_frontier, "memorable": stage_memorable, "train": stage_train, "eval": stage_eval, "local": stage_local, "calibrate": stage_calibrate}
     for s in (list(stages) if sys.argv[1:] == ["all"] else sys.argv[1:]):
         stages[s]()
