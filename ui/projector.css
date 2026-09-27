@@ -115,3 +115,10 @@ html.present main:has(.stage-d) { padding: calc(var(--u) * 1.5) 0; }
 .stage-d figure.arch svg { width: min(100%, var(--u) * 70 * 1030 / 530); min-width: 0; margin: 0 auto; }
 .stage-d .legend { margin: 0; color: var(--muted); }
 html.present pre.stage-term { height: auto; font-size: calc(var(--u) * 2.6); padding: calc(var(--u) * 1) calc(var(--u) * 1.6); }
+
+/* Sample data (#87): fixture numbers are labelled on every view. */
+html.sample body::after {
+  content: "Sample data, not a real run"; position: fixed; right: 3vw; top: 1.2vh; z-index: 9; padding: 0.2em 0.8em;
+  border: 2px solid var(--warn); border-radius: 6px; color: var(--warn); background: var(--paper);
+  font: 700 calc(var(--u) * 2.5) "Archivo", sans-serif; letter-spacing: 0.04em; text-transform: uppercase;
+}
