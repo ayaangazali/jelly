@@ -8,7 +8,7 @@ const SPONSORS = [
   ["anthropic", "Anthropic · Claude Haiku 4.5", "the big model for today's real runs", "on"],
   ["openai", "OpenAI", "the big model when credited · no credit today", "off"],
   ["river", "River", "trains and serves your model · Qwen3.5-9B LoRA trained on 8 real runs", "on"],
-  ["memorable", "Memorable", "classifies each task by recalling past procedures · 8 procedures learned from verified runs", "on"],
+  ["memorable", "Memorable", "classifies each task by recalling past procedures learned from verified runs", "on"],
   ["gbrain", "GBrain", "agents share notes · live on this host", "on"],
   ["superset", "Superset", "parallel runs · adapter behind a flag, not installed", "off"],
   ["qm", "QM", "fleet provider · stretch goal", "off"],
@@ -28,7 +28,7 @@ function live() {
 <defs><filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 ${Object.entries(EDGES).map(([k, d]) => `<path id="e-${k}" class="edge ${k.startsWith("yours") ? "mine" : ""}" d="${d}"/>`).join("")}
 ${node("agent", "Coding agents", "send every task")}${node("grad", "GRADUATE", "routes · records · checks", "hub")}
-${node("big", "Big model", "Claude Haiku 4.5 · pay per token")}${node("yours", "Your model", "small, trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
+${node("big", "Big model", "pay per token")}${node("yours", "Your model", "small, trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
 <header class="live-top">
@@ -110,6 +110,14 @@ function startLive() {
   tag.textContent = S.real ? `replaying real runs${S.speed > 1.5 ? ` · ${Math.round(S.speed)}× speed` : ""}` : "demo data";
   tag.classList.toggle("real", !!S.real);
   resetRing();
+  // Name only the big model the ledger shows ran; count Memorable's procedures from the verified runs.
+  const rows = (data.state && data.state.ledger) || [], big = rows.filter((r) => r.routed_to === "frontier").map((r) => r.model || "");
+  const top = [...big].sort((a, b) => big.filter((m) => m === b).length - big.filter((m) => m === a).length)[0] || "";
+  const claude = /claude/i.test(top);
+  document.querySelector("#n-big text.sub").textContent = `${claude ? "Claude Haiku 4.5" : top.split("/").pop() || "big model"} · pay per token`;
+  document.getElementById("sp-anthropic").className = `sp ${claude ? "on" : "off"}`;
+  const verified = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from).length;
+  document.querySelector("#sp-memorable span").textContent = `classifies each task by recalling past procedures · ${verified} learned from verified runs`;
   sim.lanes = S.agents.map((a) => ({ a, busy: 0, dur: 1, status: "idle" }));
   document.getElementById("lanes").innerHTML = sim.lanes.map((l, i) => `<div class="lane" id="lane-${i}"><b>${esc(l.a)}</b><div class="bar"><i></i></div><span class="st">idle</span><span class="note"></span></div>`).join("");
   document.getElementById("ring-name").textContent = `“${ringType()}”`;
