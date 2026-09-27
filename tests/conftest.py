@@ -31,6 +31,11 @@ TOOL_CALLS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def offline_memorable(monkeypatch):
+    monkeypatch.setenv("MEMORABLE_BIN", "false")
+
+
 def example(name):
     """The first record of an example file under the repo root, e.g. `fixtures/metrics.example.jsonl`."""
     text = (ROOT / name).read_text(encoding="utf-8")
