@@ -59,13 +59,8 @@ ${calls.length ? `<ul class="feed">${calls.slice(0, 5).map((e) => `<li><time>${t
   }).join("")}</div>`;
 }
 
-// One page per provider (/app/providers/<id>): a visual deep-dive from the real trace, ledger and registry. River's
-// training and serving numbers are the recorded run in docs/results.md § River, quoted there, since River's SDK
-// keeps no log in this directory.
-const RIVER = {
-  loss: [0.261, 0.181, 0.171, 0.176, 0.152, 0.121, 0.203, 0.135, 0.059, 0.079, 0.094, 0.071, 0.065, 0.081, 0.093, 0.073, 0.024, 0.031, 0.054, 0.032, 0.038, 0.043, 0.067, 0.030],
-  serve: [["07", "repeat", "7 of 7 calls on River", "exit 0 on River alone"], ["09", "held out", "8 of 8 calls on River, 0 big-model calls", "exit 0 on River alone"]],
-};
+// One page per provider (/app/providers/<id>): a visual deep-dive from the real trace, ledger, registry and the served
+// loss curve (GET /api/replay); nothing about a run is hard-coded.
 const stat = (v, label) => `<div class="kpi"><b>${v}</b><span>${label}</span></div>`;
 const feedOf = (calls) => calls.length ? `<ul class="feed pfeed">${calls.map((e, i) => `<li style="animation-delay:${i * 0.12}s"><time>${time(e.ts)}</time><span><code>${esc(String(e.call).slice(0, 110))}</code><br><span class="muted">${esc(String(e.result).slice(0, 140))}</span></span></li>`).join("")}</ul>` : empty("No calls traced yet.");
 
@@ -74,13 +69,14 @@ function providerPage(id) {
   const back = `<p><a href="/app/providers">← All providers</a></p>`;
   const page = (name, role, status, body) => `${back}<div class="pdeep"><header><h1>${name}</h1><span class="state ${status[0]}">${status[1]}</span></header><p class="muted">${role}</p>${body}</div>`;
   if (id === "river") {
-    const g = Object.entries(reg).find(([, t]) => String(t.model || "").startsWith("river://")), served = ledger.filter((r) => String(r.model || "").startsWith("river://"));
-    const w = 600, h = 200, max = 0.3, pts = RIVER.loss.map((l, i) => `${(i / 23) * w},${h - (l / max) * h}`).join(" ");
-    return page("River", "trains your small model with LoRA and serves it", ["s-passed", "live"], `
-<div class="kpis">${stat("Qwen3.5-9B", "base model · LoRA rank 16")}${stat("24", "training steps on 8 real runs")}${stat("0.261 → 0.030", "loss")}${stat("122 s", "start to checkpoint")}${stat(served.length, "sessions served here")}</div>
-<section class="panel pviz"><h2>Training loss · 24 steps</h2><svg viewBox="-10 -10 ${w + 20} ${h + 30}" class="loss"><polyline points="${pts}" pathLength="100"/>${RIVER.loss.map((l, i) => `<circle cx="${(i / 23) * w}" cy="${h - (l / max) * h}" r="4" style="animation-delay:${0.1 * i}s"/>`).join("")}<text x="0" y="${h + 18}">step 1</text><text x="${w}" y="${h + 18}" text-anchor="end">step 24</text></svg></section>
-<section class="panel pviz"><h2>Served through the router</h2><div class="serve">${RIVER.serve.map(([st, kind, calls, res], i) => `<div class="srv" style="animation-delay:${0.4 + i * 0.5}s"><b>Task ${st}</b><span>${kind}</span><span>${calls}</span><em>✓ ${res}</em></div>`).join("")}</div></section>
-<p class="muted">Checkpoint <code>${esc(g ? g[1].model : "river://…/fix-failing-test-v1")}</code>. Loss, time and serving results: the recorded run in docs/results.md § River.</p>`);
+    const g = Object.entries(reg).find(([, t]) => String(t.model || "").startsWith("river://")), served = ledger.filter((r) => r.routed_to === "owned");
+    const curve = g && data.replay && data.replay.loss && data.replay.loss[g[0]], c = (curve && curve.steps) || [];
+    const w = 600, h = 200, max = Math.max(...c.map((x) => x.loss), 0.01), pts = c.map((x, i) => `${(i / Math.max(c.length - 1, 1)) * w},${h - (x.loss / max) * h}`).join(" ");
+    return page("River", "trains your small model with LoRA and serves it", g ? ["s-passed", "live"] : ["", "not trained here yet"], `
+<div class="kpis">${stat("Qwen3.5-9B", "base model")}${stat(c.length || "–", `training steps${g ? ` on ${g[1].trained_on_runs || "?"} real runs` : ""}`)}${stat(c.length ? `${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)}` : "–", "loss")}${stat(c.length ? `${Math.round(c[c.length - 1].secs || 0)} s` : "–", "training time")}${stat(served.length, "runs served")}</div>
+<section class="panel pviz"><h2>Training loss${c.length ? ` · ${c.length} steps` : ""}</h2>${c.length ? `<svg viewBox="-10 -10 ${w + 20} ${h + 30}" class="loss"><polyline points="${pts}" pathLength="100"/>${c.map((x, i) => `<circle cx="${(i / Math.max(c.length - 1, 1)) * w}" cy="${h - (x.loss / max) * h}" r="4" style="animation-delay:${0.1 * i}s"/>`).join("")}<text x="0" y="${h + 18}">step 1</text><text x="${w}" y="${h + 18}" text-anchor="end">step ${c.length}</text></svg>` : empty("No training log in this directory yet.")}</section>
+<section class="panel pviz"><h2>Runs served by your model</h2><div class="serve">${served.slice(-6).map((r) => `<div class="srv"><b>Task ${esc((String(r.verify_command || r.prompt || "").match(/test_mod_(\d+)/) || [])[1] || "?")}</b><span>${r.turns} turns · ${money(r.cost_usd || 0)}</span><em class="${r.exit_code === 0 ? "" : "bad"}">${r.exit_code === 0 ? "✓ tests passed" : "✗ re-run on the big model"}</em></div>`).join("") || empty("No runs served yet.")}</div></section>
+${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
   }
   if (id === "memorable") {
     const ingest = trace.filter((e) => /Memorable/.test(e.who) && /ingest/.test(e.call)), recall = trace.filter((e) => /Memorable/.test(e.who) && /recall/.test(e.call));

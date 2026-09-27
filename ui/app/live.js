@@ -243,9 +243,6 @@ function training(dt) {
   }, 6000);
 }
 
-// The River run's recorded numbers (docs/results.md § River), shown when the registry's model is on River and this
-// directory has no loss curve of its own.
-const RIVER_RUN = " · 24 steps · loss 0.261 → 0.030 · 122 s";
 
 // Real mode: the ring is the registry's own count and state for its busiest task type, not the replay's.
 const topType = () => Object.entries((data.state && data.state.registry.task_types) || {}).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
@@ -333,8 +330,9 @@ function realRing() {
   const river = String(t.model || "").startsWith("river://") || (!t.model && s.config.backend === "river");
   const where = river ? "LoRA on Qwen3.5-9B · on River" : "LoRA on Qwen2.5-Coder-0.5B · on this machine";
   const run = c && c.length ? ` · ${c.length} steps · loss ${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)} · ${Math.round(c[c.length - 1].secs || 0)} s`
-    : river ? RIVER_RUN : "";
-  set("train-line", river ? `Qwen3.5-9B on River${c && c.length ? "" : " · 24 steps · loss 0.261 → 0.030"}` : where);
+    : "";
+  const curveLine = c && c.length ? ` · ${c.length} steps · loss ${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)} · ${Math.round(c[c.length - 1].secs || 0)} s` : "";
+  set("train-line", (river ? "Qwen3.5-9B on River" : "Qwen2.5-Coder-0.5B on this machine") + curveLine);
   document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || c ? 1 : 0})`;
   set("ring-what", `${n} passing runs, then your own model takes over`);
 }
