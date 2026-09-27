@@ -188,9 +188,6 @@ def up():
         action="store_true",
         help="no key: serve the dashboard on fixture state",
     )
-    p.add_argument(
-        "--port", type=int, default=4141, help="OpenCode and the runner expect 4141"
-    )
     a = p.parse_args()
     if a.demo:
         os.chdir(_demo_dir())
@@ -208,8 +205,8 @@ def up():
         not a.demo
     ):  # the demo's registry is a fixture; a watcher would rebuild it from the ledger
         threading.Thread(target=watch, daemon=True).start()
-    print(f"dashboard: http://localhost:{a.port}/   (Ctrl-C stops)", flush=True)
-    uvicorn.run(app, host="127.0.0.1", port=a.port, log_level="warning")
+    print("dashboard: http://localhost:4141/   (Ctrl-C stops)", flush=True)
+    uvicorn.run(app, host="127.0.0.1", port=4141, log_level="warning")
     print("stopped")
 
 
