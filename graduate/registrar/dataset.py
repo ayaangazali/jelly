@@ -130,7 +130,6 @@ class _CharTokenizer:
 
 def _check():
     import os
-    import shutil
     import tempfile
 
     fixtures = Path(__file__).resolve().parents[2] / "fixtures"
@@ -142,13 +141,6 @@ def _check():
     ]
     os.chdir(tempfile.mkdtemp())
     SESSIONS_DIR.mkdir()
-    for r in rows:  # every ledger session replays the fixture conversation
-        (SESSIONS_DIR / f"{r['session_id']}.jsonl").write_text(
-            "".join(
-                json.dumps(json.loads(l) | {"session_id": r["session_id"]}) + "\n"
-                for l in session
-            )
-        )
     # A second clean pass counts; the fixture's escalation rerun (c5f2), a faked
     # failure and a lost log never become data.
     rows += [
@@ -156,14 +148,13 @@ def _check():
         rows[2] | {"session_id": "sess-000000000002", "forced_failure": True},
         rows[0] | {"session_id": "sess-00000000dead"},
     ]
-    shutil.copy(
-        SESSIONS_DIR / "sess-4d2e81a09f3c.jsonl",
-        SESSIONS_DIR / "sess-000000000001.jsonl",
-    )
-    shutil.copy(
-        SESSIONS_DIR / "sess-a91e7f0c55b2.jsonl",
-        SESSIONS_DIR / "sess-000000000002.jsonl",
-    )
+    for r in rows[:-1]:  # each replays the fixture conversation; the last log is lost
+        (SESSIONS_DIR / f"{r['session_id']}.jsonl").write_text(
+            "".join(
+                json.dumps(json.loads(l) | {"session_id": r["session_id"]}) + "\n"
+                for l in session
+            )
+        )
     Path(ledger.LEDGER_PATH).write_text("".join(json.dumps(r) + "\n" for r in rows))
 
     s = build("fix-failing-test", tokenizer=_CharTokenizer())
