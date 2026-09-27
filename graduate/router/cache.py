@@ -128,11 +128,9 @@ def index():
 
 
 def _replay(session_id, request):
-    if session_id == "sess-anon":
+    entries = index()["keys"]  # first, so an eviction is traced at the escalation rerun's first call
+    if session_id == "sess-anon" or route._registered.get(session_id, {}).get("force_frontier"):
         return None
-    if route._registered.get(session_id, {}).get("force_frontier"):
-        return None
-    entries = index()["keys"]
     if not entries:
         return None
     start = time.monotonic()
