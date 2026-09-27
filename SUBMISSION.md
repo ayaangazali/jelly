@@ -1,4 +1,4 @@
-# jelly
+# Jelly
 
 Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recording, this file and [`docs/results.md`](docs/results.md).
 
@@ -22,6 +22,9 @@ Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recordin
 
 ## Numbers (from [`docs/results.md`](docs/results.md))
 
+- **Real OpenAI benchmark** ([details](docs/results.md#real-benchmark-openai-frontier-vs-small-vs-river-trained-owned)): frontier OpenAI `gpt-5.5`, small OpenAI `gpt-5.4-mini`, and the River-trained owned model (Qwen3.5-9B LoRA), on held-out states 09 and 10 plus repeat 07. **All three arms passed 3 of 3.** Output tokens a session: `gpt-5.5` 670, `gpt-5.4-mini` 804, owned 820, so **the owned model did not cut output tokens** (+22% vs `gpt-5.5`). Cost a session: $0.281, $0.047, $0.006 (owned 47× cheaper than `gpt-5.5`, at priced, not billed, River rates).
+- **Live on the public data, big model to small model:** 5 of 5 sessions verified on `gpt-5.5` (Memorable classified each, agents shared notes through GBrain), River trained a fresh LoRA on those 5 in 95.5 s, and the next held-out states 06, 08 and 09 routed to it and passed with zero frontier calls. 07 was misclassified by Memorable and went, safely, to `gpt-5.5`.
+- **`make e2e` passed live** on `gpt-5.4-mini`: exit 0, 13 calls, $0.057. OpenAI spend for all real OpenAI runs: $3.68 at list prices.
 - **The big model is real: Claude Haiku 4.5**, via Anthropic's OpenAI-compatible Chat Completions API (OpenAI had no credit). On broken states 01–08 it passed 8 of 8 real OpenCode sessions through the router: mean 7.1 turns, 710 output tokens, $0.176 and 18.3 s a session. That endpoint reports no cached tokens, so this baseline pays full price for input.
 - **Your model, retrained on those 8 real sessions (local CPU, Qwen2.5-Coder-0.5B LoRA, 1171 s): passes the repeat, fails both held-out states.** On repeat 07 it passes on its own: exit 0, 6 turns, 326 output tokens, $0 marginal, 126 s. Claude took 7 turns, 734 output tokens, $0.173 and 19 s on the same state. On held-out 09 and 10 it fails verification (exit 1). The escalator reruns both on Claude, and both pass, so the user gets a passing result every time. The River-trained model (Qwen3.5-9B) is reported separately in [`docs/results.md`](docs/results.md#river-the-owned-model-trained-and-served-on-river-qwen35-9b).
 - **Savings: not claimed.** One passing repeat out of three owned sessions doesn't support a ratio. The owned model used fewer output tokens on that repeat, and it was about 7× slower on CPU.
@@ -70,4 +73,5 @@ This one command, about 25 minutes:
 - **The recording is not all real.** The offline rehearsal video uses the stub frontier. The real Claude numbers are in [`docs/results.md`](docs/results.md#real-runs-claude-haiku-45-as-the-big-model).
 - **The owned model is a local stand-in for River.** Qwen2.5-Coder-0.5B with LoRA, trained on this machine's CPU (~10 min) because the River account has no credits.
 - **No model is trained during the demo.** The demo graduates on a checkpoint trained beforehand (`--use-checkpoint`) and says so on screen. Approve still starts a real training job, which the demo stops.
+- **The owned model is cheaper, not shorter.** On the OpenAI bench it passes like `gpt-5.5` at about 1/47 of the cost, but writes more output tokens, not fewer. 3 runs per arm is too few for a pass rate.
 - **One task type, one small repo, 5 verified runs.** How many runs a task type needs is an open question. Every session is verified, so a wrong guess costs latency, not correctness.
