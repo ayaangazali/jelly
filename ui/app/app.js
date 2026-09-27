@@ -10,7 +10,7 @@ async function get(url, init) {
   try {
     const r = await fetch(url, { cache: "no-store", ...init });
     const body = await r.json().catch(() => ({ error: `${url} answered ${r.status}.` }));
-    return r.ok ? body : { error: body.error || `${url} answered ${r.status}.`, ...body };
+    return r.ok ? body : { error: body.error || `${url} answered ${r.status}.`, ...body, status: r.status };
   } catch {
     return { error: `${url} isn't reachable.` };
   }
@@ -94,7 +94,8 @@ ${notes.length ? `<ul class="feed">${notes.map((e) => `<li><time>${time(e.ts)}</
 function tasks() {
   const tt = types();
   if (!tt.length) return `<h1>Task types</h1>${empty("No task types yet: they appear after the first classified run.")}`;
-  const approvable = (t) => ["READY", "PROBATION"].includes(t.state);
+  const approvable = (t) => ["READY", "PROBATION"].includes(t.state) && !data.readOnly;
+  const off = data.readOnly ? ` title="${READ_ONLY}"` : "";
   return `<h1>Task types</h1>
 <p class="lede">Each kind of task your agents repeat. At ${N()} verified runs it is ready to train; nothing trains until you approve its data.</p>
 <table><thead><tr><th>Task type</th><th>State</th><th>Progress to graduation</th><th>Consent</th><th>Turns / cost per run</th><th>Actions</th></tr></thead><tbody>
@@ -106,13 +107,14 @@ ${tt.map(([id, t]) => {
 <td>${stateTag(t.state)}</td>
 <td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} of ${N()} verified${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
-<td>${base ? `frontier ${base.turns} · ${money(base.cost_usd)}` : `<span class="muted">n/a</span>`}${cur ? `<br><b style="color:var(--owned)">yours ${cur.turns} · ${money(cur.cost_usd)}</b>` : ""}</td>
+<td>${base ? `big model ${Math.round(base.turns * 10) / 10} turns · ${money(base.cost_usd)}` : `<span class="muted">n/a</span>`}${cur ? `<br><b style="color:var(--owned)">yours ${cur.turns} · ${money(cur.cost_usd)}</b>` : ""}</td>
 <td><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
-<button class="btn owned" data-act="approve" data-t="${esc(id)}" ${approvable(t) ? "" : "disabled"}>Approve</button>
-<button class="btn" data-act="revoke" data-t="${esc(id)}" ${approvable(t) && t.consent ? "" : "disabled"}>Revoke</button>
-${r ? reviewPanel(r) : ""}</td></tr>`;
+<button class="btn owned" data-act="approve" data-t="${esc(id)}" ${approvable(t) ? "" : "disabled"}${off}>Approve</button>
+<button class="btn" data-act="revoke" data-t="${esc(id)}" ${approvable(t) && t.consent ? "" : "disabled"}${off}>Revoke</button></td></tr>`;
   }).join("")}
-</tbody></table>`;
+</tbody></table>
+${data.readOnly ? `<p class="msg muted">${READ_ONLY}</p>` : ""}
+${data.drawer ? `<aside class="drawer" aria-label="Training data"><button class="btn close" data-act="close">Close</button><h2>${esc(data.drawer)}</h2>${reviewPanel(data.reviews[data.drawer])}</aside>` : ""}`;
 }
 
 function reviewPanel(r) {
@@ -123,14 +125,20 @@ function reviewPanel(r) {
 ${r.sample ? `<pre>${esc(JSON.stringify(r.sample, null, 1).slice(0, 1500))}</pre>` : ""}</div>`;
 }
 
+// The public link is view-only: every POST/DELETE answers 405. Remember that and disable Approve/Revoke.
+const READ_ONLY = "View-only public demo: approving starts real training, so it is disabled here.";
+data.readOnly = localStorage.getItem("graduate-read-only") === "1";
+
 async function act(kind, t) {
+  if (kind === "close") { data.drawer = null; return render(); }
   if (kind === "approve" && !confirm(`Train ${t} on its verified runs? This starts training now.`)) return;
-  data.reviews[t] = { loading: true };
+  data.drawer = t; data.reviews[t] = { loading: true };
   render();
   const method = { review: "GET", approve: "POST", revoke: "DELETE" }[kind];
   const r = await get(`/api/consent/${encodeURIComponent(t)}`, { method });
+  if (r.status === 405) { data.readOnly = true; localStorage.setItem("graduate-read-only", "1"); }
   if (kind === "review") data.reviews[t] = r;
-  else data.reviews[t] = r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };
+  else data.reviews[t] = r.status === 405 ? { msg: READ_ONLY } : r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };
   await poll();
 }
 
