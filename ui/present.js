@@ -21,8 +21,10 @@ function showTask(a) {
   return last ? last.task_type : Object.keys(all)[0];
 }
 
+// Changes come from unrounded averages; a zero on either side makes no claim.
 const change = (f, o) => {
-  if (o === 0 || f / o >= 3) return o === 0 ? "−100%" : `${Math.round(f / o)}× less`;
+  if (!o || !f) return "";
+  if (f / o >= 3) return `${Math.round(f / o)}× less`;
   const pct = Math.round((o / f - 1) * 100);
   return pct ? `${pct > 0 ? "+" : "−"}${Math.abs(pct)}%` : "same";
 };
@@ -38,7 +40,7 @@ function viewShow(a) {
   const cell = (x, fmt) => x ? fmt(x) : none;
   const row = (label, key, fmt, delta = true) => `<tr><th scope="row">${label}</th>
     <td data-qa="${key}-frontier">${cell(f, fmt)}</td><td class="own" data-qa="${key}-owned">${cell(o, fmt)}</td>
-    <td class="chg">${delta && f && o && f[key] ? change(f[key], o[key]) : ""}</td></tr>`;
+    <td class="chg">${delta && f && o ? change(f[key], o[key]) : ""}</td></tr>`;
   const pass = (x) => `${x.passed} of ${x.n} <span class="muted">${Math.round((x.passed / x.n) * 100)}%</span>`;
 
   const esc_ = [...rows].reverse().find((r) => r.escalated_from);
@@ -63,7 +65,7 @@ function viewShow(a) {
       <tbody>
         ${row("Cost per run <small>est.</small>", "cost", (x) => money(x.cost))}
         ${row("Turns", "turns", (x) => round(x.turns))}
-        ${row("Wall time", "wall", (x) => `${round(x.wall)}s`)}
+        ${row("Wall time", "wall", (x) => x.wall < 1 ? `${Math.round(x.wall * 1000)}ms` : x.wall < 10 ? `${x.wall.toFixed(1)}s` : `${Math.round(x.wall)}s`)}
         ${row("Tests pass", "pass", pass, false)}
       </tbody>
     </table>
