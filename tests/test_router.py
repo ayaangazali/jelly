@@ -279,3 +279,17 @@ def test_claude_code_messages_stream_through_the_same_path(router, stub, sid, wo
             r.status_code == 400
             and r.json()["error"]["type"] == "invalid_request_error"
         ), (bad, r.status_code)
+
+
+def test_truncated_metrics_line_is_skipped_and_the_next_record_survives(workdir):
+    good = example("fixtures/metrics.example.jsonl")
+    (workdir / "metrics.jsonl").write_text(json.dumps(good) + "\n" + '{"session_id": "sess-trunc", "tur', encoding="utf-8")
+    metrics._sessions.clear()
+    metrics._load()
+    assert metrics.get_session(good["session_id"])["turns"] == 1
+    later = dict(good, session_id="sess-later")
+    with open("metrics.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(later) + "\n")
+    metrics._sessions.clear()
+    metrics._load()
+    assert metrics.get_session("sess-later")["turns"] == 1
