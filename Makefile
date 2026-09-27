@@ -1,4 +1,4 @@
-.PHONY: dev ui check test screens
+.PHONY: dev ui check test screens e2e-replay
 
 dev:
 	uvicorn graduate.router.app:app --reload --port 4141
@@ -21,3 +21,8 @@ test:
 # Dashboard screenshots at 1920x1080 and 1280x720 into docs/screens/; fails on console errors or overflow (#55).
 screens:
 	python scripts/screens.py
+
+# $0 and deterministic (#65): real OpenCode + the demo repo's pytest against scripts/stub-upstream.py, which replays
+# one scripted session (read, edit, "Fixed.") per broken state. Drives scripts/corpus-dryrun.sh.
+e2e-replay:
+	scripts/corpus-dryrun.sh
