@@ -77,6 +77,7 @@ OpenCode fixes the test through the router, the verify command runs, and a ledge
 | River key | Training runs locally (`local`), or nothing graduates (`none`); everything routes to the frontier meanwhile |
 | OpenCode | Dashboard and router still work; `graduate run` needs it |
 | Memorable | The classifier names the task type from the normalized prompt instead (#45) |
+| `[train]` extra (Python 3.12+) | Runs, the router and the dashboard work; building training records and `scripts/demo.sh` stop with `pip install -e '.[test,train]'`, so nothing graduates |
 
 ---
 
