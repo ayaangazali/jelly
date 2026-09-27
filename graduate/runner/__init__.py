@@ -10,11 +10,11 @@ command in the repo, and appends one ledger row (contracts §2).
 import argparse
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -29,7 +29,6 @@ from graduate.reward import parse_pytest_summary
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
 OPENCODE = os.environ.get("OPENCODE_BIN", str(Path.home() / ".opencode/bin/opencode"))
 ISSUE = 34
-GUARDED = {"conftest.py", "pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"}
 
 
 def _now():
@@ -54,19 +53,22 @@ def _session_totals(session_id):
     return out
 
 
-def _tampered(repo, start_commit):
-    def git(*args):
-        out = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True).stdout
-        return [p for p in out.split("\0") if p]
+def _tree(repo):
+    with tempfile.TemporaryDirectory() as d:
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(d, "index")}
+        subprocess.run(["git", "add", "-A", "."], cwd=repo, env=env, capture_output=True)
+        return subprocess.run(["git", "write-tree"], cwd=repo, env=env, capture_output=True, text=True).stdout.strip()
 
-    paths = git("diff", "-z", "--name-only", "--no-renames", "--relative", start_commit) + git(
-        "ls-files", "-z", "--others", "--exclude-standard"
-    )
-    return any(
-        "tests" in Path(p).parts[:-1] or Path(p).name in GUARDED or Path(p).name.startswith("test_")
-        for p in paths
-        if "__pycache__" not in Path(p).parts
-    )
+
+def _tests_changed(repo, before):
+    out = subprocess.run(
+        ["git", "diff-tree", "-r", "-z", "--name-only", "--no-renames", before, _tree(repo)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    ).stdout
+    parts = [Path(p).parts for p in out.split("\0") if p]
+    return any(("tests" in d[:-1] or d[-1] == "conftest.py") and "__pycache__" not in d for d in parts)
 
 
 def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None):
@@ -78,6 +80,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         text=True,
     ).stdout.strip()
     pre_task = escalator.snapshot(repo)  # #23 resets to this
+    before = _tree(repo)
     _router(
         "POST",
         "/api/sessions",
@@ -128,11 +131,15 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     proc.wait()
     timer.cancel()
 
+    tampered = _tests_changed(repo, before)
+    for p in [*Path(repo).rglob("__pycache__"), Path(repo, ".pytest_cache")]:
+        if ".venv" not in p.parts:
+            shutil.rmtree(p, ignore_errors=True)
     # Always verify, even after a crash or timeout, and only inside the task repo.
     v = subprocess.run(verify, shell=True, cwd=repo, capture_output=True, text=True)
     passed, total = parse_pytest_summary(v.stdout)
-    tampered = _tampered(repo, start_commit) or bool(re.search(r"\d+ (skipped|xfailed)", v.stdout))
-    exit_code = 124 if timed_out else 1 if tampered and v.returncode == 0 else v.returncode
+    verified = v.returncode == 0 and total and passed == total and not tampered
+    exit_code = 124 if timed_out else v.returncode or (0 if verified else 1)
     for line in (v.stdout + v.stderr).splitlines():
         trace.terminal(f"[{session_id}] {line}")
     trace.emit(

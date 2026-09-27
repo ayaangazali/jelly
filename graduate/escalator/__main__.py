@@ -46,7 +46,7 @@ def graduated(task_type):
 def run():
     Path("repo/m.py").write_text(BROKEN)  # the planted, uncommitted bug
     return runner.run(
-        "fix m", f"{sys.executable} -B -c 'import m; assert m.f() == 2'", "repo"
+        "fix m", f"{sys.executable} -B -m pytest -q -p no:cacheprovider test_m.py", "repo"
     )
 
 
@@ -58,6 +58,7 @@ def check():
     os.chdir(tempfile.mkdtemp())
     os.makedirs("repo")
     Path("repo/m.py").write_text("def f():\n    return 2\n")
+    Path("repo/test_m.py").write_text("import m\n\n\ndef test_f():\n    assert m.f() == 2\n")
     sh("git", "init", "-q")
     sh("git", "add", ".")
     sh("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
