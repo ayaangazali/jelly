@@ -51,7 +51,9 @@ def _session_totals(session_id):
     out = _router("GET", f"/api/sessions/{session_id}") or {}
     calls = _router("GET", f"/api/sessions/{session_id}/log") or []
     if calls:
-        out["upstream"], out["model"] = calls[-1]["upstream"], calls[-1]["model"]
+        ups = {c["upstream"] for c in calls}
+        out["upstream"] = ups.pop() if len(ups) == 1 else "mixed"
+        out["model"] = calls[-1]["model"]
     return out
 
 
