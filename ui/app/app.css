@@ -770,3 +770,11 @@ svg.over rect.mine { fill: var(--owned); }
 .ttypes td { white-space: nowrap; vertical-align: middle; }
 .ttypes td.tname { max-width: 28ch; overflow: hidden; text-overflow: ellipsis; }
 .ttypes .pips { margin-right: 6px; }
+.parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 18px; }
+.part { border: 1px dashed var(--rule); border-radius: 8px; padding: 8px 12px; display: grid; gap: 2px; min-width: 0; opacity: 0.6; }
+.part.on { border-style: solid; border-color: var(--owned); opacity: 1; }
+.part b, .part span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.part span { font-size: 0.8em; color: var(--muted); }
+pre.term .c { color: #EDE6E3; font-weight: 700; } pre.term .f { color: var(--fail); } pre.term .p { color: var(--pass); }
+.filebox { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 12px; max-height: 40vh; overflow: auto; white-space: pre; font-size: 0.8em; }
+.setup-body { margin-bottom: 18px; }

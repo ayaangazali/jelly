@@ -38,7 +38,7 @@ async function poll() {
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "pricing") data.pricing = await get("/api/pricing");
   if (page() === "providers" && !data.replay) data.replay = await get("/api/replay");
-  if (page() === "providers") { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
+  if (["providers", "under-the-hood"].includes(page())) { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
   if (page() === "live" && !data.replay) {
     data.replay = await get("/api/replay");
     if (sim.S && (data.replay.runs || []).length && !data.sample) startLive(); // real runs arrived: replay them
@@ -261,7 +261,7 @@ function activity() {
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing, "under-the-hood": underTheHood, setup };
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 
