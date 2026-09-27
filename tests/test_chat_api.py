@@ -8,7 +8,7 @@ import pytest
 
 from graduate.registrar import train
 from graduate.router import chat_api
-from tests.conftest import SERVER_KEY, jsonl
+from conftest import SERVER_KEY, jsonl
 
 
 class FakeRiver:
