@@ -1,22 +1,31 @@
-"""Frontier vs owned from ledger rows only (#118): python scripts/compare.py LEDGER
+"""Frontier vs owned from ledger rows only (#118): python scripts/compare.py LEDGER [--prices PRICES_JSON]
 
 Per task type and arm: n, mean turns, mean tool calls, mean cost and pass rate, each followed by the session ids
 behind it. Frontier baseline = verified frontier sessions (contracts §2: exit 0, not an escalation rerun). Owned =
 `routed_to: owned` rows with exit 0; a failed owned row counts against the pass rate and nowhere else.
 
-Owned cost is shown on both bases: River list (the ledger's cost_usd, which the router prices with prices.json's
-`owned` block, contracts §9) and local ($0 marginal, plus the training wall time from the newest `graduated` event in
-the registry.json beside the ledger, when there is one).
+Frontier cost is the ledger's cost_usd. Owned cost is shown on both bases: River list (each row's tokens priced with
+the `owned` block of --prices, contracts §9, default prices.json else fixtures/prices.example.json, since the ledger's
+cost_usd used whatever prices the writer had) and local ($0 marginal, plus the training wall time from the newest
+`graduated` event in the registry.json beside the ledger, when there is one).
 
 Refuses stub data (exit 1): any row with the stub's model id, or an upstream-auth.log beside the ledger.
 """
 
+import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
 STUB_MODEL = "gpt-5.6-terra"  # only scripts/stub-upstream.py serves it (the prices.example.json frontier id)
+
+
+def river_usd(r, p):
+    """Contracts §9 at the `owned` block's prices."""
+    fresh = r["input_tokens"] - r["cached_input_tokens"]
+    return (fresh * p["input"] + r["cached_input_tokens"] * p["cached_input"] + r["output_tokens"] * p["output"]) / 1e6
 
 
 def mean(rows, key):
@@ -42,8 +51,9 @@ def training_secs(registry, task_type):
     return None, "no graduated event with a time in registry.json"
 
 
-def main(path):
+def main(path, prices):
     ledger = Path(path)
+    owned_prices = json.loads((ROOT / prices).read_text(encoding="utf-8"))["owned"]
     rows = [
         json.loads(l)
         for l in ledger.read_text(encoding="utf-8").splitlines()
@@ -61,7 +71,11 @@ def main(path):
             file=sys.stderr,
         )
         return 1
+    for r in rows:
+        r["river_usd"] = river_usd(r, owned_prices)
     print(f"ledger: {path} ({len(rows)} rows)")
+    print(f"owned River list prices: {prices} owned block, {owned_prices['model']}, per 1M tokens: "
+          f"input ${owned_prices['input']}, cached ${owned_prices['cached_input']}, output ${owned_prices['output']}")
     for task_type in sorted({r["task_type"] for r in rows}):
         of_type = [r for r in rows if r["task_type"] == task_type]
         arms = {
@@ -84,7 +98,7 @@ def main(path):
             )
             print(
                 f"  {arm}: n {len(ok)}, mean turns {fmt(mean(ok, 'turns'), '{:.2f}')}, "
-                f"mean tool calls {fmt(mean(ok, 'tool_calls'), '{:.2f}')}, mean cost {fmt(mean(ok, 'cost_usd'), '${:.6f}')}"
+                f"mean tool calls {fmt(mean(ok, 'tool_calls'), '{:.2f}')}, mean cost {fmt(mean(ok, 'river_usd' if arm == 'owned' else 'cost_usd'), '${:.6f}')}"
                 f"{' (River list)' if arm == 'owned' else ''}, pass rate {rate}"
             )
             print(f"    passed, in the means: {ids(ok)}")
@@ -107,7 +121,7 @@ def main(path):
                 mean(f, "turns"),
                 mean(o, "turns"),
                 mean(f, "cost_usd"),
-                mean(o, "cost_usd"),
+                mean(o, "river_usd"),
             )
             print(
                 f"  fewer turns: {'yes' if ot < ft else 'no'} (owned {ot:.2f} vs frontier {ft:.2f}); "
@@ -119,6 +133,8 @@ def main(path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit(__doc__.splitlines()[0])
-    sys.exit(main(sys.argv[1]))
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("ledger")
+    ap.add_argument("--prices", default="prices.json" if (ROOT / "prices.json").exists() else "fixtures/prices.example.json")
+    args = ap.parse_args()
+    sys.exit(main(args.ledger, args.prices))
