@@ -89,3 +89,16 @@ html.present .hero { font-size: calc(var(--u) * 15); }
 .steps .pass { color: var(--pass); }
 .show-foot { grid-area: foot; font-size: calc(var(--u) * 3); }
 .show-foot b { color: var(--pass); font-size: 1.3em; }
+
+/* Compare (#61): the showcase table, full width, output tokens row as the headline. */
+#app:has(.cmp) { max-width: none; padding: 0 3vw; }
+.cmp { display: grid; gap: calc(var(--u) * 3); font-size: calc(var(--u) * 2.8); }
+.cmp .show-head { grid-area: auto; }
+.cmp h1 { font-size: calc(var(--u) * 6); margin: 0; }
+.cmp .muted, .cmp small { color: var(--muted); font-size: 1em; font-weight: 400; }
+.cmp-table thead small { display: block; font-size: calc(var(--u) * 2.5); }
+.cmp-table .owned { color: var(--owned); }
+.cmp-table .lead td { font-size: calc(var(--u) * 7); font-weight: 800; line-height: 1.1; }
+.cmp-table .lead td.chg { font-size: calc(var(--u) * 4); }
+.cmp-table .lead td.frontier, .cmp-table .lead td.small { color: var(--rented); }
+.cmp-foot { margin: 0; }
