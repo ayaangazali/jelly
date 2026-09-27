@@ -58,13 +58,17 @@ def _load():
         return
     text = METRICS_PATH.read_text(encoding="utf-8")
     if text and not text.endswith("\n"):
-        with open(METRICS_PATH, "a", encoding="utf-8") as f:
-            f.write("\n")
+        try:
+            with open(METRICS_PATH, "a", encoding="utf-8") as f:
+                f.write("\n")
+        except OSError:
+            pass
     for line in text.splitlines():
         try:
-            _add(json.loads(line))
-        except (ValueError, KeyError, TypeError):
-            pass
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        _add(rec)
 
 
 def record(session_id, request, response, usage, latency_ms, upstream, model):
