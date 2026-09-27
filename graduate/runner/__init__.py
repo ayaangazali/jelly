@@ -29,6 +29,7 @@ from graduate.reward import parse_pytest_summary
 
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
 OPENCODE = os.environ.get("OPENCODE_BIN", str(Path.home() / ".opencode/bin/opencode"))
+CLAUDE = os.environ.get("CLAUDE_BIN", "claude")
 ISSUE = 34
 
 
@@ -72,7 +73,7 @@ def _tests_changed(repo, before):
     return any(("tests" in d[:-1] or d[-1] == "conftest.py") and "__pycache__" not in d for d in parts)
 
 
-def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None, session_id=None):
+def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None, session_id=None, harness="opencode"):
     session_id = session_id or "sess-" + uuid.uuid4().hex[:12]  # graduate swarm picks it to trace the fan-out first
     start_commit = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
@@ -98,9 +99,10 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     note = task_type and a2a.get(task_type, session_id)
     sent = f"## Notes from other agents\n{note}\n\n{prompt}" if note else prompt
     started_at, t0 = _now(), time.monotonic()
+    claude = harness == "claude-code"
     trace.emit(
-        "Runner → OpenCode",
-        f'opencode run "{sent}"',
+        f"Runner → {'Claude Code' if claude else 'OpenCode'}",
+        f'{"claude -p" if claude else "opencode run"} "{sent}"',
         f"env GRADUATE_SESSION={session_id}",
         ISSUE,
         ["runner", "opencode"],
@@ -110,8 +112,18 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     # OpenCode takes its project dir from $PWD, not the process cwd.
     env = {**os.environ, "GRADUATE_SESSION": session_id, "PWD": os.path.abspath(repo)}
     env.pop("OPENAI_API_KEY", None)  # only the router holds it, as in demo.sh (#97)
+    cmd = [OPENCODE, "run", sent]
+    if claude:
+        env.pop("ANTHROPIC_API_KEY", None)
+        env.update(
+            ANTHROPIC_BASE_URL=ROUTER,
+            ANTHROPIC_AUTH_TOKEN=session_id,
+            CLAUDE_CONFIG_DIR=tempfile.mkdtemp(prefix="graduate-claude-"),
+            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1",
+        )
+        cmd = [CLAUDE, "-p", sent, "--dangerously-skip-permissions", "--strict-mcp-config"]
     proc = subprocess.Popen(
-        [OPENCODE, "run", sent],
+        cmd,
         cwd=repo,
         text=True,
         start_new_session=True,
@@ -183,9 +195,10 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         "escalated_from": escalated_from,
         "forced_failure": False,
         "tampered": tampered,
+        "harness": harness,
     }
     if routed_to == "frontier" and exit_code == 0:
-        row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)
+        row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code, harness="claude-code" if claude else "opencode")
     escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
     if task_type and row["exit_code"] == 0:  # verified, and not forced to fail
         diff = ["git", "diff-tree", "-r", "--name-only", before, _tree(repo)]
@@ -220,14 +233,17 @@ def main():
     p.add_argument("--repo", required=True)
     p.add_argument("--force-frontier", action="store_true")
     p.add_argument("--timeout", type=float, default=600)
+    p.add_argument("--harness", choices=["opencode", "claude-code"], default=os.environ.get("GRADUATE_HARNESS", "opencode"))
     a = p.parse_args()
     # #83: say what to do instead of a traceback, or OpenCode hanging on a dead router until --timeout
     if not Path(a.task_file).is_file():
         sys.exit(f"no task file {a.task_file}: run from the jelly checkout, where demo-repo/tasks/ lives")
-    if not shutil.which(OPENCODE):
+    if a.harness == "claude-code" and not shutil.which(CLAUDE):
+        sys.exit(f"Claude Code not found at {CLAUDE}: npm install -g @anthropic-ai/claude-code, or set CLAUDE_BIN")
+    if a.harness == "opencode" and not shutil.which(OPENCODE):
         sys.exit(f"OpenCode not found at {OPENCODE}: curl -fsSL https://opencode.ai/install | bash, or set OPENCODE_BIN")
     if _router("GET", "/state") is None:
         sys.exit(f"no router at {ROUTER}: start `graduate up` in another terminal first")
     task = json.loads(Path(a.task_file).read_text())
-    row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout, task_type=task.get("task_type"))
+    row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout, task_type=task.get("task_type"), harness=a.harness)
     raise SystemExit(row["exit_code"])
