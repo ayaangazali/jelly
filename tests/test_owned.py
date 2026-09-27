@@ -392,8 +392,9 @@ def test_trace_and_state_name_the_real_backend(router, stub, fake, monkeypatch, 
            json={"model": "graduate", "messages": [{"role": "user", "content": "fix it"}]})
     trace.terminal("\x1b[1;38;5;208m1 passed\x1b[0m\x1b[2K\x1b[1A")
     trace.terminal("\x1b[?25l\x1b[0m")
+    trace.terminal("[sess-x] \x1b]8;;https://x.io\x07link\x1b]8;;\x07 \x1b]0;title\x1b\\done")
     s = router("GET", "/state").json()
     said = json.dumps([(e["who"], e["result"]) for e in s["trace"]], ensure_ascii=False)
     assert s["config"]["backend"] == backend and f"Router → {says}" in said
     assert ("River" in said) == (backend == "river")
-    assert s["terminal"] == ["1 passed"]
+    assert s["terminal"] == ["1 passed", "[sess-x] link done"]
