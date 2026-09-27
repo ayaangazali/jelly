@@ -25,6 +25,7 @@ import inspect
 import json
 import logging
 import pkgutil
+import re
 import time
 
 import httpx
@@ -166,7 +167,9 @@ async def chat_completions(request: Request):
     log.info(
         "session %s -> frontier %s: %s", session_id, frontier.MODEL, resp.status_code
     )
-    error = " · " + (await resp.aread())[:300].decode("utf-8", "replace") if resp.status_code == 429 else ""
+    error = ""
+    if resp.status_code == 429:
+        error = " · " + re.sub(r"org-[A-Za-z0-9]+", "org-…", (await resp.aread())[:300].decode("utf-8", "replace"))
     trace.emit(
         "Router → OpenAI",
         call,
