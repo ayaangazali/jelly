@@ -11,3 +11,4 @@ registry.json
 trace.jsonl
 terminal.log
 data/
+bench/
