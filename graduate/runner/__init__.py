@@ -120,6 +120,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
             ANTHROPIC_AUTH_TOKEN=session_id,
             CLAUDE_CONFIG_DIR=tempfile.mkdtemp(prefix="graduate-claude-"),
             CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1",
+            CLAUDE_CODE_MAX_OUTPUT_TOKENS=os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "16000"),
         )
         cmd = [CLAUDE, "-p", sent, "--dangerously-skip-permissions", "--strict-mcp-config"]
     proc = subprocess.Popen(
