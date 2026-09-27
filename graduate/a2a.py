@@ -28,8 +28,12 @@ AGENT_RULES = """## Shared memory: GBrain (tools `gbrain_*`, skills brain-ops an
 """
 
 
-def _gbrain(*args, text=None):
-    """stdout on exit 0, else None (missing CLI, missing page, a brain that won't open)."""
+def _gbrain(*args, text=None, missing_ok=True):
+    """stdout on exit 0, else None (missing CLI, missing page, a brain that won't open).
+
+    With missing_ok=False, an installed CLI failing for any reason but a missing page raises instead, so a
+    read that errored (a locked brain) is never mistaken for an empty page that `put` would then overwrite.
+    """
     try:
         r = subprocess.run(
             [os.environ.get("GBRAIN_BIN", "gbrain"), *args],
@@ -38,8 +42,12 @@ def _gbrain(*args, text=None):
             text=True,
             timeout=30,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    except (OSError, subprocess.TimeoutExpired) as e:
+        if missing_ok or isinstance(e, OSError):
+            return None
+        raise
+    if r.returncode != 0 and not missing_ok and "page_not_found" not in r.stdout + r.stderr:
+        raise RuntimeError(f"gbrain {args[0]} exit {r.returncode}: {(r.stderr or r.stdout).strip()[-200:]}")
     return r.stdout if r.returncode == 0 else None
 
 
@@ -47,17 +55,25 @@ def _names(task_type):
     return f"a2a-{task_type}", Path("a2a", f"{task_type}.md")
 
 
-def _read(task_type):
+def _read(task_type, missing_ok=True):
     """(procedures oldest first, call, where), or None when there is no page."""
     slug, path = _names(task_type)
-    page = _gbrain("get", slug)
+    page = _gbrain("get", slug, missing_ok=missing_ok)
     if page is not None:  # the page follows its YAML frontmatter
         body, call, where = page.split("\n---\n", 1)[-1], f"gbrain get {slug}", "GBrain"
     elif path.is_file():
-        body, call, where = path.read_text(encoding="utf-8"), f"read {path}", FILE_LABEL
+        return _file(path), f"read {path}", FILE_LABEL
     else:
         return None
-    return [HEAD + p.strip() for p in ("\n" + body).split("\n" + HEAD)[1:]], call, where
+    return _procedures(body), call, where
+
+
+def _file(path):
+    return _procedures(path.read_text(encoding="utf-8"))
+
+
+def _procedures(body):
+    return [HEAD + p.strip() for p in ("\n" + body).split("\n" + HEAD)[1:]]
 
 
 def render(task_type, procedures):
@@ -168,25 +184,25 @@ def get(task_type, session_id=None):
 
 
 def put(task_type, entry, session_id):
-    """Append one procedure to the page, keeping the newest KEEP."""
+    """Append one procedure to the page, keeping the newest KEEP.
+
+    If GBrain errors on the read (not a missing page), the page is left alone and the shared file gets the
+    procedure instead: a page this run could not read is never overwritten.
+    """
     slug, path = _names(task_type)
     try:
-        procedures = [*((_read(task_type) or ([],))[0]), entry.strip()][-KEEP:]
+        try:
+            got, brain = _read(task_type, missing_ok=False), True
+        except RuntimeError:
+            got, brain = (_file(path), f"read {path}", FILE_LABEL) if path.is_file() else None, False
+        procedures = [*((got or ([],))[0]), entry.strip()][-KEEP:]
         text = render(task_type, procedures)
-        if _gbrain("put", slug, "--force", text=text) is not None:
+        if brain and _gbrain("put", slug, "--force", text=text) is not None:
             call, where = f"gbrain put {slug} --force", "GBrain"
         else:
             path.parent.mkdir(exist_ok=True)
             path.write_text(text, encoding="utf-8")
             call, where = f"write {path}", FILE_LABEL
-        trace.emit(
-            "Runner → GBrain",
-            call,
-            f"appended, {len(procedures)} procedures · {where}",
-            ISSUE,
-            ["runner", "gbrain"],
-            ["a2a-write"],
-            session_id,
-        )
+        trace.emit("Runner → GBrain", call, f"appended, {len(procedures)} procedures · {where}", ISSUE, ["runner", "gbrain"], ["a2a-write"], session_id)
     except Exception as e:
         print(f"a2a put skipped: {e!r}")
