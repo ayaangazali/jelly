@@ -69,7 +69,7 @@ function userTurn() {
   if (own) return `<p>${esc(own)}</p>`;
   if (!env || !env.files) return `<p class="oc-dim">Loading the task…</p>`;
   return `<p>${esc(env.instruction)}</p>${env.files.map((f) => `<details><summary>${esc(f.path)}</summary><pre>${esc(f.text)}</pre></details>`).join("")}
-<details><summary class="fail">pytest: ${env.pytest.exit_code ? "1 failed" : "passed"}</summary><pre class="fail">${esc(env.pytest.output)}</pre></details>`;
+<details><summary class="fail">before the fix · pytest: ${env.pytest.exit_code ? "1 failed" : "passed"}</summary><pre class="fail">${esc(env.pytest.output)}</pre></details>`;
 }
 
 function paintChat() {
@@ -89,7 +89,7 @@ function paintChat() {
     const body = el.querySelector(".oc-body"), atEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
     const changed = put("out", md(s.text) + (!s.done && !s.error && s.text ? `<span class="oc-cursor">&nbsp;</span>` : ""));
     if (changed && atEnd && !s.done) body.scrollTop = body.scrollHeight;
-    put("status", esc(s.error || (s.done ? "" : s.text ? "" : `thinking… ${secs}s`)));
+    put("status", esc(s.error || (s.done ? (chatRun.own ? "" : "Proposed fix: not run against the tests on this page. The recorded races below are verified runs.") : s.text ? "" : `thinking… ${secs}s`)));
     tile("tokens", s.done ? String(s.done.output_tokens) : s.pieces ? `~${s.pieces}` : "–");
     tile("cost", s.done ? `$${s.done.cost_usd.toFixed(6)}` : "–");
     tile("time", s.error && !s.done ? "–" : `${secs}s`);
