@@ -246,15 +246,37 @@ def test_owned_json_and_no_usage_chunk_unless_asked(router, stub, fake):
     assert '"usage"' not in r.text
 
 
-def test_owned_model_down_falls_back_to_frontier(router, stub, fake):
+@pytest.mark.parametrize("stream", [False, True])  # OpenCode always streams
+def test_owned_model_down_falls_back_to_frontier(router, stub, fake, stream):
     fake.fail = OSError("checkpoint missing")
-    r = owned_call(router, fake, "sess-0000000000a4")
-    assert (
-        r.status_code == 200
-        and r.json()["choices"][0]["message"]["content"] == "Fixed."
-    )
+    r = owned_call(router, fake, "sess-0000000000a4", stream=stream)
+    assert r.status_code == 200 and r.content == (b"".join(stub.sse()) if stream else stub.body())
     assert len(stub.requests) == 1
     assert registry.load()["events"][0]["kind"] == "error"
+
+
+def test_probation_sends_the_next_call_to_the_frontier(router, stub, fake):
+    """#97: the escalator's third failure demotes the task type; a live router must stop serving it at once."""
+    owned_call(router, fake, "sess-0000000000b1")
+    registry.transition(TT, "PROBATION")  # what escalator.escalate does at GRADUATE_FAIL_LIMIT
+    router("POST", "/api/sessions", json={"session_id": "sess-0000000000b2", "task_type": TT})
+    r = router("POST", "/v1/chat/completions", headers={"Authorization": "Bearer sess-0000000000b2"},
+               json={"model": "graduate", "messages": [{"role": "user", "content": "fix it"}]})
+    assert r.status_code == 200 and (len(fake.seen), len(stub.requests)) == (1, 1)
+
+
+def test_revoked_consent_stops_a_retrain_before_anything_is_sent(router, workdir, fake):
+    """#97: PROBATION keeps the consent given at graduation; a revoke on the consent screen must hold for
+    `graduate train` by hand."""
+    task("PROBATION", model="/ckpt/x-v1")
+    (workdir / "data").mkdir()
+    (workdir / f"data/{TT}.chat.jsonl").write_text((ROOT / "fixtures/sft-chat.example.json").read_text().replace("\n", "") + "\n")
+    assert router("DELETE", f"/api/consent/{TT}").status_code == 200
+    fake.train = lambda *a, **kw: pytest.fail("training data left the machine")
+    with pytest.raises(registry.IllegalTransition):
+        train.run(TT)
+    tt = registry.load()["task_types"][TT]
+    assert (tt["state"], tt["consent"], tt["model"]) == ("PROBATION", False, "/ckpt/x-v1")
 
 
 def test_backend_choice(monkeypatch):
