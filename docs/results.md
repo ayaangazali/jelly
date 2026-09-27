@@ -39,9 +39,9 @@ Every failure escalated to a frontier rerun, and in the demo runs the rerun pass
 <!-- demo.sh:begin -->
 ### Last demo run: 2026-09-27T18:45Z
 
-**STUB FRONTIER, NOT REAL FRONTIER NUMBERS.** The frontier was `scripts/stub-upstream.py`: zero OpenAI calls, scripted sessions and made-up token counts. Rows served by `owned` are real: the local checkpoint on CPU. A live run replaces this section.
+**STUB FRONTIER, NOT REAL FRONTIER NUMBERS.** The frontier was `scripts/stub-upstream.py`: zero OpenAI calls, scripted sessions and made-up token counts. Rows served by `owned` are the local checkpoint on CPU: their tokens, turns and wall time are real; their cost is priced at the `owned` rate in `prices.json`. A live run replaces this section.
 
-Baseline: mean of the 5 verified frontier runs before graduation (the staged corpus plus broken state 05), with the provider's prompt caching on: 80% of their input tokens were cached and billed at the cached rate. Your model: its first passing session after graduation (a failed session is never counted as savings), graduated on the checkpoint /home/ubuntu/jelly-corpus/checkpoints/fix-failing-test-v3, trained before the demo.
+Baseline: mean of the 5 verified frontier runs before graduation (the staged corpus plus broken state 05), with the provider's prompt caching on: 80% of their input tokens were cached and billed at the cached rate. Your model: its first passing session after graduation (a failed session is never counted as savings), graduated on the checkpoint fix-failing-test-v3, trained before the demo.
 
 | | Frontier baseline, caching on | Your model, broken state 07 | Change |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Baseline: mean of the 5 verified frontier runs before graduation (the staged cor
 | Tool calls | 2 | 2 | n/a: stub frontier |
 | Wall time (s) | 5.8 | 45.8 | n/a: stub frontier |
 
-- Your model's sessions: `07` exit 0, `09` exit 1. Broken states 01-08 are the training data of the checkpoints in `/home/ubuntu/jelly-corpus/checkpoints/`, so a pass on 01-08 is a repeat of a trained task, not a held-out result; 09 and 10 are held out.
+- Your model's sessions: `07` exit 0, `09` exit 1. Broken states 01-08 are the training data of the v1-v3 checkpoints (docs/pretrained-model.md), so a pass on 01-08 is a repeat of a trained task, not a held-out result; 09 and 10 are held out.
 - Pass rate: frontier 5 of 5 sessions; owned 1 of 2 (forced failures included).
 - Safety path: owned attempt `sess-613ea4976c0f` exit 1, a real failure of your model; frontier rerun `sess-084cc7223223` exit 0, escalated_from `sess-613ea4976c0f`. The failed row stays in `ledger.jsonl`.
 - Task types in the ledger: `fix-failing-test` 8.

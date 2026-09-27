@@ -6,14 +6,15 @@
 #   (set -a; . ~/super.env; set +a; scripts/live.sh)   # ~25 min: corpus ~5 (caps USD 6, 400 calls), CPU training ~10, demo ~5
 #   scripts/live.sh --offline                           # the same chain on scripts/stub-upstream.py: zero OpenAI calls
 #
-# CORPUS_DIR (live default /home/ubuntu/jelly-corpus-live, never the stub corpus) gets the corpus and the checkpoint.
+# CORPUS_DIR (live default ~/jelly-corpus-live, never the stub corpus) gets the corpus and the checkpoint.
 # Needs what demo.sh needs: an activated .venv with '.[test,train]', OpenCode, free ports.
 set -euo pipefail
+export GRADUATE_OWNED_BACKEND=${GRADUATE_OWNED_BACKEND:-local} # the River trap (#25): an unfunded RIVER_API_KEY would pick River
 cd "$(dirname "$0")/.."
 offline=
 [ "${1:-}" != --offline ] || offline=1
 T=fix-failing-test PORT=${PORT:-4171}
-CORPUS_DIR=$(realpath -m "${CORPUS_DIR:-$([ -n "$offline" ] && echo backups/live-offline-corpus || echo /home/ubuntu/jelly-corpus-live)}")
+CORPUS_DIR=$(realpath -m "${CORPUS_DIR:-$([ -n "$offline" ] && echo backups/live-offline-corpus || echo ~/jelly-corpus-live)}")
 export GRADUATE_ROUTER=http://localhost:$PORT OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"http://localhost:'$PORT'/v1"}}}}'
 pids=()
 trap 'kill "${pids[@]}" 2>/dev/null || true' EXIT
