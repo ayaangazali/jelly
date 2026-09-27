@@ -305,3 +305,20 @@ def test_truncated_metrics_line_is_skipped_and_the_next_record_survives(workdir)
     metrics._sessions.clear()
     metrics._load()
     assert metrics.get_session("sess-later")["turns"] == 1
+
+
+def test_frontier_calls_are_priced_as_the_model_the_router_sends(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    got = subprocess.run(
+        [sys.executable, "-c", "from graduate.router import metrics; print(metrics.PRICES['frontier'])"],
+        cwd=tmp_path,
+        env={**os.environ, "OPENAI_MODEL": "gpt-5-mini", "PYTHONPATH": str(root)},
+        capture_output=True,
+        text=True,
+    )
+    assert got.stdout.strip() == str({"model": "gpt-5-mini", "input": 0.25, "cached_input": 0.025, "output": 2.0}), got.stderr

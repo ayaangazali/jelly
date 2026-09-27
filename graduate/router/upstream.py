@@ -31,6 +31,16 @@ MODEL = (
     os.environ.get("OPENAI_MODEL")
     or json.loads(_prices.read_text())["frontier"]["model"]
 )
+LIST_PRICES = {
+    "gpt-5": {"input": 1.25, "cached_input": 0.125, "output": 10.0},
+    "gpt-5-mini": {"input": 0.25, "cached_input": 0.025, "output": 2.0},
+    "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.4},
+    "gpt-5.4-mini": {"input": 0.75, "cached_input": 0.075, "output": 4.5},
+    "claude-haiku-4-5": {"input": 1.0, "cached_input": 0.1, "output": 5.0},
+    "gpt-4.1": {"input": 2.0, "cached_input": 0.5, "output": 8.0},
+    "gpt-4.1-mini": {"input": 0.4, "cached_input": 0.1, "output": 1.6},
+    "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.6},
+}
 
 NO_KEY = "OPENAI_API_KEY is not set or not a key: run `graduate init`, or add it to .env in the directory you run the router from."
 
