@@ -19,7 +19,8 @@ The acme set is a small fake payments SDK (`acme.Money`, `AcmeError` codes, `aud
 | Base Qwen3.5-9B | short, no docs | mean 79.9 (68–94) | **0/25** | **0/5** | `data/poc-acme/eval-run4.jsonl`, arm `base` |
 | Base Qwen3.5-9B | full SDK docs in the system prompt | mean 514.9 (503–529) | **10/25** | **0/5** | `data/poc-acme/eval-base-docs.jsonl`, field `prompt_tokens` |
 | Fine-tuned Qwen3.5-9B, run 4 | short, no docs | mean 79.9 (68–94) | **19/25** | **1/5** (`deposit`) | `data/poc-acme/eval-run4.jsonl`, arm `lora` |
-| Fine-tuned Qwen3.5-9B, runs 5 and 6 | short, no docs | mean 79.9 | _TBD: runs in progress in `data/poc-acme-v5`, `data/poc-acme-v6`_ | _TBD_ | _TBD_ |
+| **Fine-tuned Qwen3.5-9B, run 5 (best)** | short, no docs | mean 79.9 (68–94) | **21/25** | **1/5** (`deposit`) | `data/poc-acme/eval-run5.jsonl`, arm `lora` |
+| Fine-tuned Qwen3.5-9B, run 6 (rank 32) | short, no docs | mean 79.9 (68–94) | 18/25 | 1/5 (`deposit`) | `data/poc-acme/eval-run6.jsonl`, arm `lora` |
 
 The docs prompt is 6.4x longer than the short prompt: 514.9 / 79.9 tokens, averaged over all 30 tasks. The docs figure is the `prompt_tokens` that River reported in `eval-base-docs.jsonl` (mean 515.2 on trained-on tasks, 513.2 on held-out tasks). The short-prompt figure isn't logged in the eval files. It was counted offline by rendering `messages(prompt)` with the cached `Qwen/Qwen3.5-9B` chat template (`enable_thinking=False`). Rendering the docs prompt the same way gives 514.9, which matches River's number.
 
@@ -42,8 +43,8 @@ All runs used Qwen/Qwen3.5-9B with a LoRA (rank 16 by default, `POC_RANK`) train
 | 2 | 7 | 28 | 140.5 | 0.588 → 0.0048 | 6/10 | 0/5 | 0/10 | 0/5 |
 | 3 | 20 | 40 | 180.2 | 0.588 → 0.113 | 18/25 | 0/5 | 0/25 | 0/5 |
 | 4 | 20 | 60 | 294.5 | 0.588 → 0.031 | 19/25 | 1/5 | 0/25 | 0/5 |
-| 5 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 6 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| 5 | 21 | 90 | 387.5 | 0.588 → 0.0497 | 21/25 | 1/5 | 0/25 | 0/5 |
+| 6 (rank 32) | 21 | 60 | 276.7 | 0.588 → 0.0673 | 18/25 | 1/5 | 0/25 | 0/5 |
 
 Runs 1–2 had 10 trained-on tasks and runs 3–4 had 25. The task list was extended between runs 2 and 3 (`TASKS +=` in `poc_acme.py`). `data/poc-acme/eval.jsonl` is byte-identical to `eval-run4.jsonl`.
 
