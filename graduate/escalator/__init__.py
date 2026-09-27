@@ -71,6 +71,7 @@ def escalate(row, pre):
         if row["forced_failure"]
         else f"failed its tests (exit {row['exit_code']})"
     )
+    cached = row["routed_to"] == "cache"  # #144: replayed answers failed, not the model: no count, no negative
 
     diff = Path("sessions") / f"{sid}.diff"
     diff.parent.mkdir(exist_ok=True)
@@ -88,16 +89,18 @@ def escalate(row, pre):
         sid,
     )
 
-    kept = None if row["forced_failure"] else _keep_negative(row)
-    tt = registry.load()["task_types"].get(task_type)
+    kept = None if row["forced_failure"] or cached else _keep_negative(row)
+    tt = None if cached else registry.load()["task_types"].get(task_type)
     fails = (tt["failures_since_graduation"] + 1) if tt else 1
     if tt:
         registry.update(task_type, failures_since_graduation=fails)
     registry.add_event(
         "failed",
         task_type,
-        f"{task_type}: your model's attempt {how}, failure {fails} of {FAIL_LIMIT}. "
-        f"Saved the diff to {diff}, reset {repo}, "
+        # The router evicts a cache session's served keys when it next reads the ledger, which has this row.
+        (f"{task_type}: {sid} was served from the verified cache and {how}; its cached answers are evicted. "
+         if cached else f"{task_type}: your model's attempt {how}, failure {fails} of {FAIL_LIMIT}. ")
+        + f"Saved the diff to {diff}, reset {repo}, "
         + (
             f"kept it as a negative example in {kept}."
             if kept
