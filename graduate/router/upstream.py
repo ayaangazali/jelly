@@ -4,6 +4,8 @@ The frontier is any OpenAI-compatible Chat Completions endpoint:
 - `OPENAI_API_KEY`: the server-side key. Read from the environment, else from `.env` in the cwd.
 - `OPENAI_BASE_URL`: default `https://api.openai.com/v1`. Point it at a stub to test offline.
 - The model id is `OPENAI_MODEL`, else `frontier.model` in `prices.json` (else `fixtures/prices.example.json`), contracts §9.
+- `OPENAI_EXTRA_BODY`: a JSON object merged over every frontier request body, e.g.
+  `{"service_tier":"priority","reasoning_effort":"none"}` (fast mode; GPT-5.x after gpt-5 reject tools beside an effort).
 """
 
 import json
@@ -47,7 +49,9 @@ async def send(body):
     Without a key it answers 401 itself with the fix (#73), rather than sending `Bearer ` for httpx to reject."""
     key = clean_key(os.environ.get("OPENAI_API_KEY"))
     if not key:
-        return httpx.Response(401, json={"error": {"message": NO_KEY, "type": "missing_api_key"}})
+        return httpx.Response(
+            401, json={"error": {"message": NO_KEY, "type": "missing_api_key"}}
+        )
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
@@ -56,5 +60,7 @@ async def send(body):
     if "max_tokens" in body:
         body = dict(body)
         body.setdefault("max_completion_tokens", body.pop("max_tokens"))
+    if extra := json.loads(os.environ.get("OPENAI_EXTRA_BODY") or "{}"):
+        body = {**body, **extra}
     request = client.build_request("POST", URL, json=body, headers=headers)
     return await client.send(request, stream=True)

@@ -66,6 +66,17 @@ def test_max_completion_tokens_kept(router, stub, sid, extra):
     assert sent["max_completion_tokens"] == 50 and "max_tokens" not in sent
 
 
+def test_extra_body_merged_over_request(router, stub, sid, monkeypatch):
+    """Fast mode: OPENAI_EXTRA_BODY overrides OpenCode's reasoning_effort, which GPT-5.x rejects beside tools."""
+    monkeypatch.setenv(
+        "OPENAI_EXTRA_BODY", '{"service_tier":"priority","reasoning_effort":"none"}'
+    )
+    assert post(router, sid, reasoning_effort="medium").status_code == 200
+    sent = stub.requests[-1][1]
+    assert sent["service_tier"] == "priority" and sent["reasoning_effort"] == "none"
+    assert sent["messages"] == MESSAGES
+
+
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("status", [400, 429, 500, 503])
 def test_upstream_errors_unchanged_and_unlogged(
