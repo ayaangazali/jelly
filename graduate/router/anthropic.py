@@ -145,9 +145,12 @@ async def to_sse(chunks, model):
 
 @app.post("/v1/messages")
 async def messages(request: Request):
-    body = await request.json()
+    try:
+        body = await request.json()
+        translated = json.dumps(to_openai(body, request.headers.get("x-claude-code-prompt-id"))).encode()
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        return JSONResponse({"type": "error", "error": {"type": "invalid_request_error", "message": f"bad request body: {e!r}"}}, 400)
     key = request.headers.get("x-api-key") or request.headers.get("authorization", "").removeprefix("Bearer ").strip()
-    translated = json.dumps(to_openai(body, request.headers.get("x-claude-code-prompt-id"))).encode()
 
     async def receive():
         return {"type": "http.request", "body": translated, "more_body": False}
