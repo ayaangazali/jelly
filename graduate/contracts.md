@@ -239,9 +239,19 @@ Edge ids: `launch`, `ingest`, `chat`, `recall`, `frontier`, `owned`, `log`, `rea
 
 These are the ids in `mock-up/index.html` (`NODES`, `EDGES`). Adding one means adding it there too.
 
-The runner's live agent output goes through `graduate.trace.terminal(line)` to `terminal.log`, one line per output line, not to `trace.jsonl`.
+The runner's live agent output goes through `graduate.trace.terminal(line)` to `terminal.log`, one line per output line, not to `trace.jsonl`. ANSI CSI and OSC sequences are stripped on write.
 
 Example: `fixtures/trace.example.jsonl`.
+
+### `/state` `config`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `n` | int | Verified runs to graduate (`GRADUATE_N`) |
+| `fail_limit` | int | Failures before probation (`GRADUATE_FAIL_LIMIT`) |
+| `backend` | string | `river`, `local` or `none`: where a new training run goes, as the consent screen reports it (#96). The dashboard labels the serving node from the graduated checkpoint (`river://` or a local path) instead |
+
+Example: `fixtures/state.example.json`.
 
 ---
 

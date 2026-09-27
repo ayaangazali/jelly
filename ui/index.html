@@ -413,7 +413,9 @@ async function poll() {
     if (text === lastJson) return;
     lastJson = text;
     S = JSON.parse(text);
-    for (const [id, o] of Object.entries(OWNED[S.config.backend] || {})) Object.assign(NODE[id], o);
+    const served = Object.values(tasks()).filter((t) => t.state === "GRADUATED" && t.model).map((t) => t.model.startsWith("river://") ? "river" : "local");
+    const serving = S.config.backend === "none" || !served.length ? S.config.backend : served.includes("river") ? "river" : "local";
+    for (const n of NODES) Object.assign(NODE[n.id], n, (OWNED[n.id === "river" || n.id === "router" ? serving : S.config.backend] || {})[n.id]);
     for (const [k, t] of Object.entries(tasks())) {
       if (t.state === "GRADUATED" && prevState[k] && prevState[k] !== "GRADUATED") { stampFor = k; stampUntil = Date.now() + 1500; }
       prevState[k] = t.state;

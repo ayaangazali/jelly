@@ -2,7 +2,8 @@
   "generated_at": "2026-09-27T21:20:16Z",
   "config": {
     "n": 5,
-    "fail_limit": 3
+    "fail_limit": 3,
+    "backend": "river"
   },
   "registry": {
     "task_types": {
