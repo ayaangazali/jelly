@@ -49,7 +49,7 @@ def test_run_verifies_and_appends_one_ledger_row(
     agent.chmod(0o755)
     monkeypatch.setattr(runner, "OPENCODE", str(agent))
     ingested = []
-    monkeypatch.setattr(runner.memorable, "ingest", lambda *a: ingested.append(a) or "procedures/abc-fix-calc")
+    monkeypatch.setattr(runner.memorable, "ingest", lambda *a, **k: ingested.append(a) or "procedures/abc-fix-calc")
 
     row = runner.run("Fix calc.", VERIFY, str(repo), timeout=1)
 

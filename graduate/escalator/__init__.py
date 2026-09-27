@@ -156,6 +156,7 @@ def escalate(row, pre):
         force_frontier=True,
         escalated_from=sid,
         task_type=task_type,
+        harness=row.get("harness", "opencode"),
     )
     ok = rerun["exit_code"] == 0
     registry.add_event(
