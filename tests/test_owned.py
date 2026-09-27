@@ -9,7 +9,7 @@ import time
 import pytest
 
 from conftest import ROOT, assert_trace, jsonl
-from graduate import registry
+from graduate import registry, trace
 from graduate.registrar import train
 
 TT = "fix-failing-test"
@@ -381,3 +381,19 @@ def test_checkpoint_remembers_its_run_count_for_use_checkpoint(workdir, fake):
     (workdir / ckpt / "adapter_config.json").write_text("{}")
     train.run(TT, use_checkpoint=ckpt)
     assert registry.load()["task_types"][TT]["trained_on_runs"] == 1  # the stamp never says "trained on 0 runs"
+
+
+@pytest.mark.parametrize("backend,model,says", [("local", "/ckpt/x-v1", "local model"), ("river", "river://run-x/sampler_weights/x-v1", "River")])
+def test_trace_and_state_name_the_real_backend(router, stub, fake, monkeypatch, backend, model, says):
+    monkeypatch.setenv("GRADUATE_OWNED_BACKEND", backend)
+    task("GRADUATED", model=model, serving="checkpoint")
+    router("POST", "/api/sessions", json={"session_id": "sess-0000000000c1", "task_type": TT})
+    router("POST", "/v1/chat/completions", headers={"Authorization": "Bearer sess-0000000000c1"},
+           json={"model": "graduate", "messages": [{"role": "user", "content": "fix it"}]})
+    trace.terminal("\x1b[1;38;5;208m1 passed\x1b[0m\x1b[2K\x1b[1A")
+    trace.terminal("\x1b[?25l\x1b[0m")
+    s = router("GET", "/state").json()
+    said = json.dumps([(e["who"], e["result"]) for e in s["trace"]], ensure_ascii=False)
+    assert s["config"]["backend"] == backend and f"Router → {says}" in said
+    assert ("River" in said) == (backend == "river")
+    assert s["terminal"] == ["1 passed"]
