@@ -1,7 +1,7 @@
 // Showcase stage and presenter mode (#55). Uses index.html's globals (S, $, esc, money, tasks, N, ...).
 // ?present or P hides the chrome and opens the showcase. In presenter mode: ←/→ switch stages,
-// 1-3 jump, F fullscreen, B blackout, Esc leaves.
-const STAGES = ["#/show", "#/", "#/system"];
+// 1-4 jump, F fullscreen, B blackout, Esc leaves.
+const STAGES = ["#/show", "#/compare", "#/", "#/system"];
 
 // Averages over ledger rows. Frontier = the verified-run pool (escalation reruns excluded, contracts §2).
 function arm(rows) {
@@ -21,6 +21,7 @@ function showTask(a) {
   return last ? last.task_type : Object.keys(all)[0];
 }
 
+const secs = (v) => v < 1 ? `${Math.round(v * 1000)}ms` : v < 10 ? `${v.toFixed(1)}s` : `${Math.round(v)}s`;
 // Changes come from unrounded averages; a zero on either side makes no claim.
 const change = (f, o) => {
   if (!o || !f) return "";
@@ -65,7 +66,7 @@ function viewShow(a) {
       <tbody>
         ${row("Cost per run <small>est.</small>", "cost", (x) => money(x.cost))}
         ${row("Turns", "turns", (x) => round(x.turns))}
-        ${row("Wall time", "wall", (x) => x.wall < 1 ? `${Math.round(x.wall * 1000)}ms` : x.wall < 10 ? `${x.wall.toFixed(1)}s` : `${Math.round(x.wall)}s`)}
+        ${row("Wall time", "wall", (x) => secs(x.wall))}
         ${row("Tests pass", "pass", pass, false)}
       </tbody>
     </table>
