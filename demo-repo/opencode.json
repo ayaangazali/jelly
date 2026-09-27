@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "graduate": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "GRADUATE router",
+      "options": {
+        "baseURL": "http://localhost:4141/v1",
+        "apiKey": "{env:GRADUATE_SESSION}"
+      },
+      "models": {
+        "graduate": {
+          "name": "graduate"
+        }
+      }
+    }
+  },
+  "model": "graduate/graduate"
+}
