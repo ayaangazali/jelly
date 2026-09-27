@@ -425,3 +425,24 @@ def test_river_serves_the_compact_prompt_within_its_call_cap(monkeypatch):
     with pytest.raises(RuntimeError, match="RIVER_MAX_CALLS=1"):
         b.complete("river://run-x/weights/x-v1", ms, [])
     assert len(sent) == 1
+
+
+def test_river_answer_filed_as_reasoning_with_qwen35_xml_call_becomes_a_tool_call(monkeypatch):
+    """Real River reply from the fine-tuned Qwen3.5-9B: empty content, the answer under reasoning_content, and the call in
+    Qwen3.5's XML form. It must reach OpenCode as a tool call, not an empty answer that ends the session."""
+    body = {"choices": [{"message": {"role": "assistant", "content": "", "reasoning_content":
+            "Let me look:\n\n<tool_call>\n<function=read>\n<parameter=filePath>\ntests/test_mod_07.py\n</parameter>\n"
+            "<parameter=limit>\n20\n</parameter>\n</function>\n</tool_call>"}}]}
+
+    class Client:
+        def chat_complete_from_checkpoint(self, messages, **kw):
+            return type("R", (), {"status_code": 200, "response_json": json.dumps(body)})
+
+    b = train.RiverBackend()
+    monkeypatch.setattr(b, "_client", Client)
+    monkeypatch.delenv("RIVER_MAX_CALLS", raising=False)
+    msg, _ = b.complete("river://run-x/weights/x-v1", [{"role": "user", "content": "fix it"}], [])
+    [call] = msg["tool_calls"]
+    assert call["function"]["name"] == "read"
+    assert json.loads(call["function"]["arguments"]) == {"filePath": "tests/test_mod_07.py", "limit": 20}
+    assert msg["content"] == "Let me look:"

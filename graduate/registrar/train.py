@@ -94,15 +94,31 @@ def _args(a):
         return {}
 
 
+def _xml_call(body):
+    """Qwen3.5's tool-call format: <function=read><parameter=filePath>x</parameter></function>."""
+    name = re.search(r"<function=([^>\s]+)>", body)
+    params = re.findall(r"<parameter=([^>\s]+)>\s*(.*?)\s*</parameter>", body, re.S)
+    return {
+        "name": name[1],
+        "arguments": {
+            k: _args(v) if v[:1] in "[{" or v.isdigit() or v in ("true", "false") else v
+            for k, v in params
+        },
+    }
+
+
 def parse(text):
-    """Qwen output -> OpenAI assistant message: <tool_call>{json}</tool_call> blocks become tool_calls, <think> goes."""
+    """Qwen output -> OpenAI assistant message: <tool_call>{json}</tool_call> blocks (or Qwen3.5's XML form inside
+    them) become tool_calls, <think> goes."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
     calls = []
     for i, body in enumerate(
         re.findall(r"</?tool_call>\s*(.*?)\s*</tool_call>", text, re.S)
     ):
         try:
-            call = json.loads(body)
+            call = (
+                _xml_call(body) if body.startswith("<function=") else json.loads(body)
+            )
             calls.append(
                 {
                     "id": f"call_{time.time_ns()}_{i}",
@@ -369,10 +385,10 @@ class RiverBackend:
             raise RuntimeError(f"River {r.status_code}: {r.response_json[:200]}")
         body = json.loads(r.response_json)
         msg = body["choices"][0]["message"]
-        # River's renderer may already return OpenAI tool_calls; otherwise parse Qwen's text format.
-        return (
-            msg if msg.get("tool_calls") else parse(msg.get("content") or "")
-        ), body.get("usage", {})
+        # River's renderer may already return OpenAI tool_calls; otherwise parse Qwen's text format. Qwen3.5's template
+        # opens <think> and the fine-tuned model never closes it, so River files the whole answer under reasoning_content.
+        text = msg.get("content") or msg.get("reasoning_content") or ""
+        return (msg if msg.get("tool_calls") else parse(text)), body.get("usage", {})
 
 
 def backend(model=None):
