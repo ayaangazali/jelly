@@ -250,7 +250,7 @@ class LocalBackend:
             self._loaded[path] = (AutoTokenizer.from_pretrained(path), model)
         return self._loaded[path]
 
-    def complete(self, model_path, messages, tools, max_new_tokens=384):
+    def complete(self, model_path, messages, tools):
         with self._lock:
             tok, model = self._load(model_path)
             ms, short = compact(messages, tools)
@@ -269,7 +269,7 @@ class LocalBackend:
             with self._torch().no_grad():
                 out = model.generate(
                     **enc,
-                    max_new_tokens=max_new_tokens,
+                    max_new_tokens=384,
                     do_sample=False,
                     suppress_tokens=banned,
                 )
