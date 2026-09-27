@@ -97,7 +97,7 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
 <li><b>Not used:</b> GBrain search and embeddings, and hosted access.</li>
 <li><b>Memorable's store, not migrated:</b> Memorable keeps its 23 procedures in its own encrypted local store. We tried migrating them to GBrain with Memorable's native integration (<code>memorable init gbrain</code>, then GBrain's <code>integrations.memorable</code> switch); GBrain refused it (<code>writer_coordinator_required</code>): a new writer on the shared brain needs a deliberate ownership change by its operator, not made at the freeze. So the migration was rolled back at once and nothing moved. After the rollback a real recall on task 09 scored 0.727. Memorable and GBrain run side by side.</li>
 </ul></section>
-<section class="panel pviz"><h2>Notes between agents</h2><div class="notes">${calls.map((e, i) => `<div class="gnote ${/write|put/.test(e.call) ? "w" : "r"}" style="animation-delay:${i * 0.2}s"><b>${/write|put/.test(e.call) ? "wrote" : /read|get/.test(e.call) ? "read" : "page"}</b><code>${esc(String(e.call).slice(0, 70))}</code><small>${esc(String(e.result).slice(0, 90))}</small></div>`).join("") || empty("No notes yet.")}</div></section>`);
+<section class="panel pviz"><h2>Notes between agents</h2>${notesMap(calls)}</section>`);
   }
   if (id === "frontier") {
     const rows = ledger.filter((r) => r.routed_to === "frontier"), top = Math.max(...rows.map((r) => r.cost_usd || 0), 0.0001);
@@ -114,3 +114,54 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
 // The whole trace's provider calls (GET /api/provider-calls), else /state's last 100 until the router has that endpoint.
 const allCalls = () => (Array.isArray(data.calls) ? data.calls : data.state.trace || []);
 const bigName = (m) => (/claude/i.test(m) ? "Anthropic Claude Haiku 4.5" : /gpt|openai/i.test(m) ? `OpenAI ${m}` : m);
+
+// The GBrain notes as a diagram: the note page in the centre, each agent session around it in order of first contact,
+// violet GBrain → agent for reads, amber agent → GBrain for writes, dashed to the shared notes file when GBrain was busy.
+function notesMap(calls) {
+  if (!calls.length) return empty("No notes yet.");
+  const kind = (e) => /busy|a2a\/.*\.md/.test(`${e.call} ${e.result}`) ? "file" : /write|put/.test(e.call) ? "w" : "r";
+  const slugs = calls.map((e) => (String(e.call).match(/a2a-[\w-]+/) || [])[0]).filter(Boolean);
+  const page = slugs.sort((a, b) => slugs.filter((x) => x === b).length - slugs.filter((x) => x === a).length)[0] || "GBrain";
+  const order = [], by = {};
+  for (const e of calls) {
+    const who = e.session_id || (/graduat/.test(e.call) ? "graduation record" : "runner");
+    if (!by[who]) { by[who] = { r: 0, w: 0, file: 0 }; order.push(who); }
+    by[who][kind(e)] += 1;
+  }
+  const shown = order.slice(-10), more = order.length - shown.length, file = shown.some((k) => by[k].file);
+  const W = 1000, H = 560, cx = 500, cy = 250, rx = 390, ry = 200, bw = 200, bh = 46;
+  const n = shown.length, pos = shown.map((k, i) => { const a = ((200 - (n > 1 ? (220 * i) / (n - 1) : 110)) * Math.PI) / 180; return [cx + rx * Math.cos(a), cy - ry * Math.sin(a)]; });
+  const fx = cx, fy = H - 40;
+  const cut = (x1, y1, x2, y2, hw, hh) => { const dx = x2 - x1, dy = y2 - y1, t = Math.min(hw / Math.abs(dx || 1e-9), hh / Math.abs(dy || 1e-9), 1); return [x1 + dx * t, y1 + dy * t]; };
+  const arrow = (a, b, aw, ah, bw_, bh_, off, cls, label) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ox = (-dy / L) * off, oy = (dx / L) * off;
+    const [x1, y1] = cut(a[0] + ox, a[1] + oy, b[0] + ox, b[1] + oy, aw / 2 + 4, ah / 2 + 4), [x2, y2] = cut(b[0] + ox, b[1] + oy, a[0] + ox, a[1] + oy, bw_ / 2 + 8, bh_ / 2 + 8);
+    const mx = (x1 + x2) / 2 + ox * 1.6, my = (y1 + y2) / 2 + oy * 1.6;
+    return `<line class="${cls}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" marker-end="url(#nm-${cls.split(" ")[0]})"/><text class="nm-count ${cls.split(" ")[0]}" x="${mx.toFixed(1)}" y="${(my + 4).toFixed(1)}">${label}</text>`;
+  };
+  const edges = shown.map((k, i) => {
+    const c = by[k], p = pos[i], out = [];
+    if (c.w) out.push(arrow(p, [cx, cy], bw, bh, 240, 60, -9, "w", `wrote ${c.w}`));
+    if (c.r) out.push(arrow([cx, cy], p, 240, 60, bw, bh, -9, "r", `read ${c.r}`));
+    if (c.file) out.push(arrow(p, [fx, fy], bw, bh, 220, 44, 0, "w dash", `wrote ${c.file}`));
+    return out.join("");
+  }).join("");
+  const box = (x, y, w, h, cls, l1, l2) => `<g class="nm-node ${cls}"><rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="8"/><text x="${x}" y="${y - (l2 ? 3 : -5)}">${esc(l1)}</text>${l2 ? `<text class="sub" x="${x}" y="${y + 15}">${esc(l2)}</text>` : ""}</g>`;
+  const nodes = shown.map((k, i) => box(pos[i][0], pos[i][1], bw, bh, "agent", `${order.indexOf(k) + 1} · ${k.startsWith("sess-") ? k.slice(0, 13) : k}`, `${by[k].r + by[k].w + by[k].file} calls`)).join("");
+  return `<style>
+.nmap{width:100%;height:auto;display:block;max-height:70vh}
+.nmap line{stroke-width:2}.nmap line.r{stroke:var(--owned)}.nmap line.w{stroke:var(--big)}.nmap line.dash{stroke-dasharray:6 5}
+.nmap .nm-count{font:600 14px "JetBrains Mono",monospace;text-anchor:middle;paint-order:stroke;stroke:var(--sheet);stroke-width:5px}
+.nmap .nm-count.r{fill:var(--owned)}.nmap .nm-count.w{fill:var(--big)}
+.nmap .nm-node rect{fill:var(--paper);stroke:var(--rule);stroke-width:1.5}
+.nmap .nm-node text{fill:var(--ink);font:600 15px "JetBrains Mono",monospace;text-anchor:middle}
+.nmap .nm-node text.sub{fill:var(--muted);font:400 13px Archivo,sans-serif}
+.nmap .nm-node.page rect{fill:var(--owned-wash);stroke:var(--owned);stroke-width:2}
+.nmap .nm-node.file rect{stroke:var(--big);stroke-dasharray:6 5}
+.nm-cap{color:var(--muted);margin:8px 0 0}.nm-raw{margin-top:12px}.nm-raw summary{cursor:pointer;color:var(--muted)}
+</style><svg class="nmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="GBrain notes between agents">
+<defs>${["r", "w"].map((c) => `<marker id="nm-${c}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(${c === "r" ? "--owned" : "--big"})"/></marker>`).join("")}</defs>
+${edges}${box(cx, cy, 240, 60, "page", page, "GBrain page")}${file ? box(fx, fy, 220, 44, "file", "shared notes file", "used when GBrain was busy") : ""}${nodes}</svg>
+<p class="nm-cap">Each box is one agent session, numbered in the order it first touched the notes. <span style="color:var(--owned)">Violet</span>: it read the page before its task. <span style="color:var(--big)">Amber</span>: it wrote back after its tests passed; dashed means GBrain was busy, so it wrote the shared notes file.${more ? ` Showing the latest ${shown.length} of ${order.length} sessions.` : ""}</p>
+<details class="nm-raw"><summary>All ${calls.length} GBrain calls</summary>${feedOf(calls)}</details>`;
+}
