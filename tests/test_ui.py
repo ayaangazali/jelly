@@ -13,3 +13,19 @@ def test_router_serves_every_local_ui_asset(router):
     assert router("GET", "/").status_code == 200
     for path in paths:
         assert router("GET", path).status_code == 200, path
+
+
+def test_results_freezes_the_dashboard_state(workdir, capsys):
+    import json
+    import os
+
+    from graduate import cli
+
+    os.chdir(cli._demo_dir())
+    cli.main(["results", "--out", str(workdir / "results/state.json")])
+    got = json.loads((workdir / "results/state.json").read_text(encoding="utf-8"))
+    want = json.loads((ROOT / "fixtures/state.example.json").read_text(encoding="utf-8"))
+    assert list(got) == list(want)
+    for key in ("registry", "ledger", "trace", "terminal", "session_log"):
+        assert got[key] == want[key], key
+    assert "?state=/" in capsys.readouterr().out
