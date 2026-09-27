@@ -22,7 +22,8 @@ const page = () => location.pathname.replace(/^\/app\/?/, "").split("/")[0] || "
 function render() {
   const p = PAGES[page()] ? page() : "live";
   document.body.classList.toggle("on-live", p === "live");
-  document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === p ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  const nav = { logs: "activity", "under-the-hood": "activity", chat: "race" }[p] || p; // merged pages keep their old URLs
+  document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === nav ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const html = data.state ? PAGES[p]() : `<p class="lede">Loading /state…</p>`;
   swap($("#view"), html);
   tick();
