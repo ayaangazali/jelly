@@ -1,0 +1,6 @@
+[Unit]
+Description=jelly preview: pull origin/main, restart the preview when HEAD moved (#55)
+
+[Service]
+Type=oneshot
+ExecStart=%h/jelly-preview-clone/scripts/preview/pull.sh
