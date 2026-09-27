@@ -1,4 +1,4 @@
-# GRADUATE
+# jelly
 
 Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recording, this file and [`docs/results.md`](docs/results.md).
 
@@ -25,7 +25,7 @@ Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recordin
 - **The big model is real: Claude Haiku 4.5**, via Anthropic's OpenAI-compatible Chat Completions API (OpenAI had no credit). On broken states 01–08 it passed 8 of 8 real OpenCode sessions through the router: mean 7.1 turns, 710 output tokens, $0.176 and 18.3 s a session. That endpoint reports no cached tokens, so this baseline pays full price for input.
 - **Your model, retrained on those 8 real sessions (local CPU, Qwen2.5-Coder-0.5B LoRA, 1171 s): passes the repeat, fails both held-out states.** On repeat 07 it passes on its own: exit 0, 6 turns, 326 output tokens, $0 marginal, 126 s. Claude took 7 turns, 734 output tokens, $0.173 and 19 s on the same state. On held-out 09 and 10 it fails verification (exit 1). The escalator reruns both on Claude, and both pass, so the user gets a passing result every time. The River-trained model (Qwen3.5-9B) is reported separately in [`docs/results.md`](docs/results.md#river-the-owned-model-trained-and-served-on-river-qwen35-9b).
 - **Savings: not claimed.** One passing repeat out of three owned sessions doesn't support a ratio. The owned model used fewer output tokens on that repeat, and it was about 7× slower on CPU.
-- **Spend:** $2.36 of a $3 cap, over 85 calls to Claude, from the ledger and the router's metrics.
+- **Spend:** $2.90 of a $3 cap, over 108 calls to Claude, from the ledger and the router's metrics. $0.52 of it was another lane's session that used this router's port by mistake.
 
 ## Sponsors, and exactly how each is used
 
