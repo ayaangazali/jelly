@@ -1,5 +1,6 @@
 """Trace events for the live Under the hood view. Shape: graduate/contracts.md §8."""
 import json
+import re
 from collections import deque
 from datetime import datetime, timezone
 
@@ -31,4 +32,4 @@ def recent(n=200):
 
 def terminal(line):
     with open(TERMINAL_PATH, "a", encoding="utf-8") as f:
-        f.write(line.rstrip("\n") + "\n")
+        f.write(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)", "", line).rstrip("\n") + "\n")

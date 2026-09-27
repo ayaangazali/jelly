@@ -31,6 +31,17 @@ def test_results_freezes_the_dashboard_state(workdir, capsys):
     assert "?state=/" in capsys.readouterr().out
 
 
+def test_state_is_served_when_consent_is_imported_first(workdir):
+    import os
+    import subprocess
+    import sys
+
+    code = ("import graduate.router.consent\nfrom fastapi.testclient import TestClient\nimport graduate.router.app as a\n"
+            "assert TestClient(a.app).get('/state').status_code == 200")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(ROOT)})
+    assert r.returncode == 0, r.stderr[-800:]
+
+
 def test_compare_before_any_bench_is_not_a_server_error(router, workdir):
     r = router("GET", "/bench/latest/results.json")
     assert r.status_code == 200 and "bench/latest" in r.json()["error"]

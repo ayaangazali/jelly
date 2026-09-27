@@ -1,0 +1,15 @@
+{
+  "frontier": {
+    "model": "claude-haiku-4-5",
+    "input": 1.0,
+    "cached_input": 0.1,
+    "output": 5.0
+  },
+  "owned": {
+    "model": "Qwen3.6-35B-A3B-FP8",
+    "input": 0.33,
+    "cached_input": 0.066,
+    "output": 0.82,
+    "training": 1.0
+  }
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jelly</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/ui/app/app.css">
+</head>
+
+<body>
+  <div class="shell">
+    <nav class="side" aria-label="Primary">
+      <a class="brand" href="/app">Jelly</a>
+      <a href="/app" data-nav="live">Live</a>
+      <a href="/app/race" data-nav="race">Race</a>
+      <a href="/app/chat" data-nav="chat">Chat</a>
+      <a href="/app/tasks" data-nav="tasks">Task types</a>
+      <a href="/app/agents" data-nav="agents">Agents</a>
+      <a href="/app/providers" data-nav="providers">Providers</a>
+      <a href="/app/pricing" data-nav="pricing">Pricing logs</a>
+      <a href="/app/logs" data-nav="logs">Logs</a>
+      <a href="/app/under-the-hood" data-nav="under-the-hood">Under the hood</a>
+      <a href="/app/setup" data-nav="setup">Setup</a>
+      <a href="/app/overview" data-nav="overview">Overview</a>
+      <div class="side-foot">
+        <p id="live"></p>
+        <a href="/ui/index.html">Classic dashboard</a>
+      </div>
+    </nav>
+    <main>
+      <p id="sample" class="banner" hidden>Sample data: this router serves fixture state (<code>graduate up
+          --demo</code>). None of these numbers are real runs.</p>
+      <div id="view"></div>
+    </main>
+  </div>
+  <script src="/ui/app/live.js"></script>
+  <script src="/ui/app/providers.js"></script>
+  <script src="/ui/app/pricing.js"></script>
+  <script src="/ui/app/hood.js"></script>
+  <script src="/ui/app/app.js"></script>
+  <script src="/ui/app/chat.js"></script>
+</body>
+
+</html>

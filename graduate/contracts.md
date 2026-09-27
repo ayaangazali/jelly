@@ -27,7 +27,7 @@ N is `GRADUATE_N` (default 5). The fail limit is `GRADUATE_FAIL_LIMIT` (default 
 | `TRAINING` | `GRADUATED` | a checkpoint was saved | trainer (#22) |
 | `TRAINING` | `READY` | training failed, or `TRAINING` is stale for over an hour | trainer (#22) |
 | `GRADUATED` | `PROBATION` | `failures_since_graduation >= GRADUATE_FAIL_LIMIT`, or the owner demotes it | escalator (#23), dashboard |
-| `PROBATION` | `TRAINING` | `consent == true` (retrain includes the negatives) | consent endpoint (#25) |
+| `PROBATION` | `TRAINING` | `consent == true` (retrain on the passing runs; negatives are kept but not trained on, §6c) | consent endpoint (#25) |
 
 Anything else raises `IllegalTransition`. Consent is checked on the way **into** `TRAINING`, not on the way into `READY`: reaching the bar is automatic, sending data to River never is.
 
@@ -46,10 +46,10 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `repo` | string | Path of the repo the task ran in |
 | `start_commit` | string | `git rev-parse HEAD` before the agent started |
 | `verify_command` | string | Command the runner ran after the agent exited |
-| `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out |
+| `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out. A verify that exits 0 is recorded as `1` when the row is `tampered`, or when the command runs `pytest` and its summary does not show at least one test with all of them passed |
 | `tests_passed` | int or null | Parsed from the pytest summary line |
 | `tests_total` | int or null | Parsed from the pytest summary line |
-| `routed_to` | `"frontier"` or `"owned"` | Which upstream served this session |
+| `routed_to` | `"frontier"`, `"owned"`, `"mixed"` or `"cache"` | Which upstream served this session. `"mixed"`: an owned call and a frontier call in one session (#133); it counts as neither a verified frontier run nor training data. `"cache"`: at least one answer replayed from the verified-response cache (#144); same exclusions |
 | `model` | string | Frontier model id, or the River checkpoint path / deployment model |
 | `turns` | int | Model calls in this session (from the router's session aggregate) |
 | `tool_calls` | int | Tool calls the model made across the session |
@@ -62,6 +62,8 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `ended_at` | string | Timestamp |
 | `escalated_from` | string or null | For an escalation rerun: the failed owned session it replaces |
 | `forced_failure` | bool | True only when `GRADUATE_FORCE_FAIL=1` faked the failure for the demo |
+| `tampered` | bool | The agent added, changed or deleted a file under a `tests/` directory or a `conftest.py`, compared with the working tree when the session started |
+| `harness` | `"opencode"` or `"claude-code"` | Which agent ran the session (`graduate run --harness`) |
 
 A task type's `verified_runs` is the count of rows with `routed_to == "frontier"`, `exit_code == 0`, `escalated_from == null`. Escalation reruns don't count toward graduation, because they would reward the model for failing.
 
@@ -77,7 +79,7 @@ One line per model call, written by the router (#35) after the response finishes
 |---|---|---|
 | `ts` | string | When the call finished |
 | `session_id` | string | Same as the ledger |
-| `upstream` | `"frontier"` or `"owned"` | Where the router sent it |
+| `upstream` | `"frontier"`, `"owned"` or `"cache"` | Where the router sent it |
 | `model` | string | Model id or checkpoint path used |
 | `request` | object | The full Chat Completions request body as received, minus nothing |
 | `response` | object | The full assistant message. For streams, the chunks reassembled: `{role, content, tool_calls, finish_reason}` with `tool_calls` merged by index |
@@ -99,7 +101,7 @@ One line per model call, written by the router (#17). The session aggregate the 
 | `ts` | string | Timestamp |
 | `session_id` | string | `sess-anon` if the bearer isn't a session id |
 | `task_type` | string | As classified for this session |
-| `upstream` | `"frontier"` or `"owned"` | |
+| `upstream` | `"frontier"`, `"owned"` or `"cache"` | |
 | `model` | string | |
 | `input_tokens` | int | |
 | `cached_input_tokens` | int | |
@@ -193,7 +195,7 @@ This is exactly what `model.train_step(data=[wire, ...], lr=..., loss_fn="cross_
 
 ### 6c. Negative record — `data/<task_type>.neg.jsonl`
 
-The 6a shape for a failed owned session, with `metadata.exit_code != 0` and `metadata.negative = true`. Not trained on by SFT. Kept for retraining and RL.
+The 6a shape for a failed owned session, with `metadata.exit_code != 0` and `metadata.negative = true`. Not trained on by SFT, including on a retrain. Kept on disk for RL.
 
 Examples: `fixtures/sft-chat.example.json`, `fixtures/sft-wire.example.json`.
 
@@ -239,9 +241,19 @@ Edge ids: `launch`, `ingest`, `chat`, `recall`, `frontier`, `owned`, `log`, `rea
 
 These are the ids in `mock-up/index.html` (`NODES`, `EDGES`). Adding one means adding it there too.
 
-The runner's live agent output goes through `graduate.trace.terminal(line)` to `terminal.log`, one line per output line, not to `trace.jsonl`.
+The runner's live agent output goes through `graduate.trace.terminal(line)` to `terminal.log`, one line per output line, not to `trace.jsonl`. ANSI CSI and OSC sequences are stripped on write.
 
 Example: `fixtures/trace.example.jsonl`.
+
+### `/state` `config`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `n` | int | Verified runs to graduate (`GRADUATE_N`) |
+| `fail_limit` | int | Failures before probation (`GRADUATE_FAIL_LIMIT`) |
+| `backend` | string | `river`, `local` or `none`: where a new training run goes, as the consent screen reports it (#96). The dashboard labels the serving node from the graduated checkpoint (`river://` or a local path) instead |
+
+Example: `fixtures/state.example.json`.
 
 ---
 

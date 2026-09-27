@@ -15,7 +15,7 @@ from conftest import ROOT
 from graduate import registry, watcher
 from graduate.router import consent
 
-T = "write-migration"  # READY in registry.example.json
+T = "write-migration"
 
 
 class Polled(Exception):
@@ -40,7 +40,7 @@ def test_killed_trainer_returns_to_ready_within_one_poll(workdir, monkeypatch):
     Path(f"data/{T}.chat.jsonl").write_text(json.dumps(record) + "\n")
     monkeypatch.setattr(
         consent, "TRAIN_CMD", ["sh", "-c", "echo $$ > trainer.pid; exec sleep 60"]
-    )  # the fake trainer
+    )
 
     async def approve():
         async with httpx.AsyncClient(
@@ -57,11 +57,11 @@ def test_killed_trainer_returns_to_ready_within_one_poll(workdir, monkeypatch):
         one_poll()
         assert (
             registry.load()["task_types"][T]["state"] == "TRAINING"
-        )  # alive: left alone
+        )
     finally:
         os.kill(pid, signal.SIGKILL)
-    # Dead, but a zombie until someone reaps it: the router never waits on its trainer either.
-    os.waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
+    while watcher.started(pid):
+        time.sleep(0.01)
 
     one_poll()
     reg = registry.load()
@@ -77,7 +77,6 @@ def test_reused_pid_counts_as_dead(workdir):
     shutil.copy(ROOT / "registry.example.json", "registry.json")
     registry.set_consent(T, True)
     registry.transition(T, "TRAINING")
-    # A live pid (this test) with another start time: the trainer died and the OS gave its pid away.
     registry.update(
         T, trainer={"pid": os.getpid(), "started": watcher.started(os.getpid()) - 3600}
     )

@@ -14,6 +14,7 @@ escalated_from set. Self-check: python -m graduate.escalator
 import json
 import os
 import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from graduate import registry, trace
@@ -21,6 +22,7 @@ from graduate.registrar import dataset
 
 FAIL_LIMIT = int(os.environ.get("GRADUATE_FAIL_LIMIT", "3"))
 ISSUE = 23
+DEAD_429 = ("per day", "insufficient_quota", "Request too large")
 
 
 def _git(repo, *args, check=True):
@@ -62,6 +64,24 @@ def _keep_negative(row):
     return path
 
 
+def _dead_frontier():
+    try:
+        lines = Path(trace.TRACE_PATH).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return None
+    for line in reversed(lines):
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("who") == "Router → OpenAI":
+            r = e["result"]
+            dead = r.startswith("401") or (r.startswith("429") and any(s in r for s in DEAD_429))
+            ts = datetime.strptime(e["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            return r if dead and datetime.now(timezone.utc) - ts < timedelta(hours=1) else None
+    return None
+
+
 def escalate(row, pre):
     from graduate import runner  # the runner imports this module
 
@@ -71,6 +91,7 @@ def escalate(row, pre):
         if row["forced_failure"]
         else f"failed its tests (exit {row['exit_code']})"
     )
+    cached = row.get("routed_to") == "cache"
 
     diff = Path("sessions") / f"{sid}.diff"
     diff.parent.mkdir(exist_ok=True)
@@ -88,16 +109,17 @@ def escalate(row, pre):
         sid,
     )
 
-    kept = None if row["forced_failure"] else _keep_negative(row)
-    tt = registry.load()["task_types"].get(task_type)
+    kept = None if row["forced_failure"] or cached else _keep_negative(row)
+    tt = None if cached else registry.load()["task_types"].get(task_type)
     fails = (tt["failures_since_graduation"] + 1) if tt else 1
     if tt:
         registry.update(task_type, failures_since_graduation=fails)
     registry.add_event(
         "failed",
         task_type,
-        f"{task_type}: your model's attempt {how}, failure {fails} of {FAIL_LIMIT}. "
-        f"Saved the diff to {diff}, reset {repo}, "
+        (f"{task_type}: {sid} was served from the verified cache and {how}; its cached answers are evicted. "
+         if cached else f"{task_type}: your model's attempt {how}, failure {fails} of {FAIL_LIMIT}. ")
+        + f"Saved the diff to {diff}, reset {repo}, "
         + (
             f"kept it as a negative example in {kept}."
             if kept
@@ -113,6 +135,13 @@ def escalate(row, pre):
             "requests go to the frontier until it is retrained.",
         )
 
+    dead = _dead_frontier()
+    if dead:
+        why = f"no frontier rerun of {sid}: the frontier's last answer was {dead[:220]}"
+        trace.emit("Escalator → Runner", "graduate run --force-frontier", why, ISSUE,
+                   ["escalator", "router", "openai"], ["rerun", "frontier"], sid)
+        print(why)
+        return row
     trace.emit(
         "Escalator → Runner",
         "graduate run --force-frontier",
@@ -129,6 +158,7 @@ def escalate(row, pre):
         force_frontier=True,
         escalated_from=sid,
         task_type=task_type,
+        harness=row.get("harness", "opencode"),
     )
     ok = rerun["exit_code"] == 0
     registry.add_event(
@@ -142,6 +172,6 @@ def escalate(row, pre):
         ),
     )
     print(
-        f"{sid} owned_then_frontier → {rerun['session_id']} exit {rerun['exit_code']}"
+        f"{sid} {row.get('routed_to', 'owned')}_then_frontier → {rerun['session_id']} exit {rerun['exit_code']}"
     )
     return rerun

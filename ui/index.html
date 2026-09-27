@@ -276,9 +276,11 @@ pre.filebox { max-height: 320px; margin-top: 0; border-top-left-radius: 0; }
     <nav class="primary" aria-label="Main">
       <a href="#/show" data-nav="show">Showcase</a>
       <a href="#/compare" data-nav="compare">Compare</a>
+      <a href="#/swarm" data-nav="swarm">Swarm</a>
       <a href="#/" data-nav="overview">Overview</a>
       <a href="#/system" data-nav="system">Under the hood</a>
       <a href="#/setup" data-nav="setup">Setup</a>
+      <a href="/app">App</a>
     </nav>
     <div class="proxy"><span class="dot" id="conn-dot" aria-hidden="true"></span><span id="conn" role="status">Connecting…</span></div>
   </div>
@@ -289,6 +291,7 @@ pre.filebox { max-height: 320px; margin-top: 0; border-top-left-radius: 0; }
 
 <script src="/ui/present.js"></script>
 <script src="/ui/compare.js"></script>
+<script src="/ui/swarm.js"></script>
 <script>
 const GH = "https://github.com/ayaangazali/jelly/issues/";
 const BW = 190, BH = 56;
@@ -340,9 +343,28 @@ const NODES = [
     calls: ["tokenizer.apply_chat_template(messages, tools=…)", "session.create_model(\"Qwen3.6-35B-A3B-FP8\", lora=LoraConfig(rank=32))", "registry.transition(\"GRADUATED\", model=\"river://…\")"], files: ["data/<task>.tok.jsonl", "data/<task>.loss.jsonl"] },
   { id: "escalator", c: "A", r: 5, label: "Escalator", sub: "reset · rerun on frontier", issues: [23],
     what: "When your model's attempt fails the tests, it saves the diff, resets the repo, reruns the task forced to the frontier, and keeps the failure as a negative example. After 3 failures the task type goes on probation.",
-    calls: ["git diff > sessions/<id>.diff", "git checkout -- . && git clean -fd", "graduate run --force-frontier   (header x-graduate-force: frontier)"], files: ["data/<task>.neg.jsonl"] },
+    calls: ["git diff > sessions/<id>.diff", "git restore --source=<pre-task commit> -- . && git clean -fd -- .", "graduate run --force-frontier   (header x-graduate-force: frontier)"], files: ["data/<task>.neg.jsonl"] },
 ];
 const NODE = Object.fromEntries(NODES.map((n) => [n.id, { ...n, x: COL[n.c], y: ROW[n.r] }]));
+const LOCAL = {
+  router: { what: "An OpenAI-compatible proxy. Classifies each session once, reads the registry, sends the call to OpenAI or to your local model, streams the answer back untouched, and logs the call.",
+    calls: ["memorable recall … --single   (first call of a session only)", "registry.json → state of the task type", "POST api.openai.com/v1/chat/completions   or   the checkpoint on this machine"] },
+  river: { label: "Local model", sub: "your LoRA, on this CPU", ext: false, leaves: "", risk: "",
+    what: "Your trained model, served on this machine's CPU. The router generates the whole answer from the LoRA checkpoint, then streams it back. Nothing leaves this machine.",
+    calls: ["LocalBackend.complete(\"data/checkpoints/<task>-v<n>\", messages, tools)"] },
+  consent: { what: "Nothing is used for training until you approve the exact records on the consent screen." },
+  rivertrain: { label: "Local training", sub: "LoRA SFT on this CPU", ext: false, leaves: "", risk: "",
+    what: "LoRA fine-tuning of a small open model on this machine's CPU with torch and peft. The training records never leave this machine.",
+    calls: ["get_peft_model(\"Qwen/Qwen2.5-Coder-0.5B-Instruct\", LoraConfig(r=16))", "model.save_pretrained(\"data/checkpoints/<task>-v<n>\")"] },
+  registrar: { what: "Turns passing sessions into tokenized training records with the base model's chat template, trains a LoRA on this machine, and marks the task type Graduated with the new checkpoint.",
+    calls: ["tokenizer.apply_chat_template(messages, tools=…)", "registry.transition(\"GRADUATED\", model=\"data/checkpoints/<task>-v<n>\")"] },
+};
+const OWNED = {
+  local: LOCAL,
+  none: { ...LOCAL,
+    river: { ...LOCAL.river, label: "No owned model", sub: "backend: none", calls: null, what: "GRADUATE_OWNED_BACKEND=none: nothing is trained and the frontier serves every call." },
+    rivertrain: { ...LOCAL.rivertrain, label: "No training", sub: "backend: none", calls: null, what: "GRADUATE_OWNED_BACKEND=none: nothing is trained." } },
+};
 const EDGES = [
   { id: "launch", d: "M135,76 V130", lx: 141, ly: 107, t: "launches", a: "start" },
   { id: "ingest", d: "M230,48 H290", lx: 260, ly: 42, t: "ingest", a: "middle" },
@@ -394,6 +416,9 @@ async function poll() {
     if (text === lastJson) return;
     lastJson = text;
     S = JSON.parse(text);
+    const served = Object.values(tasks()).filter((t) => t.state === "GRADUATED" && t.model).map((t) => t.model.startsWith("river://") ? "river" : "local");
+    const serving = S.config.backend === "none" || !served.length ? S.config.backend : served.includes("river") ? "river" : "local";
+    for (const n of NODES) Object.assign(NODE[n.id], n, (OWNED[n.id === "river" || n.id === "router" ? serving : S.config.backend] || {})[n.id]);
     for (const [k, t] of Object.entries(tasks())) {
       if (t.state === "GRADUATED" && prevState[k] && prevState[k] !== "GRADUATED") { stampFor = k; stampUntil = Date.now() + 1500; }
       prevState[k] = t.state;
@@ -434,6 +459,7 @@ function viewOverview() {
   return `
     <div class="savings"><span class="amount">${money(tot.saved_usd)}</span>
       <span class="what">saved across ${tot.owned_runs} runs your own models handled<small>Compared with the same runs on the frontier model with prompt caching on.</small></span></div>
+    ${cacheOverview()}
     ${ready ? `<div class="banner"><p><strong>${esc(ready[1].title || ready[0])}</strong> has ${N()} verified runs and can graduate. Nothing is sent for training until you approve it.</p><a class="btn owned" href="#/consent/${encodeURIComponent(ready[0])}">Review training data</a></div>` : ""}
     <div class="cols">
       <section aria-labelledby="roster-h"><h2 id="roster-h">Task types</h2>
@@ -470,7 +496,7 @@ function viewTask(k) {
   const runs = S.ledger.filter((r) => r.task_type === k).slice().reverse();
   const handled = (r) => r.escalated_from ? "Your model, then frontier" : r.routed_to === "owned" ? `<span style="color:var(--owned);font-weight:600">Your model</span>` : "Frontier";
   const actions = t.state === "READY" && !t.consent ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Review training data</a>`
-    : t.state === "PROBATION" ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Retrain with the failed runs</a>` : "";
+    : t.state === "PROBATION" ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Review and retrain</a>` : "";
   return `
     <a class="back" href="#/">Back to overview</a>
     <div class="detail-head"><div><h1>${esc(t.title || k)}</h1><p class="lede">Verified by <code>${esc(t.verify_command)}</code>. ${t.verified_runs} passing runs, ${t.failed_runs} failing.</p></div>${stamp}</div>
@@ -510,16 +536,16 @@ function viewConsent(k) {
   const d = consentCache[k];
   if (!d) loadConsent(k);
   const local = d?.backend === "local";
-  const n = d?.sample ? d.records : (t.state === "PROBATION" ? t.verified_runs + t.failed_runs : t.verified_runs);
+  const n = d?.sample ? d.records : t.verified_runs;
   return `<div class="consent">
     <a class="back" href="#/task/${encodeURIComponent(k)}">Back to ${esc((t.title || k).toLowerCase())}</a>
     <h1>${local ? `Train a model on this machine on ${n} runs of “${esc(t.title || k)}”?` : `Send ${n} runs to River to train “${esc(t.title || k)}”?`}</h1>
     <p class="lede">${local ? "Graduate trains a small model on this machine's CPU with these runs. Nothing leaves this machine." : "Graduate trains a small model on River with these runs, using your River key. The weights are saved to your River account."} After that, matching requests go to it, and each one is still checked with <code>${esc(t.verify_command)}</code>.</p>
     <section><h2>${local ? "What it trains on" : "What gets sent"}</h2><ul>
-      <li>${n} passing runs as training examples${t.state === "PROBATION" ? `, plus ${t.failed_runs} failing runs as examples of what not to do` : ""}${d?.tokens ? `, ${d.tokens.toLocaleString()} tokens in total` : ""}</li>
+      <li>${n} passing runs as training examples${d?.tokens ? `, ${d.tokens.toLocaleString()} tokens in total` : ""}</li>
       <li>For each run: the conversation with the model, including its tool calls and their results</li>
       <li>Destination: ${esc(d?.destination || "your River account")}. The trained weights are yours.</li></ul></section>
-    <section><h2>What stays on this machine</h2><ul><li>Runs from other task types</li><li>The run ledger, metrics and trace logs</li><li>Anything from sessions that failed their tests, unless this is a retrain</li></ul></section>
+    <section><h2>What stays on this machine</h2><ul><li>Runs from other task types</li><li>The run ledger, metrics and trace logs</li><li>Anything from sessions that failed their tests</li></ul></section>
     <section><h2>One record, exactly as it would be sent</h2>
       ${d?.sample ? `<pre class="sample">${esc(JSON.stringify(d.sample, null, 2))}</pre>` : `<p class="note">${esc(d?.error || "Loading the sample record…")}</p>`}</section>
     <div class="actions"><button class="btn owned" data-act="approve" data-k="${esc(k)}"${d?.sample ? "" : " disabled"}>Approve and train</button><a class="btn quiet" href="#/task/${encodeURIComponent(k)}">Not now</a></div>
@@ -537,7 +563,7 @@ async function approve(k) {
 
 function viewSetup() {
   const tabs = {
-    claude: { label: "Claude Code", body: `<p>Claude Code talks the Anthropic Messages API. Point it at the proxy and turn on the headers Graduate uses to count turns:</p><pre class="cmd">export ANTHROPIC_BASE_URL=http://localhost:4141\nexport ANTHROPIC_AUTH_TOKEN=graduate-local\nexport CLAUDE_CODE_GATEWAY_HINT_HEADERS=1</pre><p class="note">Supported once #26 lands. The demo uses OpenCode.</p>` },
+    claude: { label: "Claude Code", body: `<p>Claude Code talks the Anthropic Messages API. Point it at the proxy and turn on the headers Graduate uses to count turns:</p><pre class="cmd">export ANTHROPIC_BASE_URL=http://localhost:4141\nexport ANTHROPIC_API_KEY=sess-$(uuidgen | tr A-Z a-z)\nexport CLAUDE_CODE_GATEWAY_HINT_HEADERS=1</pre><p class="note">The key is the session id: use a new <code>sess-…</code> value per session so Graduate can classify it. The demo uses OpenCode.</p>` },
     opencode: { label: "OpenCode", body: `<p>Add a provider in <code>opencode.json</code>:</p><pre class="cmd">"provider": { "graduate": {\n  "npm": "@ai-sdk/openai-compatible",\n  "options": { "baseURL": "http://localhost:4141/v1", "apiKey": "{env:GRADUATE_SESSION}" }\n} }</pre><p class="note">This is the harness the demo uses.</p>` },
     aider: { label: "Aider and scripts", body: `<p>Anything that speaks OpenAI Chat Completions:</p><pre class="cmd">export OPENAI_API_BASE=http://localhost:4141/v1</pre><p class="note">The variable name differs by tool. Aider reads OPENAI_API_BASE, the OpenAI SDK reads OPENAI_BASE_URL.</p>` },
     codex: { label: "Codex", body: `<p>Codex only talks the OpenAI Responses API, which Graduate doesn't serve. Codex runs go straight to OpenAI.</p>` },
@@ -616,7 +642,7 @@ function render() {
   document.querySelectorAll("[data-nav]").forEach((x) => x.removeAttribute("aria-current"));
   const nav = { "": "overview", show: "show", compare: "compare", system: "system", setup: "setup" }[r];
   if (nav) $(`[data-nav="${nav}"]`).setAttribute("aria-current", "page");
-  const html = r === "show" ? viewShow(a) : r === "compare" ? viewCompare() : r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? (root.classList.contains("present") ? viewStage() : viewSystem()) : viewOverview();
+  const html = r === "show" ? viewShow(a) : r === "compare" ? viewCompare() : r === "swarm" ? viewSwarm() : r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? (root.classList.contains("present") ? viewStage() : viewSystem()) : viewOverview();
   const y = window.scrollY;
   $("#app").innerHTML = html;
   window.scrollTo(0, y);
@@ -644,5 +670,6 @@ window.addEventListener("hashchange", () => render());
 poll();
 setInterval(poll, 1000);
 </script>
+<script src="/ui/cache.js"></script>
 </body>
 </html>
