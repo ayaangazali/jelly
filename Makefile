@@ -1,4 +1,4 @@
-.PHONY: dev ui check test screens e2e-replay
+.PHONY: dev ui check test screens record e2e-replay
 
 dev:
 	uvicorn graduate.router.app:app --reload --port 4141
@@ -26,3 +26,7 @@ screens:
 # one scripted session (read, edit, "Fixed.") per broken state. Drives scripts/corpus-dryrun.sh.
 e2e-replay:
 	scripts/corpus-dryrun.sh
+
+# Backup video of scripts/demo.sh on the presenter dashboard (#31). Offline by default; ARGS= passes demo.sh flags.
+record:
+	python scripts/record.py $(ARGS)

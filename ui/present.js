@@ -36,6 +36,8 @@ function viewShow(a) {
   const rows = S.ledger.filter((r) => r.task_type === k);
   const f = arm(rows.filter((r) => r.routed_to === "frontier" && !r.escalated_from));
   const o = arm(rows.filter((r) => r.routed_to === "owned"));
+  // Until owned serving (#37) is wired, the owned route falls back to the frontier: say so, don't claim a win.
+  const fellBack = o && rows.some((r) => r.routed_to === "owned" && r.model === (rows.find((x) => x.routed_to === "frontier") || {}).model);
   const n = N(), grad = t.state === "GRADUATED" || t.state === "PROBATION";
   const none = `<span class="muted">no runs yet</span>`;
   const cell = (x, fmt) => x ? fmt(x) : none;
@@ -60,7 +62,7 @@ function viewShow(a) {
   <section class="show-hero" aria-labelledby="hero-h">
     <h2 id="hero-h">Output tokens per run</h2>
     <p class="hero"><span class="f" data-qa="out-frontier">${f ? Math.round(f.out).toLocaleString() : "—"}</span><span class="arrow" aria-label="to">→</span><span class="o" data-qa="out-owned">${o ? Math.round(o.out).toLocaleString() : "—"}</span></p>
-    <p class="hero-sub">${f && o ? `<b data-qa="out-change">${change(f.out, o.out)}</b> frontier model → your graduated model` : `Your model takes over after ${n} passing frontier runs`}</p>
+    <p class="hero-sub">${f && o ? fellBack ? `<span class="badge">Not wired</span> owned serving: “your model” runs fell back to the frontier model` : `<b data-qa="out-change">${change(f.out, o.out)}</b> frontier model → your graduated model` : `Your model takes over after ${n} passing frontier runs`}</p>
     <table class="show-cmp">
       <thead><tr><th></th><th>Frontier</th><th class="own">Your model</th><th>Change</th></tr></thead>
       <tbody>
@@ -83,7 +85,7 @@ function viewShow(a) {
     ${esc_ ? `<ol class="steps">
       <li class="fail">Your model failed · exit ${failed ? failed.exit_code : "≠0"}</li>
       <li class="pass">Re-ran on frontier · exit ${esc_.exit_code}</li>
-      <li>Kept as a negative example ${negWired ? "" : `<span class="badge">Not wired</span>`}</li>
+      <li>${failed && failed.forced_failure ? "Forced failure (GRADUATE_FORCE_FAIL): not kept for training" : `Kept as a negative example ${negWired ? "" : `<span class="badge">Not wired</span>`}`}</li>
     </ol>` : `<p>A failed run on your model re-runs on the frontier. No escalations yet.</p>`}
     ${grad ? `<p class="muted">${t.failures_since_graduation} of ${S.config.fail_limit} failures before probation</p>` : ""}
   </section>
@@ -94,7 +96,8 @@ function viewShow(a) {
 // Presenter Under the hood (stage D): #53's live diagram, the latest call as a one-line ticker, the agent's last
 // terminal lines large, and the nodes with no real call yet named.
 function viewStage() {
-  const last = S.trace[S.trace.length - 1];
+  // Skip the per-call "logs every call" rows, or they hide the call they log.
+  const last = [...S.trace].reverse().find((t) => t.edges.join() !== "log") || S.trace[S.trace.length - 1];
   const wired = new Set(S.trace.flatMap((t) => t.nodes));
   const idle = Object.values(NODE).filter((n) => !wired.has(n.id)).map((n) => n.label);
   return `<div class="stage-d">
@@ -102,7 +105,7 @@ function viewStage() {
     <p class="ticker" data-qa="ticker">${last ? `<time>${clock(last.ts, true)}</time> <b>${esc(last.who)}</b> <span class="call">${esc(last.call)}</span> <span class="res">→ ${esc(last.result)}</span>` : "No calls yet. Run a task with <code>graduate run</code>."}</p></header>
   <figure class="arch sheet">${archSvg()}</figure>
   <p class="legend">Solid: your machine · dashed: outside service · indigo: latest call · faded: no real call yet${idle.length ? ` <span class="badge" data-qa="no-calls">No calls yet</span> ${esc(idle.join(", "))}` : ""}</p>
-  <pre class="term stage-term">${S.terminal.slice(-2).map((l) => `<span class="${termClass(l)}">${esc(l)}</span>`).join("\n") || `<span class="d">Waiting for a task…</span>`}</pre>
+  <pre class="term stage-term">${S.terminal.slice(-2).map((l) => `<span class="${termClass(l)}">${esc(l.replace(/\x1b\[[0-9;]*m/g, ""))}</span>`).join("\n") || `<span class="d">Waiting for a task…</span>`}</pre>
 </div>`;
 }
 
