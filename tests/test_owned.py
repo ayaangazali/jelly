@@ -446,3 +446,21 @@ def test_river_answer_filed_as_reasoning_with_qwen35_xml_call_becomes_a_tool_cal
     assert call["function"]["name"] == "read"
     assert json.loads(call["function"]["arguments"]) == {"filePath": "tests/test_mod_07.py", "limit": 20}
     assert msg["content"] == "Let me look:"
+
+
+def test_owned_route_streams_through_the_messages_endpoint(router, stub, fake):
+    owned_call(router, fake, "sess-0000000000b1")
+    r = router(
+        "POST",
+        "/v1/messages",
+        headers={"x-api-key": "sess-0000000000b1"},
+        json={
+            "model": "claude-sonnet-4-5",
+            "stream": True,
+            "max_tokens": 64,
+            "tools": [{"name": "read", "input_schema": {"type": "object"}}],
+            "messages": [{"role": "user", "content": "The test tests/test_mod_09.py is failing."}],
+        },
+    )
+    assert r.status_code == 200 and "event: message_stop" in r.text
+    assert stub.requests == []
