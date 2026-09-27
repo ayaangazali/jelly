@@ -398,7 +398,7 @@ async function poll() {
       if (t.state === "GRADUATED" && prevState[k] && prevState[k] !== "GRADUATED") { stampFor = k; stampUntil = Date.now() + 1500; }
       prevState[k] = t.state;
     }
-    if (stampFor && route()[0] === "") location.hash = `#/task/${stampFor}`;
+    if (stampFor && Date.now() < stampUntil && route()[0] === "") location.hash = `#/task/${stampFor}`;
     render();
   } catch {
     $("#conn").textContent = S ? "Reconnecting… showing the last state" : "Can't reach " + STATE_URL + ". Is the router running?";
