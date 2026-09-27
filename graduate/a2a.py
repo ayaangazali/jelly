@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from graduate import trace
@@ -19,6 +20,8 @@ from graduate import trace
 ISSUE = 142
 KEEP = 10
 FILE_LABEL = "shared notes file (GBrain not installed)"
+BUSY_LABEL = "shared notes file (GBrain busy)"  # installed, but another process held the brain
+TRIES = 3  # a busy brain ("persistence owner is unavailable") frees up within seconds
 HEAD = "### "
 SKILLS = Path(os.environ.get("GBRAIN_SKILLS", Path.home() / ".local/share/gbrain/skills"))
 TOOLS = ("get_page", "search", "put_page")  # of GBrain's 144 MCP tools, the three this job needs
@@ -28,24 +31,29 @@ AGENT_RULES = """## Shared memory: GBrain (tools `gbrain_*`, skills brain-ops an
 """
 
 
-def _gbrain(*args, text=None, missing_ok=True):
+def _gbrain(*args, text=None, missing_ok=True, tries=1):
     """stdout on exit 0, else None (missing CLI, missing page, a brain that won't open).
 
     With missing_ok=False, an installed CLI failing for any reason but a missing page raises instead, so a
     read that errored (a locked brain) is never mistaken for an empty page that `put` would then overwrite.
     """
-    try:
-        r = subprocess.run(
-            [os.environ.get("GBRAIN_BIN", "gbrain"), *args],
-            input=text,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        if missing_ok or isinstance(e, OSError):
-            return None
-        raise
+    for attempt in range(tries):
+        try:
+            r = subprocess.run(
+                [os.environ.get("GBRAIN_BIN", "gbrain"), *args],
+                input=text,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            if missing_ok or isinstance(e, OSError):
+                return None
+            raise
+        if r.returncode == 0 or "page_not_found" in r.stdout + r.stderr:
+            break
+        if attempt < tries - 1:  # parallel agents' GBrain MCP servers hold the brain for a moment
+            time.sleep(1)
     if r.returncode != 0 and not missing_ok and "page_not_found" not in r.stdout + r.stderr:
         raise RuntimeError(f"gbrain {args[0]} exit {r.returncode}: {(r.stderr or r.stdout).strip()[-200:]}")
     return r.stdout if r.returncode == 0 else None
@@ -58,7 +66,7 @@ def _names(task_type):
 def _read(task_type, missing_ok=True):
     """(procedures oldest first, call, where), or None when there is no page."""
     slug, path = _names(task_type)
-    page = _gbrain("get", slug, missing_ok=missing_ok)
+    page = _gbrain("get", slug, missing_ok=missing_ok, tries=1 if missing_ok else TRIES)
     if page is not None:  # the page follows its YAML frontmatter
         body, call, where = page.split("\n---\n", 1)[-1], f"gbrain get {slug}", "GBrain"
     elif path.is_file():
@@ -197,12 +205,13 @@ def put(task_type, entry, session_id):
             got, brain = (_file(path), f"read {path}", FILE_LABEL) if path.is_file() else None, False
         procedures = [*((got or ([],))[0]), entry.strip()][-KEEP:]
         text = render(task_type, procedures)
-        if brain and _gbrain("put", slug, "--force", text=text) is not None:
+        if brain and _gbrain("put", slug, "--force", text=text, tries=TRIES) is not None:
             call, where = f"gbrain put {slug} --force", "GBrain"
         else:
             path.parent.mkdir(exist_ok=True)
             path.write_text(text, encoding="utf-8")
-            call, where = f"write {path}", FILE_LABEL
+            installed = shutil.which(os.environ.get("GBRAIN_BIN", "gbrain"))
+            call, where = f"write {path}", BUSY_LABEL if installed else FILE_LABEL
         trace.emit("Runner → GBrain", call, f"appended, {len(procedures)} procedures · {where}", ISSUE, ["runner", "gbrain"], ["a2a-write"], session_id)
     except Exception as e:
         print(f"a2a put skipped: {e!r}")

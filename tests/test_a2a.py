@@ -113,3 +113,22 @@ def test_a_brain_that_errors_on_read_is_never_overwritten(workdir, monkeypatch):
     a2a.put("fix-calc", "### sess-b · t", "sess-b")
     assert not (workdir / "wrote").exists()
     assert (workdir / "a2a/fix-calc.md").read_text() == a2a.render("fix-calc", ["### sess-a · t", "### sess-b · t"])
+    labels = [e["result"] for e in jsonl("trace.jsonl") if e["who"] == "Runner → GBrain"]
+    assert labels == ["appended, 1 procedures · shared notes file (GBrain busy)", "appended, 2 procedures · shared notes file (GBrain busy)"]
+
+
+def test_a_busy_brain_is_retried_before_the_file(workdir, monkeypatch):
+    """Parallel agents' GBrain MCP servers hold the brain: a put that fails once, then works, lands in GBrain."""
+    cli = workdir / "gbrain"
+    cli.write_text(
+        '#!/bin/sh\nd="$(dirname "$0")"\n'
+        'if [ "$1" = get ]; then echo "Error [page_not_found]" >&2; exit 1; fi\n'
+        'if [ ! -f "$d/busy-once" ]; then touch "$d/busy-once"; echo "The local persistence owner is unavailable." >&2; exit 1; fi\n'
+        'cat > "$d/page"\n'
+    )
+    cli.chmod(0o755)
+    monkeypatch.setenv("GBRAIN_BIN", str(cli))
+    monkeypatch.setattr(a2a.time, "sleep", lambda s: None)
+    a2a.put("fix-calc", "### sess-a · t", "sess-a")
+    assert (workdir / "page").read_text() == a2a.render("fix-calc", ["### sess-a · t"])
+    assert not (workdir / "a2a").exists()
