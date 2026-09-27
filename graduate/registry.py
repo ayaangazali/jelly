@@ -116,8 +116,10 @@ def _locked():
 
 
 def save(reg: dict) -> None:
-    with _locked():
-        _write(reg)
+    """Replace the whole registry. Prefer transition()/update(): this overwrites concurrent writes."""
+    with _locked() as cur:
+        cur.clear()
+        cur.update(reg)
 
 
 def _check_fields(fields):
@@ -231,6 +233,9 @@ if __name__ == "__main__":
         "GRADUATED",
         "PROBATION",
     }
+    fixture["events"].append(
+        {"ts": _now(), "kind": "error", "task_type": "t", "text": "saved"}
+    )
     save(fixture)
     assert load() == fixture
     os.remove(REGISTRY_PATH)
