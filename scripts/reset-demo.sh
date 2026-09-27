@@ -13,7 +13,7 @@ clean) ;;
 05) old='sum(values) / len' new='sum(values) // len' ;;
 06) old='max(values)' new='min(values)' ;;
 07) old='"aeiou"' new='"aeio"' ;;
-08) old='range(2, n + 1)' new='range(2, n)' ;;
+08) old='math.factorial(n)' new='math.factorial(n - 1)' ;;
 09) old='reversed(text.split())' new='text.split()' ;;
 10) old='100 * part' new='10 * part' ;;
 *)
