@@ -68,6 +68,13 @@ def latest_session_log(n=4):
     return out
 
 
+def _read(path):
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
 def build_state():
     reg = registry.load()
     ledger = jsonl("ledger.jsonl", 10_000)
@@ -80,6 +87,7 @@ def build_state():
         "trace": jsonl(trace.TRACE_PATH, 100),
         "terminal": tail(trace.TERMINAL_PATH, 200),
         "session_log": latest_session_log(),
+        "files": {"registry.json": _read(registry.REGISTRY_PATH), "ledger.jsonl": "\n".join(tail("ledger.jsonl", 8))},
     }
 
 
@@ -127,7 +135,7 @@ if __name__ == "__main__":
     async def main():
         c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
         s = (await c.get("/state")).json()
-        assert set(s) == {"generated_at", "config", "registry", "totals", "ledger", "trace", "terminal", "session_log"}, set(s)
+        assert set(s) == {"generated_at", "config", "registry", "totals", "ledger", "trace", "terminal", "session_log", "files"}, set(s)
         assert s["registry"]["task_types"]["update-changelog"]["state"] == "GRADUATED"
         assert s["config"] == {"n": registry.GRADUATE_N, "fail_limit": FAIL_LIMIT}
         assert len(s["ledger"]) == 4 and len(s["trace"]) == 5 and s["terminal"][-1].endswith("exit 0")
