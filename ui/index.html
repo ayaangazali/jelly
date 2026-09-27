@@ -459,6 +459,7 @@ function viewOverview() {
   return `
     <div class="savings"><span class="amount">${money(tot.saved_usd)}</span>
       <span class="what">saved across ${tot.owned_runs} runs your own models handled<small>Compared with the same runs on the frontier model with prompt caching on.</small></span></div>
+    ${cacheOverview()}
     ${ready ? `<div class="banner"><p><strong>${esc(ready[1].title || ready[0])}</strong> has ${N()} verified runs and can graduate. Nothing is sent for training until you approve it.</p><a class="btn owned" href="#/consent/${encodeURIComponent(ready[0])}">Review training data</a></div>` : ""}
     <div class="cols">
       <section aria-labelledby="roster-h"><h2 id="roster-h">Task types</h2>
@@ -669,5 +670,6 @@ window.addEventListener("hashchange", () => render());
 poll();
 setInterval(poll, 1000);
 </script>
+<script src="/ui/cache.js"></script>
 </body>
 </html>

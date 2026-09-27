@@ -52,7 +52,7 @@ def _session_totals(session_id):
     calls = _router("GET", f"/api/sessions/{session_id}/log") or []
     if calls:
         ups = {c["upstream"] for c in calls}
-        out["upstream"] = ups.pop() if len(ups) == 1 else "mixed"
+        out["upstream"] = "cache" if "cache" in ups else ups.pop() if len(ups) == 1 else "mixed"
         out["model"] = calls[-1]["model"]
     return out
 
@@ -226,7 +226,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         f"{session_id} {row['routed_to']} exit {row['exit_code']} · {passed}/{total} passed · "
         f"{row['turns']} turns · ${row['cost_usd']} · {row['wall_secs']}s"
     )
-    if row["routed_to"] == "owned" and row["exit_code"] != 0 and not escalated_from:
+    if row["routed_to"] in ("owned", "cache") and row["exit_code"] != 0 and not escalated_from:
         try:  # #23; never escalate an escalation
             return escalator.escalate(row, pre_task)
         except Exception as e:  # fail open: the failed row is already on the ledger

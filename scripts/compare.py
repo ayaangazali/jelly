@@ -124,6 +124,8 @@ def main(path, prices):
         print(f"  escalation reruns, in neither arm: {ids(reruns)}")
         mixed = [r for r in of_type if r["routed_to"] == "mixed"]
         print(f"  mixed sessions, in neither arm: {ids(mixed)}")
+        cached = [r for r in of_type if r["routed_to"] == "cache"]
+        print(f"  cache sessions, in neither arm: {ids(cached)}")
         f, o = passed["frontier"], passed["owned"]
         if f and o:
             ft, ot, fc, oc = (
