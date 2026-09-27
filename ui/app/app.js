@@ -175,12 +175,12 @@ function paneHTML(p, t, side) {
     ? `<p class="verify pass">Tests pass: ${r.tests_passed} of ${r.tests_total} · exit 0</p>`
     : `<p class="verify fail">Tests fail · exit ${r.exit_code}${race.rescue && side === "owned" ? `<br>Escalated to the frontier: <code>${esc(race.rescue.session_id)}</code>, exit ${race.rescue.exit_code}, ${money(race.rescue.cost_usd)}` : ""}</p>`;
   return `<header><b>${side === "owned" ? "Your model" : "Frontier"}</b> <code>${esc(r.model.split("/").pop())}</code>
-<p class="muted">${data.sample ? "sample data" : "recorded run"} · ${source(r, side)} · ${p.logged ? `${p.steps.length} calls from <code>sessions/${esc(r.session_id)}.jsonl</code>` : "no session log: ledger totals at the end"}</p></header>
+<p class="muted">${data.sample ? "sample data" : "recorded run"} · ${source(r, side)} · ${p.logged ? `${p.steps.length} logged calls` : "no session log: ledger totals at the end"}</p></header>
 <div class="ctr"><div class="big"><b>${num(counts.out)}</b><span>output tokens</span></div>
 <div><b>${counts.turns}</b><span>turns</span></div><div><b>${money(counts.cost)}</b><span>cost est.</span></div>
 <div><b>${secsOf(counts.ms)}</b><span>wall time</span></div></div>
 <ol class="turns">${shown.map((s, i) => `<li><span class="muted">${i + 1}</span><span>${s.what}<br><small class="muted">${num(s.out)} output tokens · ${secsOf(s.at)}</small></span></li>`).join("")}
-${next && next.from <= t ? `<li class="now"><span class="muted">${shown.length + 1}</span><span class="muted">model thinking…</span></li>` : ""}</ol>
+${next && next.from <= t ? `<li class="now"><span class="muted">${shown.length + 1}</span><span class="muted">model thinking…</span></li>` : ""}${p.logged ? "" : `<li><span></span><span class="muted">This run kept no per-call log, so its turns can't be replayed. The ledger's totals show when its recorded ${r.wall_secs}s are up.</span></li>`}</ol>
 ${verdict}`;
 }
 
@@ -189,7 +189,7 @@ function verdictHTML([f, o]) {
   if (O.exit_code !== 0) return `<p class="diff fail">Your model failed this task${race.rescue ? " and the frontier finished it" : ""}. No win to claim here.</p>`;
   if (F.exit_code !== 0) return `<p class="diff">The frontier failed this task; your model passed.</p>`;
   const x = O.output_tokens ? (F.output_tokens / O.output_tokens).toFixed(1) : "n/a";
-  return `<p class="diff">Both passed. Your model: <b>${x}× fewer output tokens</b> (${num(F.output_tokens)} → ${num(O.output_tokens)}), ${F.turns} → ${O.turns} turns, ${money(F.cost_usd)} → ${money(O.cost_usd)}, ${F.wall_secs}s → ${O.wall_secs}s wall time. From the ledger rows.</p>`;
+  return `<p class="diff">Both passed. Your model: <b>${x}× fewer output tokens</b> (${num(F.output_tokens)} → ${num(O.output_tokens)}) · ${F.turns} → ${O.turns} turns · ${money(F.cost_usd)} → ${money(O.cost_usd)} · ${F.wall_secs}s → ${O.wall_secs}s <span class="muted">(ledger)</span></p>`;
 }
 
 function tick() {
