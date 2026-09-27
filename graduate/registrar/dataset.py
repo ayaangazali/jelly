@@ -234,7 +234,10 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--check"]:
         _check()
     elif [a for a in sys.argv[1:] if not a.startswith("-")]:
-        s = build(next(a for a in sys.argv[1:] if not a.startswith("-")))
+        try:
+            s = build(next(a for a in sys.argv[1:] if not a.startswith("-")))
+        except ModuleNotFoundError as e:  # #92: river_client, the [train] extra
+            sys.exit(f"{e}: training records need pip install -e '.[train]' (Python 3.12+)")
         if "--summary" in sys.argv:
             print(json.dumps(s, indent=2))
         else:

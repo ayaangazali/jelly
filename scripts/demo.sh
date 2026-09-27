@@ -60,6 +60,7 @@ run() { # run NN: plant broken state NN, one `graduate run`
 
 say "reset: earlier state -> $out/before/, demo-repo clean"
 ! curl -sf localhost:$PORT/healthz >/dev/null || die ":$PORT is taken: stop the other router first"
+python -c 'import river_client' 2>/dev/null || die "step 2 builds River training records: pip install -e '.[test,train]' (Python 3.12+)"
 for f in ledger.jsonl metrics.jsonl sessions registry.json registry.lock trace.jsonl terminal.log data; do
  [ ! -e $f ] || mv $f "$out/before/"
 done
