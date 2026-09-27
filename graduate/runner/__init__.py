@@ -72,8 +72,8 @@ def _tests_changed(repo, before):
     return any(("tests" in d[:-1] or d[-1] == "conftest.py") and "__pycache__" not in d for d in parts)
 
 
-def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None):
-    session_id = "sess-" + uuid.uuid4().hex[:12]
+def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None, session_id=None):
+    session_id = session_id or "sess-" + uuid.uuid4().hex[:12]  # graduate swarm picks it to trace the fan-out first
     start_commit = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=repo,
