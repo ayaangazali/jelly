@@ -509,13 +509,13 @@ function viewConsent(k) {
   if (!t) return viewTask(k);
   const d = consentCache[k];
   if (!d) loadConsent(k);
-  const n = d?.records ?? (t.state === "PROBATION" ? t.verified_runs + t.failed_runs : t.verified_runs);
+  const n = d?.sample ? d.records : (t.state === "PROBATION" ? t.verified_runs + t.failed_runs : t.verified_runs);
   return `<div class="consent">
     <a class="back" href="#/task/${encodeURIComponent(k)}">Back to ${esc((t.title || k).toLowerCase())}</a>
     <h1>Send ${n} runs to River to train “${esc(t.title || k)}”?</h1>
     <p class="lede">Graduate trains a small model on River with these runs, using your River key. The weights are saved to your River account. After that, matching requests go to it, and each one is still checked with <code>${esc(t.verify_command)}</code>.</p>
     <section><h2>What gets sent</h2><ul>
-      <li>${d?.records ?? t.verified_runs} passing runs as training examples${t.state === "PROBATION" ? `, plus ${t.failed_runs} failing runs as examples of what not to do` : ""}${d?.tokens ? `, ${d.tokens.toLocaleString()} tokens in total` : ""}</li>
+      <li>${n} passing runs as training examples${t.state === "PROBATION" ? `, plus ${t.failed_runs} failing runs as examples of what not to do` : ""}${d?.tokens ? `, ${d.tokens.toLocaleString()} tokens in total` : ""}</li>
       <li>For each run: the conversation with the model, including its tool calls and their results</li>
       <li>Destination: your River account. The trained weights are yours.</li></ul></section>
     <section><h2>What stays on this machine</h2><ul><li>Runs from other task types</li><li>The run ledger, metrics and trace logs</li><li>Anything from sessions that failed their tests, unless this is a retrain</li></ul></section>
