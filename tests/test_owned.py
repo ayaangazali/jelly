@@ -99,11 +99,9 @@ def test_compact_keeps_env_and_task_tools():
         ],
         tools,
     )
-    assert ms[0]["content"] == train.SYSTEM + "\n<env>\n  Working directory: /r\n</env>"
+    assert ms[0]["content"] == train.SYSTEM + "\n<env>\n  Working directory: .\n</env>"
     assert ms[1]["content"] == "fix it" and ms[2]["content"] == ""
-    assert ms[2]["tool_calls"][0]["function"]["arguments"] == {
-        "filePath": "/r/calc/mod_09.py"
-    }
+    assert ms[2]["tool_calls"][0]["function"]["arguments"] == {"filePath": "calc/mod_09.py"}
     assert [t["function"]["name"] for t in short] == ["read", "edit"]
     assert short[0]["function"]["description"] == "Line one."
     # §6a records carry flattened ToolSpecs: same result
@@ -270,3 +268,68 @@ def test_backend_choice(monkeypatch):
     monkeypatch.setenv("GRADUATE_OWNED_BACKEND", "none")
     with pytest.raises(RuntimeError):
         train.backend("/ckpt/x-v1")
+
+
+def test_session_trains_and_serves_with_repo_relative_paths(workdir, monkeypatch):
+    """A session recorded in /x/y/demo-repo carries no checkout path into training, and a live request from another
+    checkout compacts to the same text (#21 record, #37 serving)."""
+    from graduate.registrar import dataset
+
+    def session(root):
+        call = {
+            "id": "c1",
+            "type": "function",
+            "function": {
+                "name": "read",
+                "arguments": json.dumps({"filePath": f"{root}/calc/mod_09.py"}),
+            },
+        }
+        return [
+            {
+                "role": "system",
+                "content": f"You are opencode.\n<env>\n  Working directory: {root}\n  Workspace root folder: {root[:-10]}\n"
+                f"</env>\nInstructions from: {root[:-10]}/AGENTS.md",  # the checkout root, above demo-repo
+            },
+            {"role": "user", "content": "The test tests/test_mod_09.py is failing."},
+            {"role": "assistant", "content": "", "tool_calls": [call]},
+            {
+                "role": "tool",
+                "tool_call_id": "c1",
+                "content": f"<path>{root}/calc/mod_09.py</path>\n1: def f(): ...",
+            },
+        ]
+
+    (workdir / "sessions").mkdir()
+    line = {
+        "request": {"messages": session("/x/y/demo-repo")},
+        "response": {"role": "assistant", "content": "Fixed."},
+    }
+    (workdir / "sessions/sess-000000000009.jsonl").write_text(json.dumps(line) + "\n")
+    row = {
+        "session_id": "sess-000000000009",
+        "task_type": TT,
+        "verify_command": "pytest",
+        "exit_code": 0,
+        "turns": 2,
+        "tool_calls": 1,
+    }
+    rec = dataset.chat_record(row)
+    text = json.dumps(rec)
+    assert "/x/y" not in text
+    assert json.loads(rec["messages"][2]["tool_calls"][0]["function"]["arguments"]) == {
+        "filePath": "calc/mod_09.py"
+    }
+    assert "<path>calc/mod_09.py</path>" in rec["messages"][3]["content"]
+    assert "Working directory: .\n" in rec["messages"][0]["content"]
+    assert dataset.relative(rec["messages"]) == rec["messages"]  # idempotent
+    sibling = dataset.relative(
+        session("/x/y/demo-repo")[:1]
+        + [{"role": "user", "content": "/x/y/demo-repo-old/a.py"}]
+    )
+    assert (
+        sibling[1]["content"] == "demo-repo-old/a.py"
+    )  # under the root; not mistaken for demo-repo
+    # Served from a different checkout: the model sees exactly what it was trained on.
+    assert train.compact(session("/Users/ayaan/jelly/demo-repo"), []) == train.compact(
+        rec["messages"][:4], []
+    )

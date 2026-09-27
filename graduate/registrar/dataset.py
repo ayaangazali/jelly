@@ -30,6 +30,20 @@ def renderer(tokenizer=None):
     return get_renderer(BASE_MODEL, tokenizer=tokenizer)
 
 
+_WORKDIR = re.compile(r"(?:Working directory|Workspace root folder): (\S+)")
+
+
+def relative(messages):
+    """Paths under the session's working directory and workspace root (OpenCode's <env> block) become relative and the
+    directories themselves `.`, so a record carries no checkout's path and trains the same anywhere. The owned route
+    (#37) applies the same rewrite to live requests, so the model sees one form in training and serving."""
+    system = next((m["content"] for m in messages if m["role"] == "system" and isinstance(m.get("content"), str)), "")
+    text = json.dumps(messages)
+    for root in sorted({d.rstrip("/") for d in _WORKDIR.findall(system)} - {"."}, key=len, reverse=True):  # nested first
+        text = re.sub(re.escape(root) + r"(/|(?![\w.-]))", lambda m: "" if m[1] == "/" else ".", text)
+    return json.loads(text)
+
+
 def chat_record(row, negative=False):
     """§6a: the session's last request plus its final response."""
     path = SESSIONS_DIR / f"{row['session_id']}.jsonl"
@@ -37,7 +51,7 @@ def chat_record(row, negative=False):
     reply = {k: v for k, v in last["response"].items() if k != "finish_reason"}
     meta = {k: row[k] for k in META} | ({"negative": True} if negative else {})
     return {
-        "messages": last["request"]["messages"] + [reply],
+        "messages": relative(last["request"]["messages"] + [reply]),
         "tools": [
             {
                 "name": t["function"]["name"],
