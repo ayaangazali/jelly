@@ -2,7 +2,7 @@
 
 This repo is built by several agents in parallel against a hard deadline: **Sun 2026-09-27, hacking 1:15–5:00pm PT**. These rules exist so parallel work doesn't collide.
 
-Read first: [`README.md`](README.md) → [`02-project/graduate-spec.md`](02-project/graduate-spec.md) → [`02-project/architecture.md`](02-project/architecture.md) → [`03-build/hour-by-hour.md`](03-build/hour-by-hour.md).
+Read first: [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md) (overrides the pack) → [`README.md`](README.md) → [`02-project/graduate-spec.md`](02-project/graduate-spec.md) → [`02-project/architecture.md`](02-project/architecture.md) → [`03-build/hour-by-hour.md`](03-build/hour-by-hour.md).
 
 ---
 
@@ -24,13 +24,22 @@ Read first: [`README.md`](README.md) → [`02-project/graduate-spec.md`](02-proj
 
 ## Decided stack (don't re-litigate)
 
+These decisions come from [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md), which **overrides the original pack wherever they disagree**. The research behind them is in `docs/research/`.
+
 | Concern | Decision |
 |---|---|
 | Language | Python 3.11+ everywhere |
-| Router | FastAPI + httpx, port **4141**, OpenAI-compatible `/v1/chat/completions` |
+| Router | FastAPI + httpx, port **4141**, `POST /v1/chat/completions` only (Anthropic `/v1/messages` is stretch #26) |
+| Demo harness | **OpenCode**, via a custom `@ai-sdk/openai-compatible` provider in `opencode.json`. Claude Code and Codex don't speak Chat Completions |
+| Frontier | An OpenAI model over Chat Completions. Caching is automatic; cached tokens are read from `usage.prompt_tokens_details.cached_tokens` |
+| Small model | River LoRA on a small base (Qwen3.6-35B-A3B preferred, Qwen3.5-9B fallback), trained by our own `river-client` SFT loop |
+| Session identity | The bearer token *is* the session id: the runner sets OpenCode's apiKey to `sess-<uuid>` |
+| Training data | The proxy's local session log (#35). Memorable procedures are minimized and can't be used for SFT |
+| Graduation count | The run ledger `ledger.jsonl` (#34), one row per verified session. Not Memorable |
+| Task-type classifier | `memorable recall --single` → procedure slug, with an exact normalized-prompt hash as fallback |
+| Verification | Per **session**, in the runner, after the agent exits. Never per model call |
 | Registry | `registry.json` on disk. No database |
-| Dashboard | One `ui/index.html`. No framework, no build step |
-| Classifier v1 | Exact normalized-prompt hash only. Embeddings are a stretch goal |
+| Dashboard | One `ui/index.html` built from `mock-up/index.html`. No framework, no build step |
 | Graduation bar | N = 5 verified runs, configurable |
 | Frontier baseline | Prompt caching **on**. Any other comparison is dishonest |
 
