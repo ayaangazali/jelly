@@ -97,6 +97,7 @@ def dashboard():
 
 app.include_router(router)
 app.mount("/ui", StaticFiles(directory=UI.parent), name="ui")  # ui/projector.css, present.js, fonts/ (#55)
+app.mount("/bench", StaticFiles(directory="bench", check_dir=False), name="bench")  # bench/latest/results.json for #/compare (#61)
 
 
 if __name__ == "__main__":
