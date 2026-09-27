@@ -180,8 +180,8 @@ function whyTasks() {
   const types = [...new Set(other.map((r) => (reg[r.task_type] || {}).title || r.task_type))];
   const lines = [];
   if (before.length) lines.push(`Tasks ${list(before)} were your model's training data: the big model solved them first and your model learned from those runs, so racing on them would grade it on questions it studied.`);
-  if (raced.length) lines.push(`After it graduated, new tasks went to your model: it passed ${list(raced)}, none of which it had seen. The big model was then run on the same tasks so both sides face the same unseen task.`);
-  if (other.length) lines.push(`${other.length === 1 ? "Task" : "Tasks"} ${list(other)} ${other.length === 1 ? "was" : "were"} classified as a different task type (${types.map((t) => `“${esc(t)}”`).join(", ")}), still learning, so ${other.length === 1 ? "it" : "they"} went to the big model and never reached your model.`);
+  if (raced.length) lines.push(`After it graduated, new tasks went to your model: it passed ${list(raced)}, none of them part of those training runs. The big model was then run on the same tasks so both sides face the same unseen task.`);
+  if (other.length) lines.push(`${other.length === 1 ? "Task" : "Tasks"} ${list(other)} ${other.length === 1 ? "was" : "were"} classified as <span title="${esc(types.join(", "))}">a different task type</span>, still learning, so ${other.length === 1 ? "it" : "they"} went to the big model and never reached your model.`);
   return lines.length ? `<section class="panel why-tasks"><h2>Why these tasks</h2>${lines.map((l) => `<p>${l}</p>`).join("")}</section>` : "";
 }
 PAGES.chat = PAGES.race;
