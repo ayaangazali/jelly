@@ -14,12 +14,17 @@ from graduate import bench, runner
 
 # Stands in for OpenCode: one streamed call to the router its config points at, then the fix.
 AGENT = f"""#!{sys.executable}
-import json, os, subprocess, urllib.request
+import json, os, subprocess, time, urllib.error, urllib.request
 url = json.loads(os.environ["OPENCODE_CONFIG_CONTENT"])["provider"]["graduate"]["options"]["baseURL"]
 body = json.dumps({{"model": "graduate", "stream": True, "messages": [{{"role": "user", "content": "fix"}}]}})
 req = urllib.request.Request(url + "/chat/completions", body.encode(), {{
     "authorization": "Bearer " + os.environ["GRADUATE_SESSION"], "content-type": "application/json"}})
-urllib.request.urlopen(req).read()
+for _ in range(int(os.environ.get("CALLS", 1))):  # a runaway agent keeps calling until the router is gone
+    try:
+        urllib.request.urlopen(req).read()
+    except urllib.error.URLError:
+        break
+    time.sleep(0.2)
 subprocess.run(["git", "checkout", "--", "calc"], check=True)
 """
 STUB_CALL = {
@@ -126,6 +131,17 @@ def test_bench_stops_at_the_cap(bench_env, workdir):
     assert [s["task"] for s in doc["sessions"]] == ["01"]
     assert doc["arms"]["frontier"]["note"] == "CAP: stopped before frontier 02"
     assert doc["budget"]["spent_usd"] < 0.02
+
+
+def test_watchdog_stops_the_router_mid_run(bench_env, workdir, monkeypatch):
+    monkeypatch.setenv("CALLS", "40")
+    past = {"model": "gpt-5.6-terra", "routed_to": "frontier", "input_tokens": 5000, "cached_input_tokens": 0, "output_tokens": 0}
+    (workdir / "ledger.jsonl").write_text(json.dumps(past) + "\n")
+    with pytest.raises(SystemExit):
+        bench_env("--tasks", "01,02", "--arms", "frontier", "--max-usd", "0.05", "--yes")
+    calls = len(jsonl("metrics.jsonl"))
+    assert 4 <= calls < 20  # the cap is crossed on call 4; the router is gone within a second of it
+    assert [s["task"] for s in json.loads((workdir / "bench/latest/results.json").read_text())["sessions"]] == ["01"]
 
 
 def test_dry_run_and_refusal_spend_nothing(bench_env, workdir, capsys):
