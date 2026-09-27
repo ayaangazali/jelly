@@ -607,3 +607,29 @@ td .btn { margin-bottom: 4px; }
 }
 .p-ring > * { flex-shrink: 0; }
 .race-row .rv { white-space: normal; line-height: 1.25; }
+/* Layout rules (the captain's): no sideways scroll, no wrapped controls; tables and control rows scroll inside themselves. */
+html, body { overflow-x: clip; max-width: 100%; }
+main, .panel, .live > * { min-width: 0; max-width: 100%; }
+.btn, nav.side a, .tag, .state, .flag, th, .sp b, .kpi span, .kpi b, .race-bar a, .lane .st, .dots a { white-space: nowrap; }
+.kpi span, .sp b, .race-bar a { overflow: hidden; text-overflow: ellipsis; }
+.kpi span { display: block; }
+.scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
+.scroll table { min-width: max-content; }
+td.actions { white-space: nowrap; }
+.race-bar { flex-wrap: nowrap; overflow-x: auto; }
+.race-bar select { min-width: 0; flex: 1 1 auto; }
+.kpis { flex-wrap: nowrap; overflow-x: auto; min-width: 0; }
+.kpi { flex: 1 1 0; min-width: 0; }
+.live-top { min-width: 0; }
+.live-top .tag { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex-shrink: 1; }
+@media (max-width: 999px) {
+  .live-top { flex-wrap: nowrap; flex-direction: column; align-items: stretch; }
+  .kpis { flex-wrap: nowrap; }
+  .kpi { flex: 0 0 auto; min-width: 9em; }
+  .sponsors { flex-wrap: nowrap; overflow-x: auto; }
+  .sp { flex: 0 0 15em; }
+}
+@media (max-width: 700px) {
+  nav.side { flex-wrap: nowrap; overflow-x: auto; }
+  nav.side a { flex: 0 0 auto; }
+}

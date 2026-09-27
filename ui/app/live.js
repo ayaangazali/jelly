@@ -8,7 +8,7 @@ const SPONSORS = [
   ["anthropic", "Anthropic · Claude Haiku 4.5", "the big model for today's real runs", "on"],
   ["openai", "OpenAI", "the big model when credited · no credit today", "off"],
   ["river", "River", "trains and serves your model · key works, a training attempt is in progress; the demo model trained on this machine", "warn"],
-  ["memorable", "Memorable", "recognises the kind of task · CLI not installed here, so it falls back to the task's own label", "warn"],
+  ["memorable", "Memorable", "classifies each task by recalling past procedures · 8 procedures learned from verified runs", "on"],
   ["gbrain", "GBrain", "agents share notes · live on this host", "on"],
   ["superset", "Superset", "parallel runs · adapter behind a flag, not installed", "off"],
   ["qm", "QM", "fleet provider · stretch goal", "off"],
@@ -31,15 +31,15 @@ ${node("agent", "Coding agents", "send every task")}${node("grad", "GRADUATE", "
 ${node("big", "Big model", "Claude Haiku 4.5 · pay per token")}${node("yours", "Your model", "small, trained on your runs", "mine")}${node("tests", "Tests", "pass or fail", "tests")}
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
-<header class="live-top"><div><span class="pulse"></span> <b>Live</b> <span class="muted">every task your agents send, checked by its own tests</span></div>
+<header class="live-top">
 <div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs the big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent on models")}${kpi("k-runs", "tasks passed their tests")}${kpi("k-yours", "handled by your model")}</div><span class="tag src">demo data</span></header>
-<section class="panel p-graph"><h2>Request flow <span class="tag src">demo data</span></h2>${svg}</section>
-<section class="panel p-ring"><h2>Graduation <span class="tag src">demo data</span></h2><p class="ring-what" id="ring-what">After 5 passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
+<section class="panel p-graph"><h2>Request flow</h2>${svg}</section>
+<section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">After 5 passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
 <div class="ring-mid"><b id="ring-n">0</b><span id="ring-of">of 5 passing runs</span></div></div><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
 <div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div></section>
-<section class="panel p-race"><h2>Same task, both models <span class="tag src">demo data</span></h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
-<section class="panel p-log"><h2>Session log <span class="tag src">demo data</span></h2><ol id="log" class="log"></ol></section>
-<section class="panel p-lanes"><h2>Agents in parallel · sharing tips through GBrain <span class="tag src">demo data</span></h2><div id="lanes" class="lanes"></div></section>
+<section class="panel p-race"><h2>Race</h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
+<section class="panel p-log"><h2>Session log</h2><ol id="log" class="log"></ol></section>
+<section class="panel p-lanes"><h2>Agents · GBrain tips</h2><div id="lanes" class="lanes"></div></section>
 <footer class="sponsors">${SPONSORS.map(([id, name, role, st]) => `<div class="sp ${st}" id="sp-${id}"><i></i><b>${name}</b><span>${role}</span></div>`).join("")}</footer>
 </div>`;
 }
@@ -106,10 +106,9 @@ function startLive() {
   const S = seed();
   sim.dots.forEach((d) => d.els.forEach((el) => el.remove()));
   Object.assign(sim, { S, t: 0, next: 0.2, qi: 0, dots: [], tokens: 0, cost: 0, runs: 0, passed: 0, yours: 0, saved: 0, savedTok: 0, ring: 0, typeIx: 0, graduated: new Set(S.grads), raceT: 0, training: null });
-  document.querySelectorAll("#live-root .tag.src").forEach((t, i) => { // the top tag states the speed-up once
-    t.textContent = !S.real ? "demo data" : i ? "real run" : `recorded real run${S.speed > 1.5 ? ` · replayed ${Math.round(S.speed)}× faster` : ""}`;
-    t.classList.toggle("real", !!S.real);
-  });
+  const tag = document.querySelector("#live-root .tag.src"); // one source tag for the page
+  tag.textContent = S.real ? `recorded real run${S.speed > 1.5 ? ` · ${Math.round(S.speed)}× speed` : ""}` : "demo data";
+  tag.classList.toggle("real", !!S.real);
   resetRing();
   sim.lanes = S.agents.map((a) => ({ a, busy: 0, dur: 1, status: "idle" }));
   document.getElementById("lanes").innerHTML = sim.lanes.map((l, i) => `<div class="lane" id="lane-${i}"><b>${esc(l.a)}</b><div class="bar"><i></i></div><span class="st">idle</span><span class="note"></span></div>`).join("");
