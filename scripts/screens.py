@@ -1,6 +1,6 @@
 """make screens (#55): the dashboard against the fixtures, headless, at projector sizes.
 
-Serves the repo root on a free port, opens ui/index.html?state=<fixture> in Chromium (Playwright) and saves
+Serves the repo root on a free port, opens ui/index.html?state=<fixture>&bench=fixtures/bench.example.json in Chromium (Playwright) and saves
 docs/screens/<fixture>-<view>-<size>.png. Fails on console errors, failed requests, horizontal overflow, a view
 cut off at the bottom, text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), and on the presenter showcase
 a wrong 5-of-5 count.
@@ -22,6 +22,7 @@ FIXTURES = ["state.example", "state.graduated"]
 SIZES = [(1920, 1080), (1280, 720)]
 # (name, hash, query, what must sit fully on screen: the whole view, or on Under the hood the diagram; its logs scroll below)
 VIEWS = [("show", "#/show", "", ".show"), ("show-present", "#/show", "&present", "#app"),
+         ("compare", "#/compare", "", ".cmp"), ("compare-present", "#/compare", "&present", "#app"),
          ("overview-present", "#/", "&present", "#app"), ("system-present", "#/system", "&present", "figure.arch")]
 
 # [overflow-x (page or a box its content spills out of), cut off at the bottom, smallest text px and its text]; SVG text is measured on screen, not in user units.
@@ -59,6 +60,8 @@ def main():
             state = json.loads((ROOT / "fixtures" / f"{fx}.json").read_text())
             for w, h in SIZES:
                 for view, hash_, flag, fold in VIEWS:
+                    if "compare" in view and fx != FIXTURES[0]:
+                        continue  # the bench file, not /state, feeds compare
                     name = f"{fx.removeprefix('state.')}-{view}-{w}x{h}"
                     page = browser.new_page(viewport={"width": w, "height": h})
                     errors = []
@@ -66,7 +69,7 @@ def main():
                     page.on("pageerror", lambda e: errors.append(str(e)))
                     page.on("requestfailed", lambda r: errors.append(f"failed {r.url}"))
                     page.on("response", lambda r: r.status >= 400 and errors.append(f"{r.status} {r.url}"))
-                    page.goto(f"{base}?state=/fixtures/{fx}.json{flag}{hash_}")
+                    page.goto(f"{base}?state=/fixtures/{fx}.json&bench=/fixtures/bench.example.json{flag}{hash_}")
                     page.wait_for_selector("#app > :not(.lede)")  # rendered past "Loading…"
                     page.evaluate("document.fonts.ready")
                     page.wait_for_timeout(600)  # let the stamp animation settle
