@@ -82,7 +82,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     ).stdout.strip()
     pre_task = escalator.snapshot(repo)  # #23 resets to this
     before = _tree(repo)
-    _router(
+    reg = _router(
         "POST",
         "/api/sessions",
         json={
@@ -95,6 +95,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         },
     )
 
+    task_type = task_type or (reg or {}).get("task_type")  # no hint: the router's classification (Memorable)
     note = task_type and a2a.get(task_type, session_id)
     sent = f"## Notes from other agents\n{note}\n\n{prompt}" if note else prompt
     cfg = task_type and a2a.opencode_config(task_type, session_id, os.environ.get("OPENCODE_CONFIG_CONTENT"))

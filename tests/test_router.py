@@ -169,7 +169,8 @@ def test_title_call_first_still_classified_by_registered_session(router, stub, s
     )
     # No hint: the registered prompt is classified, not the title request.
     other = "sess-" + uuid.uuid4().hex[:12]
-    router("POST", "/api/sessions", json={"session_id": other, "prompt": task})
+    reg = router("POST", "/api/sessions", json={"session_id": other, "prompt": task})
+    assert reg.json()["task_type"].startswith("the-test")  # the runner's GBrain page name, before any model call
     router(
         "POST",
         "/v1/chat/completions",
