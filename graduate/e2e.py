@@ -20,14 +20,12 @@ from pathlib import Path
 
 import httpx
 
-from graduate import bench
+from graduate import bench, ledger
 from graduate.router import upstream
 
 CAP_USD = float(os.environ.get("E2E_CAP_USD", "0.10"))
 CAP_CALLS = int(os.environ.get("E2E_CAP_CALLS", "20"))
-MODEL = bench.SMALL[
-    "model"
-]  # the cheapest model that runs the agent loop: the bench's small arm
+MODEL = bench.SMALL["model"]  # the cheapest model that runs the agent loop
 TASK = "01"
 http = httpx.Client(timeout=30)
 
@@ -110,7 +108,7 @@ def main():
             [root / "scripts/reset-demo.sh", "clean"], stdout=subprocess.DEVNULL
         )
     calls = bench.metrics()
-    row = (bench.ledger.rows() or [{"session_id": "no session", "exit_code": 1}])[-1]
+    row = (ledger.rows() or [{"session_id": "no session", "exit_code": 1}])[-1]
     print(
         f"{'CAP HIT: ' if capped else ''}e2e {row['session_id']} exit {row['exit_code']} · {len(calls)} calls · "
         f"${bench.spent():.4f} of ${CAP_USD:.2f} · {out}"
