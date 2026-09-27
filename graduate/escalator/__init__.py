@@ -132,7 +132,7 @@ def escalate(row, pre):
 
     dead = _dead_frontier()
     if dead:
-        why = f"no frontier rerun of {sid}: the frontier's last answer was {dead[:120]}"
+        why = f"no frontier rerun of {sid}: the frontier's last answer was {dead[:220]}"
         trace.emit("Escalator → Runner", "graduate run --force-frontier", why, ISSUE,
                    ["escalator", "router", "openai"], ["rerun", "frontier"], sid)
         print(why)
