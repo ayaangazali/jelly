@@ -1,0 +1,16 @@
+
+  memorable status   v0.5.30
+
+  · consent not chosen yet, fails closed until `memorable enable`
+
+  store ──────────────────────────────────────────────────
+  backend        local (~/.memorable/procedures.jsonl)
+  write consent  unset
+  encryption     off, no key store on this machine
+  stored         nothing yet
+
+  service ────────────────────────────────────────────────
+  extraction api  not configured, run `memorable login`
+
+  next  memorable enable  opt in to capture
+
