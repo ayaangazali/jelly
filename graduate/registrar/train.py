@@ -286,6 +286,8 @@ class RiverBackend:
     BASE = "Qwen/Qwen3.6-35B-A3B-FP8"
 
     def _client(self):
+        if not os.environ.get("RIVER_API_KEY"):  # before the import: the reason, not a missing-extra error
+            raise RuntimeError("no River key: set RIVER_API_KEY or use a local checkpoint")
         import river_client
 
         return river_client.Client(api_key=os.environ["RIVER_API_KEY"])
