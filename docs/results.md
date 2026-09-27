@@ -1,4 +1,4 @@
-# Results (#31)
+# jelly: results (#31)
 
 ## Real runs (Claude Haiku 4.5 as the big model)
 
@@ -48,12 +48,15 @@ fix-failing-test
 
 **How to read the last line.** The owned mean is one passing session, and it's a repeat. On that same state, 07, Claude took 7 turns, 734 output tokens, $0.1727 and 18.7 s. The owned model took 6 turns, 326 output tokens, $0 marginal and 125.7 s on CPU: fewer turns and fewer output tokens, but about 7× slower. On the held-out states the owned attempt added about 4 minutes before the frontier rerun and saved nothing. **No savings ratio is claimed.** One repeat pass out of three owned sessions doesn't support one.
 
-**Spend.** $2.36 of the $3 cap, over 85 upstream calls:
+**Spend.** $2.90 of the $3 cap, over 108 calls to Claude:
 - step 1 on state 01: $0.171 (7 calls)
 - the corpus: $1.409 (57 calls)
 - the two escalation reruns: $0.259 (11 calls)
+- two filmed `scripts/demo.sh` attempts: $0.541 (23 calls)
 - two probes of under 15 tokens each
 - **$0.519 (8 calls) from another lane's session that used this router's port by mistake** (`sess-7ac196e7ba36`, not in this ledger)
+
+**No live demo film.** The second film attempt graduated on the River checkpoint, but this checkout didn't yet have River's serving fix (646d797). So the router fell back to Claude on 07, and the spend watchdog stopped the run at $0.37 before 09. That run doesn't show the owned model serving, so it isn't published. Another attempt would have gone over the $3 cap.
 
 The ledger, sessions, metrics and registry are in `/home/ubuntu/jelly-corpus/claude-live/` on the build host, with the corpus, checkpoint and eval logs beside it.
 
