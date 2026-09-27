@@ -10,7 +10,7 @@ dependencies = ["fastapi", "uvicorn", "httpx"]
 
 [project.optional-dependencies]
 # river-client needs Python >= 3.12; contracts §6b was verified against 0.12.0.
-train = ["river-client>=0.12,<0.13; python_version >= '3.12'", "transformers"]
+train = ["river-client>=0.12,<0.13; python_version >= '3.12'", "transformers", "torch", "peft"]
 test = ["pytest"]
 
 [project.scripts]
@@ -25,5 +25,5 @@ testpaths = ["tests"]  # demo-repo/tests fail on purpose
 include = ["graduate*", "ui", "fixtures"]
 
 [tool.setuptools.package-data]
-ui = ["*"]
+ui = ["*", "fonts/*"]
 fixtures = ["*.json", "*.jsonl"]
