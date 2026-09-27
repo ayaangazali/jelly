@@ -1,0 +1,540 @@
+{
+  "generated_at": "2026-09-27T21:33:05Z",
+  "config": {
+    "n": 5,
+    "fail_limit": 3
+  },
+  "registry": {
+    "task_types": {
+      "fix-failing-test": {
+        "title": "Fix a failing test",
+        "state": "GRADUATED",
+        "consent": true,
+        "verify_command": "pytest -q tests/",
+        "procedure_slug": "procedures/7c2e19ab-fix-failing-test",
+        "verified_runs": 5,
+        "failed_runs": 1,
+        "baseline": {
+          "turns": 16,
+          "tool_calls": 5,
+          "cost_usd": 0.42,
+          "wall_secs": 94
+        },
+        "current": {
+          "turns": 3,
+          "tool_calls": 3,
+          "cost_usd": 0.0026,
+          "wall_secs": 0
+        },
+        "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+        "serving": "checkpoint",
+        "deployment": null,
+        "trained_on_runs": 5,
+        "graduated_at": "2026-09-27T21:18:00Z",
+        "verified_since_graduation": 1,
+        "failures_since_graduation": 1
+      },
+      "update-changelog": {
+        "title": "Update the changelog",
+        "state": "GRADUATED",
+        "consent": true,
+        "verify_command": "python scripts/check_changelog.py",
+        "procedure_slug": "procedures/19be02c4-update-changelog",
+        "verified_runs": 6,
+        "failed_runs": 0,
+        "baseline": {
+          "turns": 9,
+          "tool_calls": 4,
+          "cost_usd": 0.18,
+          "wall_secs": 41
+        },
+        "current": {
+          "turns": 2,
+          "tool_calls": 2,
+          "cost_usd": 0.004,
+          "wall_secs": 6
+        },
+        "model": "river://run-4c1e/sampler_weights/update-changelog-v1",
+        "serving": "checkpoint",
+        "deployment": null,
+        "trained_on_runs": 6,
+        "graduated_at": "2026-09-27T04:40:00Z",
+        "verified_since_graduation": 23,
+        "failures_since_graduation": 0
+      },
+      "add-endpoint": {
+        "title": "Add an API endpoint",
+        "state": "LEARNING",
+        "consent": false,
+        "verify_command": "pytest -q tests/api",
+        "procedure_slug": "procedures/5d71aa09-add-endpoint",
+        "verified_runs": 2,
+        "failed_runs": 0,
+        "baseline": {
+          "turns": 22,
+          "tool_calls": 9,
+          "cost_usd": 0.71,
+          "wall_secs": 160
+        },
+        "current": null,
+        "model": null,
+        "serving": null,
+        "deployment": null,
+        "trained_on_runs": 0,
+        "graduated_at": null,
+        "verified_since_graduation": 0,
+        "failures_since_graduation": 0
+      },
+      "bump-dependency": {
+        "title": "Bump a dependency",
+        "state": "PROBATION",
+        "consent": true,
+        "verify_command": "pytest -q && ruff check",
+        "procedure_slug": "procedures/a3f8e611-bump-dependency",
+        "verified_runs": 7,
+        "failed_runs": 3,
+        "baseline": {
+          "turns": 12,
+          "tool_calls": 6,
+          "cost_usd": 0.31,
+          "wall_secs": 70
+        },
+        "current": {
+          "turns": 4,
+          "tool_calls": 3,
+          "cost_usd": 0.012,
+          "wall_secs": 11
+        },
+        "model": "river://run-9a07/sampler_weights/bump-dependency-v1",
+        "serving": "deployment",
+        "deployment": {
+          "base_url": "https://<deployment-host>/v1",
+          "model": "dep-9a07"
+        },
+        "trained_on_runs": 7,
+        "graduated_at": "2026-09-27T05:15:00Z",
+        "verified_since_graduation": 9,
+        "failures_since_graduation": 3
+      },
+      "write-migration": {
+        "title": "Write a migration",
+        "state": "READY",
+        "consent": false,
+        "verify_command": "pytest -q tests/migrations",
+        "procedure_slug": "procedures/0be4c7d2-write-migration",
+        "verified_runs": 5,
+        "failed_runs": 1,
+        "baseline": {
+          "turns": 14,
+          "tool_calls": 6,
+          "cost_usd": 0.37,
+          "wall_secs": 82
+        },
+        "current": null,
+        "model": null,
+        "serving": null,
+        "deployment": null,
+        "trained_on_runs": 0,
+        "graduated_at": null,
+        "verified_since_graduation": 0,
+        "failures_since_graduation": 0
+      },
+      "fix-lint": {
+        "title": "Fix lint errors",
+        "state": "TRAINING",
+        "consent": true,
+        "verify_command": "ruff check .",
+        "procedure_slug": "procedures/6e92b1f0-fix-lint",
+        "verified_runs": 5,
+        "failed_runs": 0,
+        "baseline": {
+          "turns": 8,
+          "tool_calls": 3,
+          "cost_usd": 0.15,
+          "wall_secs": 33
+        },
+        "current": null,
+        "model": null,
+        "serving": null,
+        "deployment": null,
+        "trained_on_runs": 0,
+        "graduated_at": null,
+        "verified_since_graduation": 0,
+        "failures_since_graduation": 0
+      }
+    },
+    "events": [
+      {
+        "ts": "2026-09-27T21:31:00Z",
+        "kind": "failed",
+        "task_type": "fix-failing-test",
+        "text": "fix-failing-test failed verification on your model. Re-running on frontier; kept as a negative example."
+      },
+      {
+        "ts": "2026-09-27T21:18:00Z",
+        "kind": "graduated",
+        "task_type": "fix-failing-test",
+        "text": "fix-failing-test graduated. Trained on 5 verified runs; requests now go to your model."
+      },
+      {
+        "ts": "2026-09-27T21:30:00Z",
+        "kind": "run",
+        "task_type": "update-changelog",
+        "text": "update-changelog went to your model. Verify exit 0."
+      },
+      {
+        "ts": "2026-09-27T21:21:00Z",
+        "kind": "run",
+        "task_type": "fix-failing-test",
+        "text": "fix-failing-test went to frontier. Verify exit 0. 4 of 5 verified runs."
+      },
+      {
+        "ts": "2026-09-27T21:10:00Z",
+        "kind": "training",
+        "task_type": "fix-lint",
+        "text": "Training started on River with 5 runs."
+      },
+      {
+        "ts": "2026-09-27T20:58:00Z",
+        "kind": "ready",
+        "task_type": "write-migration",
+        "text": "write-migration has 5 verified runs. Waiting for you to approve the training data."
+      },
+      {
+        "ts": "2026-09-27T20:05:00Z",
+        "kind": "probation",
+        "task_type": "bump-dependency",
+        "text": "bump-dependency failed verification 3 times and moved to probation. Requests go to frontier until it retrains."
+      }
+    ]
+  },
+  "totals": {
+    "saved_usd": 38.64,
+    "owned_runs": 131,
+    "unclassified_runs": 41
+  },
+  "ledger": [
+    {
+      "session_id": "sess-4d2e81a09f3c",
+      "task_type": "fix-failing-test",
+      "procedure_slug": "procedures/7c2e19ab-fix-failing-test",
+      "prompt": "The test tests/test_mod_05.py is failing. Fix the code so it passes.",
+      "repo": "demo-repo",
+      "start_commit": "3f1c2a9",
+      "verify_command": "pytest -q tests/test_mod_05.py",
+      "exit_code": 0,
+      "tests_passed": 1,
+      "tests_total": 1,
+      "routed_to": "frontier",
+      "model": "gpt-5.6-terra",
+      "turns": 16,
+      "tool_calls": 5,
+      "input_tokens": 291000,
+      "cached_input_tokens": 262000,
+      "output_tokens": 25800,
+      "cost_usd": 0.42,
+      "wall_secs": 2,
+      "started_at": "2026-09-27T21:10:00Z",
+      "ended_at": "2026-09-27T21:12:00Z",
+      "escalated_from": null,
+      "forced_failure": false
+    },
+    {
+      "session_id": "sess-8b30c11e2d7a",
+      "task_type": "fix-failing-test",
+      "procedure_slug": "procedures/7c2e19ab-fix-failing-test",
+      "prompt": "The test tests/test_mod_05.py is failing. Fix the code so it passes.",
+      "repo": "demo-repo",
+      "start_commit": "3f1c2a9",
+      "verify_command": "pytest -q tests/test_mod_05.py",
+      "exit_code": 0,
+      "tests_passed": 1,
+      "tests_total": 1,
+      "routed_to": "owned",
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "turns": 3,
+      "tool_calls": 3,
+      "input_tokens": 6600,
+      "cached_input_tokens": 0,
+      "output_tokens": 540,
+      "cost_usd": 0.0026,
+      "wall_secs": 0,
+      "started_at": "2026-09-27T21:20:00Z",
+      "ended_at": "2026-09-27T21:20:00Z",
+      "escalated_from": null,
+      "forced_failure": false
+    },
+    {
+      "session_id": "sess-a91e7f0c55b2",
+      "task_type": "fix-failing-test",
+      "procedure_slug": "procedures/7c2e19ab-fix-failing-test",
+      "prompt": "The test tests/test_mod_05.py is failing. Fix the code so it passes.",
+      "repo": "demo-repo",
+      "start_commit": "3f1c2a9",
+      "verify_command": "pytest -q tests/test_mod_05.py",
+      "exit_code": 1,
+      "tests_passed": 0,
+      "tests_total": 1,
+      "routed_to": "owned",
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "turns": 3,
+      "tool_calls": 3,
+      "input_tokens": 6600,
+      "cached_input_tokens": 0,
+      "output_tokens": 540,
+      "cost_usd": 0.0026,
+      "wall_secs": 0,
+      "started_at": "2026-09-27T21:30:00Z",
+      "ended_at": "2026-09-27T21:30:00Z",
+      "escalated_from": null,
+      "forced_failure": false
+    },
+    {
+      "session_id": "sess-c5f2d8e41a06",
+      "task_type": "fix-failing-test",
+      "procedure_slug": "procedures/7c2e19ab-fix-failing-test",
+      "prompt": "The test tests/test_mod_05.py is failing. Fix the code so it passes.",
+      "repo": "demo-repo",
+      "start_commit": "3f1c2a9",
+      "verify_command": "pytest -q tests/test_mod_05.py",
+      "exit_code": 0,
+      "tests_passed": 1,
+      "tests_total": 1,
+      "routed_to": "frontier",
+      "model": "gpt-5.6-terra",
+      "turns": 16,
+      "tool_calls": 5,
+      "input_tokens": 291000,
+      "cached_input_tokens": 262000,
+      "output_tokens": 25800,
+      "cost_usd": 0.42,
+      "wall_secs": 2,
+      "started_at": "2026-09-27T21:31:00Z",
+      "ended_at": "2026-09-27T21:33:00Z",
+      "escalated_from": "sess-a91e7f0c55b2",
+      "forced_failure": false
+    }
+  ],
+  "trace": [
+    {
+      "ts": "2026-09-27T21:20:00Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "who": "Runner → OpenCode",
+      "call": "opencode run \"The test tests/test_mod_05.py is failing. Fix the code so it passes.\"",
+      "result": "env GRADUATE_SESSION=sess-8b30c11e2d7a",
+      "issue": 34,
+      "nodes": [
+        "runner",
+        "opencode"
+      ],
+      "edges": [
+        "launch"
+      ]
+    },
+    {
+      "ts": "2026-09-27T21:20:04Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "who": "Router → Memorable",
+      "call": "memorable recall \"The test tests/test_mod_05.py is failing…\" --single",
+      "result": "0.91 procedures/7c2e19ab-fix-failing-test [lexical] · 41 ms",
+      "issue": 20,
+      "nodes": [
+        "router",
+        "memorable"
+      ],
+      "edges": [
+        "recall"
+      ]
+    },
+    {
+      "ts": "2026-09-27T21:20:08Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "who": "Router → registry.json",
+      "call": "registry[\"fix-failing-test\"].state",
+      "result": "GRADUATED → route to your River model",
+      "issue": 20,
+      "nodes": [
+        "router",
+        "registry"
+      ],
+      "edges": [
+        "reads"
+      ]
+    },
+    {
+      "ts": "2026-09-27T21:20:12Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "who": "Router → River",
+      "call": "client.chat_complete_from_checkpoint(messages, checkpoint_path=\"river://run-4c1e/sampler_weights/fix-failing-test-v1\")",
+      "result": "200 · 60 output tokens · 610 ms",
+      "issue": 37,
+      "nodes": [
+        "router",
+        "river"
+      ],
+      "edges": [
+        "owned"
+      ]
+    },
+    {
+      "ts": "2026-09-27T21:20:16Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "who": "Runner → Test suite",
+      "call": "pytest -q tests/test_mod_05.py",
+      "result": "exit 0 · 1 passed",
+      "issue": 34,
+      "nodes": [
+        "runner",
+        "pytest"
+      ],
+      "edges": [
+        "verify"
+      ]
+    },
+    {
+      "ts": "2026-09-27T21:31:00Z",
+      "session_id": "sess-a91e7f0c55b2",
+      "who": "Escalator → data/",
+      "call": "git diff > sessions/sess-a91e7f0c55b2.diff; append data/fix-failing-test.neg.jsonl",
+      "result": "negative example kept · rerun forced to frontier",
+      "issue": 23,
+      "nodes": [
+        "escalator",
+        "runner"
+      ],
+      "edges": [
+        "failed",
+        "rerun"
+      ]
+    }
+  ],
+  "terminal": [
+    "$ graduate run --task-file demo-repo/tasks/05.json --repo demo-repo",
+    "session sess-8b30c11e2d7a · launching opencode",
+    "▸ read calc/mod_05.py",
+    "▸ edit calc/mod_05.py",
+    "-    return a - b",
+    "+    return a + b",
+    "▸ bash pytest -q tests/test_mod_05.py",
+    "  1 passed in 0.04s",
+    "opencode exited",
+    "$ pytest -q tests/test_mod_05.py   (verify, run by graduate)",
+    "1 passed in 0.04s · exit 0"
+  ],
+  "session_log": [
+    {
+      "ts": "2026-09-27T21:20:10Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "upstream": "owned",
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "response": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_1",
+            "type": "function",
+            "function": {
+              "name": "read",
+              "arguments": "{\"file_path\": \"calc/mod_05.py\"}"
+            }
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      "usage": {
+        "input_tokens": 1400,
+        "cached_input_tokens": 0,
+        "output_tokens": 60
+      },
+      "latency_ms": 610,
+      "request": {
+        "messages": "2 messages",
+        "tools": "3 tools"
+      }
+    },
+    {
+      "ts": "2026-09-27T21:20:15Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "upstream": "owned",
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "response": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_2",
+            "type": "function",
+            "function": {
+              "name": "edit",
+              "arguments": "{\"file_path\": \"calc/mod_05.py\", \"old_string\": \"return a - b\", \"new_string\": \"return a + b\"}"
+            }
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      "usage": {
+        "input_tokens": 1750,
+        "cached_input_tokens": 0,
+        "output_tokens": 80
+      },
+      "latency_ms": 650,
+      "request": {
+        "messages": "4 messages",
+        "tools": "3 tools"
+      }
+    },
+    {
+      "ts": "2026-09-27T21:20:20Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "upstream": "owned",
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "response": {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_3",
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "arguments": "{\"command\": \"pytest -q tests/test_mod_05.py\"}"
+            }
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      "usage": {
+        "input_tokens": 2100,
+        "cached_input_tokens": 0,
+        "output_tokens": 100
+      },
+      "latency_ms": 690,
+      "request": {
+        "messages": "6 messages",
+        "tools": "3 tools"
+      }
+    },
+    {
+      "ts": "2026-09-27T21:20:25Z",
+      "session_id": "sess-8b30c11e2d7a",
+      "upstream": "owned",
+      "model": "river://run-4c1e/sampler_weights/fix-failing-test-v1",
+      "response": {
+        "role": "assistant",
+        "content": "Fixed: add() subtracted instead of adding. The test passes.",
+        "finish_reason": "stop"
+      },
+      "usage": {
+        "input_tokens": 2450,
+        "cached_input_tokens": 0,
+        "output_tokens": 120
+      },
+      "latency_ms": 730,
+      "request": {
+        "messages": "8 messages",
+        "tools": "3 tools"
+      }
+    }
+  ]
+}
