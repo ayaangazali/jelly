@@ -5,8 +5,10 @@ python -m graduate.watcher --once    replay the whole ledger once and exit
 python -m graduate.watcher --check   self-check
 """
 
+import calendar
 import json
 import os
+import subprocess
 import time
 
 from graduate import registry, trace
@@ -14,6 +16,7 @@ from graduate import registry, trace
 LEDGER_PATH = "ledger.jsonl"
 POLL_SECS = 1.0
 NUMBERS = ("turns", "tool_calls", "cost_usd", "wall_secs")
+STOPPED = "Training stopped without finishing (exit unknown). Approve again to retry."
 
 
 def _rows():
@@ -112,6 +115,40 @@ def scan():
     return by_type
 
 
+def started(pid):
+    """Start time (epoch s) of a live process; None once it is gone or a zombie. `ps` so macOS works too."""
+    ps = ["ps", "-o", "stat=,lstart=", "-p", str(pid)]
+    env = {**os.environ, "LC_ALL": "C", "TZ": "UTC"}
+    out = subprocess.run(ps, capture_output=True, text=True, env=env).stdout.split(
+        None, 1
+    )
+    if not out or out[0].startswith("Z"):
+        return None
+    return calendar.timegm(time.strptime(out[1].strip(), "%a %b %d %H:%M:%S %Y"))
+
+
+def _alive(rec):
+    try:
+        now = rec["started"] and started(rec["pid"])
+    except (IndexError, ValueError):
+        return True
+    return bool(now) and abs(now - rec["started"]) <= 2
+
+
+def reap():
+    """A trainer the OS killed (OOM, SIGKILL, sleep) leaves TRAINING behind (#116): back to READY so the user can retry.
+    The consent endpoint records the trainer's pid and start time; another start time is a reused pid."""
+    for t, tt in registry.load()["task_types"].items():
+        rec = tt.get("trainer")
+        if tt["state"] != "TRAINING" or not rec or _alive(rec):
+            continue
+        try:
+            registry.transition(t, "READY")
+        except registry.IllegalTransition:
+            continue
+        registry.add_event("training", t, STOPPED)
+
+
 def _mtime():
     try:
         return os.stat(LEDGER_PATH).st_mtime_ns
@@ -136,4 +173,5 @@ def watch():
                     ["ledger", "watcher"],
                     ["tail"],
                 )
+        reap()
         time.sleep(POLL_SECS)
