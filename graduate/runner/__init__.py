@@ -10,8 +10,10 @@ command in the repo, and appends one ledger row (contracts §2).
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -187,6 +189,13 @@ def main():
     p.add_argument("--force-frontier", action="store_true")
     p.add_argument("--timeout", type=float, default=600)
     a = p.parse_args()
+    # #83: say what to do instead of a traceback, or OpenCode hanging on a dead router until --timeout
+    if not Path(a.task_file).is_file():
+        sys.exit(f"no task file {a.task_file}: run from the jelly checkout, where demo-repo/tasks/ lives")
+    if not shutil.which(OPENCODE):
+        sys.exit(f"OpenCode not found at {OPENCODE}: curl -fsSL https://opencode.ai/install | bash, or set OPENCODE_BIN")
+    if _router("GET", "/state") is None:
+        sys.exit(f"no router at {ROUTER}: start `graduate up` in another terminal first")
     task = json.loads(Path(a.task_file).read_text())
     row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout, task_type=task.get("task_type"))
     raise SystemExit(row["exit_code"])

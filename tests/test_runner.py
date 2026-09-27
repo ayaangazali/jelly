@@ -82,3 +82,22 @@ def test_run_verifies_and_appends_one_ledger_row(
         "Runner → Test suite",
         "Runner → Ledger",
     ]
+
+
+def test_main_says_what_to_fix_before_launching_anything(repo, workdir, monkeypatch):
+    """#83: wrong directory, no OpenCode, no router: one line each, not a traceback or a hang until --timeout."""
+    task = workdir / "task.json"
+    task.write_text('{"prompt": "Fix calc.", "verify": "true"}')
+    monkeypatch.setattr(runner, "OPENCODE", "true")
+
+    def main(task_file):
+        monkeypatch.setattr(sys, "argv", ["graduate run", "--task-file", str(task_file), "--repo", str(repo)])
+        with pytest.raises(SystemExit) as e:
+            runner.main()
+        return str(e.value.code)
+
+    assert "run from the jelly checkout" in main(workdir / "demo-repo/tasks/01.json")
+    assert "start `graduate up`" in main(task)
+    monkeypatch.setattr(runner, "OPENCODE", str(workdir / "nope"))
+    assert "opencode.ai/install" in main(task)
+    assert not (workdir / "ledger.jsonl").exists()
