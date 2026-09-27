@@ -97,7 +97,7 @@ def get_session(session_id):
     with _lock:
         return {
             "session_id": session_id,
-            **_sessions.get(session_id, {**_sessions.default_factory(), "task_type": task_type_of(session_id)}),
+            **_sessions.get(session_id, _sessions.default_factory()),
         }
 
 
