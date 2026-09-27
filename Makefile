@@ -1,4 +1,4 @@
-.PHONY: dev ui check
+.PHONY: dev ui check test
 
 dev:
 	uvicorn graduate.router.app:app --reload --port 4141
@@ -13,3 +13,7 @@ check:
 	python -m graduate.registry
 	python -m graduate.registrar.dataset --check
 	python -m graduate.escalator
+
+# Offline: the frontier is a stub (tests/conftest.py). pip install -e .[test] first.
+test:
+	pytest -q
