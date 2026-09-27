@@ -94,7 +94,6 @@ def record(session_id, request, response, usage, latency_ms, upstream, model):
             message(response).get("tool_calls", [])
         ),  # from the response, never the request
         "cost_usd": cost(usage, upstream),
-        # #144: what the frontier would have charged; the cache's saving, never mixed into the owned model's
         **({"saved_usd": cost(usage, "frontier")} if upstream == "cache" else {}),
         "latency_ms": latency_ms,
         "stream": bool(request.get("stream")),

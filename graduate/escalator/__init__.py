@@ -91,7 +91,7 @@ def escalate(row, pre):
         if row["forced_failure"]
         else f"failed its tests (exit {row['exit_code']})"
     )
-    cached = row["routed_to"] == "cache"  # #144: replayed answers failed, not the model: no count, no negative
+    cached = row["routed_to"] == "cache"
 
     diff = Path("sessions") / f"{sid}.diff"
     diff.parent.mkdir(exist_ok=True)
@@ -117,7 +117,6 @@ def escalate(row, pre):
     registry.add_event(
         "failed",
         task_type,
-        # The router evicts a cache session's served keys when it next reads the ledger, which has this row.
         (f"{task_type}: {sid} was served from the verified cache and {how}; its cached answers are evicted. "
          if cached else f"{task_type}: your model's attempt {how}, failure {fails} of {FAIL_LIMIT}. ")
         + f"Saved the diff to {diff}, reset {repo}, "

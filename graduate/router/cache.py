@@ -29,7 +29,7 @@ from pathlib import Path
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.background import BackgroundTask
 
-from graduate.router import app as router  # first: see the docstring
+from graduate.router import app as router
 from graduate.router.app import app, call_hooks, log
 from graduate import ledger, trace
 from graduate.registrar.dataset import _WORKDIR, relative
@@ -37,9 +37,6 @@ from graduate.router import metrics, route, sessionlog
 from graduate.router.river import _chunks
 
 ISSUE = 144
-# Per-run text, matched inside JSON text: OpenCode's date line, the A2A notes the runner puts before the task (they
-# name the last passing session, so no two runs would share a key), and skill locations (a skill installed in two
-# directories is listed from either one, run to run; seen on a real rerun).
 _DATE = re.compile(r"(Today's date: |<location>)[^\\\"<]*")
 _NOTES = re.compile(r"## Notes from other agents\\n.*?\\n\\n")
 _index = {"mtime": None, "keys": {}, "evicted": {}}
@@ -108,7 +105,7 @@ def index():
         ]
         for r in rows
     }
-    evicted = {  # (key, source session) of every answer replayed into a session that then didn't verify
+    evicted = {
         (key(l["request"]), l.get("model", "").removeprefix("cache:")): r["session_id"]
         for r in rows
         if r.get("exit_code") != 0 or r.get("tampered")
@@ -129,7 +126,7 @@ def index():
 
 
 def _replay(session_id, request):
-    entries = index()["keys"]  # first, so an eviction is traced at the escalation rerun's first call
+    entries = index()["keys"]
     if session_id == "sess-anon" or route._registered.get(session_id, {}).get("force_frontier"):
         return None
     if not entries:
@@ -138,7 +135,7 @@ def _replay(session_id, request):
     k = key(request)
     hit = entries.get(k)
     if hit is None:
-        if session_id in _missed:  # the first divergent turn is traced; the rest would crowd /state's trace window
+        if session_id in _missed:
             return None
         _missed.add(session_id)
         trace.emit(
@@ -155,12 +152,12 @@ def _replay(session_id, request):
     text = json.dumps({k: v for k, v in msg.items() if k != "finish_reason"})
     for old, new in zip(
         roots, _roots(request)
-    ):  # the source session's directory → this session's
+    ):
         text = text.replace(json.dumps(old)[1:-1], json.dumps(new)[1:-1])
     msg = json.loads(text)
     model, cid = f"cache:{src}", f"chatcmpl-{uuid.uuid4().hex[:24]}"
     finish = "tool_calls" if msg.get("tool_calls") else "stop"
-    usage = {  # the source call's tokens: what the frontier would have charged; metrics prices "cache" at $0
+    usage = {
         "prompt_tokens": used.get("input_tokens", 0),
         "completion_tokens": used.get("output_tokens", 0),
         "total_tokens": used.get("input_tokens", 0) + used.get("output_tokens", 0),
@@ -215,7 +212,7 @@ def replay(session_id, request):
         return None
 
 
-router._routes.insert(0, replay)  # before route.py's hook: see the docstring
+router._routes.insert(0, replay)
 
 
 @app.get("/api/cache")

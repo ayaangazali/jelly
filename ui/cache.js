@@ -1,7 +1,3 @@
-// Verified-response cache (#144): its hit rate, turns replayed and $ saved on the Overview, from /api/cache
-// (?cache=<url> points it elsewhere), kept apart from the owned model's savings; and a `cache` node on Under the hood
-// that the router's "Router → Cache" trace events light up. Polls once a second. Loaded after index.html's script:
-// uses its globals (NODES, NODE, COL, ROW, money, render).
 const CACHE_URL = new URLSearchParams(location.search).get("cache") || "/api/cache";
 let cacheStats = null, cacheText = "";
 
