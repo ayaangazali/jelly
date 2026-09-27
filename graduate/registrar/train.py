@@ -394,11 +394,12 @@ def run(task_type, steps=None, use_checkpoint=None):
                 Path(use_checkpoint) / "adapter_config.json"
             ).exists() and not use_checkpoint.startswith("river://"):
                 raise FileNotFoundError(f"{use_checkpoint} has no adapter_config.json")
+            meta = Path(use_checkpoint) / "graduate.json"  # written beside the adapter when it was trained
             model, runs = (
                 str(Path(use_checkpoint).resolve())
                 if "://" not in use_checkpoint
                 else use_checkpoint,
-                tt["trained_on_runs"],
+                json.loads(meta.read_text())["trained_on_runs"] if meta.exists() else tt["trained_on_runs"],
             )
         else:
             chats = [
@@ -420,6 +421,8 @@ def run(task_type, steps=None, use_checkpoint=None):
 
             model = backend().train(chats, f"{task_type}-v{version}", log, steps or max(15, 3 * len(chats)))
             runs = len(chats)
+            if Path(model).is_dir():  # so --use-checkpoint can say what it was trained on
+                (Path(model) / "graduate.json").write_text(json.dumps({"task_type": task_type, "trained_on_runs": runs}))
         secs = round(time.monotonic() - t0, 1)
         trace.emit(
             "Registrar → disk",
