@@ -41,5 +41,5 @@ if [[ -n "$slug" ]]; then
   run show.txt show "$slug"
 fi
 
-sed -i '' -e "s#$HOME#~#g" -e 's/mk_[A-Za-z0-9_-]*/mk_REDACTED/g' "$OUT"/*.txt "$OUT"/*.json
+HOME_DIR="$HOME" perl -pi -e 's/\Q$ENV{HOME_DIR}\E/~/g; s/mk_[A-Za-z0-9_-]*/mk_REDACTED/g' "$OUT"/*.txt "$OUT"/*.json
 echo "Saved to $OUT/"

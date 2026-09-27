@@ -31,7 +31,7 @@ def repo(workdir, monkeypatch):
 @pytest.mark.parametrize(
     "action, exit_code, passed",
     [
-        ("sed -i 's/a - b/a + b/' calc.py", 0, 1),  # the agent fixes it
+        ("perl -pi -e 's/a - b/a + b/' calc.py", 0, 1),  # the agent fixes it
         ("true", 1, 0),  # the agent does nothing
         (
             "exec sleep 30",
