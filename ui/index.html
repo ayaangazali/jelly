@@ -614,7 +614,7 @@ function render() {
   document.querySelectorAll("[data-nav]").forEach((x) => x.removeAttribute("aria-current"));
   const nav = { "": "overview", show: "show", compare: "compare", system: "system", setup: "setup" }[r];
   if (nav) $(`[data-nav="${nav}"]`).setAttribute("aria-current", "page");
-  const html = r === "show" ? viewShow(a) : r === "compare" ? viewCompare() : r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? viewSystem() : viewOverview();
+  const html = r === "show" ? viewShow(a) : r === "compare" ? viewCompare() : r === "task" ? viewTask(a) : r === "consent" ? viewConsent(a) : r === "setup" ? viewSetup() : r === "system" ? (root.classList.contains("present") ? viewStage() : viewSystem()) : viewOverview();
   const y = window.scrollY;
   $("#app").innerHTML = html;
   window.scrollTo(0, y);
