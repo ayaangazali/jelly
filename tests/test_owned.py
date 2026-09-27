@@ -21,8 +21,8 @@ CALL = {
 
 
 class Fake:
-    def __init__(self, fail=None):
-        self.fail, self.seen = fail, []
+    def __init__(self):
+        self.fail, self.seen = None, []
 
     def train(self, chats, name, log, steps=None):
         if self.fail:
