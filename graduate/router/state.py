@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from graduate import registry, trace
 from graduate.router.app import app
-from graduate.router import consent
+from graduate.router import consent, upstream
 
 UI = Path(__file__).resolve().parents[2] / "ui" / "index.html"
 FAIL_LIMIT = int(os.environ.get("GRADUATE_FAIL_LIMIT", "3"))
@@ -76,12 +76,19 @@ def _read(path):
         return ""
 
 
+def _reference():
+    for path in (upstream._prices, Path(__file__).parents[2] / "fixtures/prices.example.json"):
+        ref = json.loads(path.read_text()).get("reference")
+        if ref:
+            return ref
+
+
 def build_state():
     reg = registry.load()
     ledger = jsonl("ledger.jsonl", 10_000)
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "config": {"n": registry.GRADUATE_N, "fail_limit": FAIL_LIMIT, "backend": consent._where()["backend"]},
+        "config": {"n": registry.GRADUATE_N, "fail_limit": FAIL_LIMIT, "backend": consent._where()["backend"], "reference": _reference()},
         "registry": reg,
         "totals": totals(reg.get("task_types", {}), ledger),
         "ledger": ledger[-50:],
@@ -138,7 +145,7 @@ if __name__ == "__main__":
         s = (await c.get("/state")).json()
         assert set(s) == {"generated_at", "config", "registry", "totals", "ledger", "trace", "terminal", "session_log", "files"}, set(s)
         assert s["registry"]["task_types"]["update-changelog"]["state"] == "GRADUATED"
-        assert s["config"] == {"n": registry.GRADUATE_N, "fail_limit": FAIL_LIMIT, "backend": consent._where()["backend"]}
+        assert s["config"] == {"n": registry.GRADUATE_N, "fail_limit": FAIL_LIMIT, "backend": consent._where()["backend"], "reference": _reference()}
         assert len(s["ledger"]) == 4 and len(s["trace"]) == 5 and s["terminal"][-1].endswith("exit 0")
         assert s["totals"] == {"saved_usd": 0.4174, "owned_runs": 2, "unclassified_runs": 0}, s["totals"]
         assert s["session_log"][-1]["request"] == {"messages": "8 messages", "tools": "3 tools"}

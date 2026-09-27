@@ -63,6 +63,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `escalated_from` | string or null | For an escalation rerun: the failed owned session it replaces |
 | `forced_failure` | bool | True only when `GRADUATE_FORCE_FAIL=1` faked the failure for the demo |
 | `tampered` | bool | The agent added, changed or deleted a file under a `tests/` directory or a `conftest.py`, compared with the working tree when the session started |
+| `harness` | `"opencode"` or `"claude-code"` | Which agent ran the session (`graduate run --harness`) |
 
 A task type's `verified_runs` is the count of rows with `routed_to == "frontier"`, `exit_code == 0`, `escalated_from == null`. Escalation reruns don't count toward graduation, because they would reward the model for failing.
 
