@@ -9,8 +9,7 @@ function arm(rows) {
   const avg = (f) => rows.reduce((s, r) => s + (r[f] || 0), 0) / rows.length;
   return {
     n: rows.length, passed: rows.filter((r) => r.exit_code === 0).length,
-    out: avg("output_tokens"), inp: avg("input_tokens"), cached: avg("cached_input_tokens"),
-    cost: avg("cost_usd"), turns: avg("turns"), wall: avg("wall_secs"),
+    out: avg("output_tokens"), cost: avg("cost_usd"), turns: avg("turns"), wall: avg("wall_secs"),
   };
 }
 
@@ -22,7 +21,6 @@ function showTask(a) {
   return last ? last.task_type : Object.keys(all)[0];
 }
 
-const tok = (v) => v >= 1e5 ? `${Math.round(v / 1e3)}k` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}k` : Math.round(v).toLocaleString();
 const change = (f, o) => {
   if (o === 0 || f / o >= 3) return o === 0 ? "−100%" : `${Math.round(f / o)}× less`;
   const pct = Math.round((o / f - 1) * 100);
