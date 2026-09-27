@@ -198,36 +198,6 @@ def _demo_dir():
     return work
 
 
-def _owned_backend():
-    """Print the backend Approve trains a new run on, as train.backend() picks it, and warn about the River trap:
-    with RIVER_API_KEY set and GRADUATE_OWNED_BACKEND unset it picks River, and an unfunded key fails there."""
-    from graduate.registrar import train
-
-    name = os.environ.get("GRADUATE_OWNED_BACKEND")
-    try:
-        river = isinstance(train.backend(), train.RiverBackend)
-    except RuntimeError:  # GRADUATE_OWNED_BACKEND=none
-        return print(
-            "owned backend: none (GRADUATE_OWNED_BACKEND=none): Approve trains nothing, the frontier serves every call"
-        )
-    why = (
-        f"GRADUATE_OWNED_BACKEND={name}"
-        if name
-        else "RIVER_API_KEY is set"
-        if river
-        else "no RIVER_API_KEY"
-    )
-    print(
-        f"owned backend: {'river' if river else 'local'} ({why}): Approve trains {'on River' if river else 'on this machine'}"
-    )
-    if river and not name:
-        print(
-            "WARNING: RIVER_API_KEY is set and GRADUATE_OWNED_BACKEND is not, so Approve trains on River; an unfunded "
-            "River account fails with insufficient_funds. GRADUATE_OWNED_BACKEND=local trains on this machine.",
-            file=sys.stderr,
-        )
-
-
 def up():
     p = argparse.ArgumentParser(prog="graduate up")
     p.add_argument(
@@ -261,7 +231,24 @@ def up():
         not a.demo
     ):  # the demo's registry is a fixture; a watcher would rebuild it from the ledger
         threading.Thread(target=watch, daemon=True).start()
-    _owned_backend()
+    # #25, the River trap: name the backend Approve trains a new run on, as train.backend() picks it. With RIVER_API_KEY
+    # set and GRADUATE_OWNED_BACKEND unset that is River, and an unfunded River account fails with insufficient_funds.
+    from graduate.registrar import train
+
+    name = os.environ.get("GRADUATE_OWNED_BACKEND")
+    try:
+        owned = "river" if isinstance(train.backend(), train.RiverBackend) else "local"
+    except RuntimeError:  # GRADUATE_OWNED_BACKEND=none
+        owned = "none"
+    why = f"GRADUATE_OWNED_BACKEND={name}" if name else ("RIVER_API_KEY is set" if owned == "river" else "no RIVER_API_KEY")
+    where = {"river": "on River", "local": "on this machine", "none": "nothing, the frontier serves every call"}[owned]
+    print(f"owned backend: {owned} ({why}): Approve trains {where}")
+    if owned == "river" and not name:
+        print(
+            "WARNING: RIVER_API_KEY is set and GRADUATE_OWNED_BACKEND is not, so Approve trains on River; an unfunded "
+            "River account fails with insufficient_funds. GRADUATE_OWNED_BACKEND=local trains on this machine.",
+            file=sys.stderr,
+        )
     print("dashboard: http://localhost:4141/   (Ctrl-C stops)", flush=True)
     uvicorn.run(
         app,
