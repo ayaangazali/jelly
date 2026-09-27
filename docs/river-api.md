@@ -57,4 +57,6 @@ Not asked yet. When you post, record the time here, and later the answer.
 
 ## Results
 
-Filled in by `scripts/river_check.py` into `docs/river-check.json` once the key is in `.env`.
+**2026-09-27, 01:30 PT:** the owner's key is in `.env` and **authenticates**: River returns a billing error, not `UNAUTHENTICATED`. But every call, including `get_capabilities()`, fails with `RESOURCE_EXHAUSTED - billing: insufficient_funds`. River's SDK labels this "Server capacity exceeded", which is misleading; the script now says what it actually means. Blocked until the account has credits.
+
+`scripts/river_check.py` writes `docs/river-check.json` once a call succeeds.

@@ -81,4 +81,6 @@ if __name__ == "__main__":
     try:
         main()
     except river_client.RiverError as e:
+        if "insufficient_funds" in str(e):
+            sys.exit("River: the key works, but the account has no credits (billing: insufficient_funds). Add credits at console.river.ai, or ask River on Discord for hackathon credits.")
         sys.exit(f"River: {e}")
