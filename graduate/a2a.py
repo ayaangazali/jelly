@@ -21,13 +21,10 @@ KEEP = 10
 FILE_LABEL = "shared notes file (GBrain not installed)"
 HEAD = "### "
 SKILLS = Path(os.environ.get("GBRAIN_SKILLS", Path.home() / ".local/share/gbrain/skills"))
-AGENT_RULES = """# GBrain memory (GRADUATE #142)
-You are connected to GBrain, the team's shared brain, over MCP (tools named `gbrain_*`). Its own skills
-brain-ops and query are in your instructions. Use GBrain yourself:
-1. Before editing, call `gbrain_get_page` with slug `{page}` (procedures other agents verified on this task type)
-   and `gbrain_search` for the failing function; reuse a procedure that matches.
-2. After the verify command passes, call `gbrain_put_page` with slug `{page}/{session}` and content: the files
-   you changed, the fix in one line, and the verify command. Write only that page.
+TOOLS = ("get_page", "search", "put_page")  # of GBrain's 144 MCP tools, the three this job needs
+AGENT_RULES = """## Shared memory: GBrain (tools `gbrain_*`, skills brain-ops and query in your instructions)
+1. First, before reading or editing code: call `gbrain_get_page` with slug `{page}` (procedures other agents verified on this task type).
+2. Last, after the verify command passes: call `gbrain_put_page` with slug `{page}/{session}` and content: the files you changed, the fix in one line, the verify command.
 """
 
 
@@ -127,17 +124,23 @@ def record(task_type, row, repo, before, after):
         print(f"a2a record skipped: {e!r}")
 
 
+def rules(task_type, session_id):
+    """What the agent's prompt says about using GBrain itself."""
+    return AGENT_RULES.format(page=_names(task_type)[0], session=session_id)
+
+
 def opencode_config(task_type, session_id, base=None):
     """OPENCODE_CONFIG_CONTENT that gives the agent GBrain's MCP server and memory skills, or None without the CLI."""
     gbrain = os.environ.get("GBRAIN_BIN", "gbrain")
     if not shutil.which(gbrain):
         return None
-    rules = Path(tempfile.gettempdir(), f"graduate-a2a-{session_id}.md")
-    rules.write_text(AGENT_RULES.format(page=_names(task_type)[0], session=session_id), encoding="utf-8")
+    path = Path(tempfile.gettempdir(), f"graduate-a2a-{session_id}.md")
+    path.write_text(rules(task_type, session_id), encoding="utf-8")
     cfg = json.loads(base or "{}")
     cfg["mcp"] = {**cfg.get("mcp", {}), "gbrain": {"type": "local", "command": [gbrain, "serve"], "enabled": True}}
+    cfg["tools"] = {**cfg.get("tools", {}), "gbrain_*": False, **{f"gbrain_{t}": True for t in TOOLS}}
     skills = [str(f) for f in (SKILLS / "brain-ops/SKILL.md", SKILLS / "query/SKILL.md") if f.is_file()]
-    cfg["instructions"] = [*cfg.get("instructions", []), str(rules), *skills]
+    cfg["instructions"] = [*cfg.get("instructions", []), str(path), *skills]
     return json.dumps(cfg)
 
 

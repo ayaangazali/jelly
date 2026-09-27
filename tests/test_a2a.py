@@ -21,6 +21,7 @@ def a2a_events():
 
 
 def test_a_verified_run_leaves_a_procedure_the_next_run_on_its_task_type_reads(repo, workdir, monkeypatch):
+    monkeypatch.setenv("GBRAIN_BIN", str(workdir / "no-such-gbrain"))  # no CLI: file notes, no MCP
     agent(workdir, monkeypatch, FIX)
     first = runner.run("Fix calc.", VERIFY, str(repo), timeout=10, task_type="fix-calc")
     page = (workdir / "a2a/fix-calc.md").read_text()
@@ -93,6 +94,7 @@ def test_agents_get_gbrain_mcp_and_its_skills(workdir, monkeypatch):
     cfg = json.loads(a2a.opencode_config("fix-calc", "sess-a", '{"provider": {"graduate": {}}}'))
     assert cfg["provider"] == {"graduate": {}}  # the router config stays
     assert cfg["mcp"] == {"gbrain": {"type": "local", "command": ["false", "serve"], "enabled": True}}
+    assert cfg["tools"] == {"gbrain_*": False, "gbrain_get_page": True, "gbrain_search": True, "gbrain_put_page": True}
     rules, skill = cfg["instructions"]
     assert skill == str(workdir / "skills/query/SKILL.md")
     assert "`gbrain_get_page` with slug `a2a-fix-calc`" in open(rules).read() and "`a2a-fix-calc/sess-a`" in open(rules).read()

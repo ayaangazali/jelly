@@ -97,6 +97,9 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
 
     note = task_type and a2a.get(task_type, session_id)
     sent = f"## Notes from other agents\n{note}\n\n{prompt}" if note else prompt
+    cfg = task_type and a2a.opencode_config(task_type, session_id, os.environ.get("OPENCODE_CONFIG_CONTENT"))
+    if cfg:  # #142: the agent uses GBrain's MCP tools and skills itself
+        sent = f"{a2a.rules(task_type, session_id)}\n{sent}"
     started_at, t0 = _now(), time.monotonic()
     trace.emit(
         "Runner → OpenCode",
@@ -110,8 +113,8 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     # OpenCode takes its project dir from $PWD, not the process cwd.
     env = {**os.environ, "GRADUATE_SESSION": session_id, "PWD": os.path.abspath(repo)}
     env.pop("OPENAI_API_KEY", None)  # only the router holds it, as in demo.sh (#97)
-    if task_type and (cfg := a2a.opencode_config(task_type, session_id, env.get("OPENCODE_CONFIG_CONTENT"))):
-        env["OPENCODE_CONFIG_CONTENT"] = cfg  # #142: the agent uses GBrain's MCP tools and skills itself
+    if cfg:
+        env["OPENCODE_CONFIG_CONTENT"] = cfg
     proc = subprocess.Popen(
         [OPENCODE, "run", sent],
         cwd=repo,
