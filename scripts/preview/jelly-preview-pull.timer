@@ -1,0 +1,9 @@
+[Unit]
+Description=jelly preview: pull every 5 minutes (#55)
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

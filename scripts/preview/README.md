@@ -1,0 +1,3 @@
+The captain's preview: `jelly-preview.service` serves the dashboard on fixture state (sample data) at 100.90.208.62:4150 from `~/jelly-preview-clone`, restarting on failure.
+`jelly-preview-pull.timer` runs `pull.sh` every 5 minutes: `git pull --ff-only`, and on a new HEAD a service restart (a reinstall first if pyproject.toml changed).
+Install: `git clone https://github.com/ayaangazali/jelly ~/jelly-preview-clone && cd ~/jelly-preview-clone && uv venv && uv pip install -e .`, then `cp scripts/preview/jelly-preview* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now jelly-preview.service jelly-preview-pull.timer`.

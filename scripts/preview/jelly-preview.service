@@ -1,0 +1,15 @@
+# The captain's live preview (#55): see scripts/preview/README.md.
+[Unit]
+Description=jelly dashboard preview on fixture state, from ~/jelly-preview-clone
+# The bind address is the tailnet interface; RestartSec retries until it is up after a boot.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=%h/jelly-preview-clone/scripts/preview/serve.sh
+Environment=PREVIEW_HOST=100.90.208.62 PREVIEW_PORT=4150
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
