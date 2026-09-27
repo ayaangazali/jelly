@@ -94,7 +94,7 @@ function realSeed(s, rows, title, agents) {
     big: { out: avg(big, "output_tokens") || 0, cost: avg(big, "cost_usd") || 0, secs: avg(big, "wall_secs") || 1 },
     mine: mine.length ? { out: avg(mine, "output_tokens"), cost: avg(mine, "cost_usd"), secs: avg(mine, "wall_secs") } : null,
     types: [title[ringSlug] || ringSlug], grads: [], learning: [title[ringSlug] || ringSlug],
-    agents: agents.length >= 3 ? agents.slice(0, 6) : ["a1", "a2", "a3", "a4", "a5"],
+    agents, // every real agent (none: the Agents card says so)
     tips: (data.state.trace || []).some((e) => (e.edges || []).includes("a2a-write")),
   };
 }
@@ -299,14 +299,21 @@ function realView() {
     return `<li style="animation:none"><time>${esc(String(r.started_at).slice(11, 19))}</time><span class="who ${m ? "mine" : "big"}">${m ? "your model" : esc(r.model || "big model")}</span><span class="what">${esc(st.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(r.output_tokens || 0)} tok</span><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></li>`;
   }).join("");
   const top = Math.max(...rows.map((r) => r.cost_usd || 0), 0.0001), w = 400 / Math.max(rows.length, 1);
+  const wide = rows.length * 14 > 400; // bars would be thinner than ~12px: draw every run at 14px and scroll the chart sideways
   const avg = (rs, k) => (rs.length ? sum(rs, k) / rs.length : 0);
   document.querySelector(".p-race").innerHTML = `<h2>Cost per run, over time</h2>
-<svg class="over" viewBox="0 0 400 120" preserveAspectRatio="none">${rows.map((r, i) => `<rect class="${r.routed_to === "owned" ? "mine" : "big"}" x="${i * w + 1}" y="${120 - Math.max(2, ((r.cost_usd || 0) / top) * 116)}" width="${Math.max(1, w - 2)}" height="${Math.max(2, ((r.cost_usd || 0) / top) * 116)}"/>`).join("")}</svg>
+<div class="over-wrap" data-end="1">${(() => { const W = wide ? rows.length * 14 : 400, bw = W / Math.max(rows.length, 1); return `<svg class="over" viewBox="0 0 ${W} 120" preserveAspectRatio="none" style="${wide ? `width:${W}px` : ""}">${rows.map((r, i) => `<rect class="${r.routed_to === "owned" ? "mine" : "big"}" x="${i * bw + 1}" y="${120 - Math.max(2, ((r.cost_usd || 0) / top) * 116)}" width="${Math.max(1, bw - 2)}" height="${Math.max(2, ((r.cost_usd || 0) / top) * 116)}"/>`).join("")}</svg>`; })()}</div>
 <div class="over-tot"><p><b class="bigc">Big model</b> ${money(avg(big, "cost_usd"))}/run · ${num(avg(big, "output_tokens"))} tokens · ${big.length} runs</p>
 <p><b class="minec">Your model</b> ${mine.length ? `${money(avg(mine, "cost_usd"))}/run · ${num(avg(mine, "output_tokens"))} tokens · ${mine.length} runs` : "no runs yet"}</p>
 <p><b>Saved so far</b> ${money(tot.saved_usd || 0)}</p></div>`;
   const agents = (data.swarm && data.swarm.agents) || [];
   if (!agents.length) { document.getElementById("lanes").innerHTML = empty("No parallel agent run recorded in this data yet."); return; }
+  const wrap = document.querySelector(".over-wrap");
+  if (wrap && wrap.dataset.end) { wrap.scrollLeft = wrap.scrollWidth; delete wrap.dataset.end; } // newest run at the right, in view
+  if (sim.lanes.length !== agents.length) {
+    sim.lanes = agents.map((a) => ({ a: a.agent, busy: 0, dur: 1, status: "idle" }));
+    document.getElementById("lanes").innerHTML = sim.lanes.map((l, i) => `<div class="lane" id="lane-${i}"><b>${esc(l.a)}</b><div class="bar"><i></i></div><span class="st"></span><span class="note"></span></div>`).join("");
+  }
   sim.lanes.forEach((l, i) => {
     const el = document.getElementById(`lane-${i}`), a = agents[i];
     if (!el) return;

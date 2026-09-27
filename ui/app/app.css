@@ -824,3 +824,6 @@ details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
 pre.term { max-height: 360px; overflow-y: auto; }
 .cols .feed, .cols pre.term { max-height: 480px; }
 .takeaway { margin-bottom: 14px; } .takeaway p { margin: 0 0 6px; } .takeaway p:last-child { margin: 0; }
+.p-log .log, .p-lanes .lanes { overflow-y: auto !important; }
+.over-wrap { overflow-x: auto; overflow-y: hidden; flex: 1; min-height: 60px; }
+.over-wrap svg.over { height: 100%; min-width: 100%; }
