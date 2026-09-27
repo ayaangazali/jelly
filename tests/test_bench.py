@@ -167,3 +167,11 @@ def test_dry_run_and_refusal_spend_nothing(bench_env, workdir, capsys):
     with pytest.raises(SystemExit, match="refused"):
         bench_env("--max-usd", "0.01", "--yes")
     assert not (workdir / "bench").exists() and not os.path.exists("auth.log")
+
+
+def test_bench_refuses_without_a_key_before_running_anything(bench_env, workdir, monkeypatch):
+    """#94: not six failed sessions and an all-zero results.json for #/compare."""
+    monkeypatch.delenv("OPENAI_API_KEY")
+    with pytest.raises(SystemExit, match="no OPENAI_API_KEY"):
+        bench_env("--tasks", "01", "--arms", "frontier", "--yes")
+    assert not (workdir / "bench").exists() and not (workdir / "ledger.jsonl").exists()
