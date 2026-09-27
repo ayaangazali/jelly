@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRADUATE</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/ui/app/app.css">
+</head>
+
+<body>
+  <div class="shell">
+    <nav class="side" aria-label="Primary">
+      <a class="brand" href="#/home">GRADUATE</a>
+      <a href="#/home" data-nav="home">Home</a>
+      <a href="#/agents" data-nav="agents">Agents</a>
+      <a href="#/tasks" data-nav="tasks">Task types</a>
+      <a href="#/compare" data-nav="compare">Compare</a>
+      <a href="#/activity" data-nav="activity">Activity</a>
+      <div class="side-foot">
+        <p id="live"><span class="dot"></span> connecting…</p>
+        <a href="/">Classic dashboard</a>
+      </div>
+    </nav>
+    <main>
+      <p id="sample" class="banner" hidden>Sample data: this router serves fixture state (<code>graduate up
+          --demo</code>). None of these numbers are real runs.</p>
+      <div id="view"></div>
+    </main>
+  </div>
+  <script src="/ui/app/app.js"></script>
+</body>
+
+</html>
