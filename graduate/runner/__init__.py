@@ -10,10 +10,12 @@ command in the repo, and appends one ledger row (contracts §2).
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -22,11 +24,12 @@ from pathlib import Path
 
 import httpx
 
-from graduate import escalator, ledger, memorable, trace
+from graduate import a2a, escalator, ledger, memorable, trace
 from graduate.reward import parse_pytest_summary
 
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
 OPENCODE = os.environ.get("OPENCODE_BIN", str(Path.home() / ".opencode/bin/opencode"))
+CLAUDE = os.environ.get("CLAUDE_BIN", "claude")
 ISSUE = 34
 
 
@@ -48,12 +51,32 @@ def _session_totals(session_id):
     out = _router("GET", f"/api/sessions/{session_id}") or {}
     calls = _router("GET", f"/api/sessions/{session_id}/log") or []
     if calls:
-        out["upstream"], out["model"] = calls[-1]["upstream"], calls[-1]["model"]
+        ups = {c["upstream"] for c in calls}
+        out["upstream"] = "cache" if "cache" in ups else ups.pop() if len(ups) == 1 else "mixed"
+        out["model"] = calls[-1]["model"]
     return out
 
 
-def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None):
-    session_id = "sess-" + uuid.uuid4().hex[:12]
+def _tree(repo):
+    with tempfile.TemporaryDirectory() as d:
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(d, "index")}
+        subprocess.run(["git", "add", "-A", "."], cwd=repo, env=env, capture_output=True)
+        return subprocess.run(["git", "write-tree"], cwd=repo, env=env, capture_output=True, text=True).stdout.strip()
+
+
+def _tests_changed(repo, before):
+    out = subprocess.run(
+        ["git", "diff-tree", "-r", "-z", "--name-only", "--no-renames", before, _tree(repo)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    ).stdout
+    parts = [Path(p).parts for p in out.split("\0") if p]
+    return any(("tests" in d[:-1] or d[-1] == "conftest.py") and "__pycache__" not in d for d in parts)
+
+
+def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None, session_id=None, harness="opencode"):
+    session_id = session_id or "sess-" + uuid.uuid4().hex[:12]  # graduate swarm picks it to trace the fan-out first
     start_commit = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=repo,
@@ -61,7 +84,8 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         text=True,
     ).stdout.strip()
     pre_task = escalator.snapshot(repo)  # #23 resets to this
-    _router(
+    before = _tree(repo)
+    reg = _router(
         "POST",
         "/api/sessions",
         json={
@@ -74,10 +98,17 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         },
     )
 
+    task_type = task_type or (reg or {}).get("task_type")  # no hint: the router's classification (Memorable)
+    note = task_type and a2a.get(task_type, session_id)
+    sent = f"## Notes from other agents\n{note}\n\n{prompt}" if note else prompt
+    cfg = task_type and a2a.opencode_config(task_type, session_id, os.environ.get("OPENCODE_CONFIG_CONTENT"))
+    if cfg:  # #142: the agent uses GBrain's MCP tools and skills itself
+        sent = f"{a2a.rules(task_type, session_id)}\n{sent}"
     started_at, t0 = _now(), time.monotonic()
+    claude = harness == "claude-code"
     trace.emit(
-        "Runner → OpenCode",
-        f'opencode run "{prompt}"',
+        f"Runner → {'Claude Code' if claude else 'OpenCode'}",
+        f'{"claude -p" if claude else "opencode run"} "{sent}"',
         f"env GRADUATE_SESSION={session_id}",
         ISSUE,
         ["runner", "opencode"],
@@ -87,8 +118,21 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     # OpenCode takes its project dir from $PWD, not the process cwd.
     env = {**os.environ, "GRADUATE_SESSION": session_id, "PWD": os.path.abspath(repo)}
     env.pop("OPENAI_API_KEY", None)  # only the router holds it, as in demo.sh (#97)
+    if cfg:
+        env["OPENCODE_CONFIG_CONTENT"] = cfg
+    cmd = [OPENCODE, "run", sent]
+    if claude:
+        env.pop("ANTHROPIC_API_KEY", None)
+        env.update(
+            ANTHROPIC_BASE_URL=ROUTER,
+            ANTHROPIC_AUTH_TOKEN=session_id,
+            CLAUDE_CONFIG_DIR=tempfile.mkdtemp(prefix="graduate-claude-"),
+            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1",
+            CLAUDE_CODE_MAX_OUTPUT_TOKENS=os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "16000"),
+        )
+        cmd = [CLAUDE, "-p", sent, "--dangerously-skip-permissions", "--strict-mcp-config"]
     proc = subprocess.Popen(
-        [OPENCODE, "run", prompt],
+        cmd,
         cwd=repo,
         text=True,
         start_new_session=True,
@@ -111,10 +155,16 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     proc.wait()
     timer.cancel()
 
+    tampered = _tests_changed(repo, before)
+    for p in [*Path(repo).rglob("__pycache__"), Path(repo, ".pytest_cache")]:
+        if ".venv" not in p.parts:
+            shutil.rmtree(p, ignore_errors=True)
     # Always verify, even after a crash or timeout, and only inside the task repo.
     v = subprocess.run(verify, shell=True, cwd=repo, capture_output=True, text=True)
     passed, total = parse_pytest_summary(v.stdout)
-    exit_code = 124 if timed_out else v.returncode
+    summary_ok = (total and passed == total) or not re.search(r"\bpytest\b", verify)
+    verified = v.returncode == 0 and summary_ok and not tampered
+    exit_code = 124 if timed_out else v.returncode or (0 if verified else 1)
     for line in (v.stdout + v.stderr).splitlines():
         trace.terminal(f"[{session_id}] {line}")
     trace.emit(
@@ -131,7 +181,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     routed_to = totals.get("upstream", "frontier")
     row = {
         "session_id": session_id,
-        "task_type": totals.get("task_type", "unknown"),
+        "task_type": task_type or totals.get("task_type", "unknown"),
         "procedure_slug": None,
         "prompt": prompt,
         "repo": repo,
@@ -153,10 +203,14 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         "ended_at": _now(),
         "escalated_from": escalated_from,
         "forced_failure": False,
+        "tampered": tampered,
+        "harness": harness,
     }
     if routed_to == "frontier" and exit_code == 0:
-        row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)
+        row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code, harness="claude-code" if claude else "opencode")
     escalator.force_fail(row)  # #23: GRADUATE_FORCE_FAIL=1
+    if task_type and row["exit_code"] == 0:  # verified, and not forced to fail
+        a2a.record(task_type, row, repo, before, _tree(repo))
     ledger.append(row)
     trace.emit(
         "Runner → Ledger",
@@ -172,7 +226,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         f"{session_id} {row['routed_to']} exit {row['exit_code']} · {passed}/{total} passed · "
         f"{row['turns']} turns · ${row['cost_usd']} · {row['wall_secs']}s"
     )
-    if row["routed_to"] == "owned" and row["exit_code"] != 0 and not escalated_from:
+    if row["routed_to"] in ("owned", "cache") and row["exit_code"] != 0 and not escalated_from:
         try:  # #23; never escalate an escalation
             return escalator.escalate(row, pre_task)
         except Exception as e:  # fail open: the failed row is already on the ledger
@@ -186,14 +240,17 @@ def main():
     p.add_argument("--repo", required=True)
     p.add_argument("--force-frontier", action="store_true")
     p.add_argument("--timeout", type=float, default=600)
+    p.add_argument("--harness", choices=["opencode", "claude-code"], default=os.environ.get("GRADUATE_HARNESS", "opencode"))
     a = p.parse_args()
     # #83: say what to do instead of a traceback, or OpenCode hanging on a dead router until --timeout
     if not Path(a.task_file).is_file():
         sys.exit(f"no task file {a.task_file}: run from the jelly checkout, where demo-repo/tasks/ lives")
-    if not shutil.which(OPENCODE):
+    if a.harness == "claude-code" and not shutil.which(CLAUDE):
+        sys.exit(f"Claude Code not found at {CLAUDE}: npm install -g @anthropic-ai/claude-code, or set CLAUDE_BIN")
+    if a.harness == "opencode" and not shutil.which(OPENCODE):
         sys.exit(f"OpenCode not found at {OPENCODE}: curl -fsSL https://opencode.ai/install | bash, or set OPENCODE_BIN")
     if _router("GET", "/state") is None:
         sys.exit(f"no router at {ROUTER}: start `graduate up` in another terminal first")
     task = json.loads(Path(a.task_file).read_text())
-    row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout, task_type=task.get("task_type"))
+    row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout, task_type=task.get("task_type"), harness=a.harness)
     raise SystemExit(row["exit_code"])

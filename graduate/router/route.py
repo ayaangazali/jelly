@@ -52,8 +52,9 @@ def decide(session_id, request, headers, hint=None, prompt=None):
     if session_id not in _announced:
         _announced.add(session_id)
         why = f"forced to {force}" if force in ("owned", "frontier") else state
+        to = "frontier" if not owned else "your River model" if str(decision["model"]).startswith("river://") else "your local model"
         trace.emit("Router → registry.json", f'registry["{task_type}"].state',
-                   f"{why} → route to {'your River model' if owned else 'frontier'}", 20,
+                   f"{why} → route to {to}", 20,
                    nodes=["router", "registry", "river" if owned else "openai"],
                    edges=["reads", "owned" if owned else "frontier"], session_id=session_id)
     return decision
@@ -70,7 +71,9 @@ def register_session(body: dict):
     if not session_id.startswith("sess-"):
         return {"ok": False, "error": "session_id must start with sess-"}
     _registered[session_id] = {k: body.get(k) for k in ("prompt", "repo", "verify", "force_frontier", "task_type")}
-    return {"ok": True}
+    # Classify now (cached per session), so a runner without a hint learns the task type for its GBrain page (#142).
+    task_type = classify(session_id, body["prompt"], hint=body.get("task_type"))[0] if body.get("prompt") else None
+    return {"ok": True, "task_type": task_type}
 
 
 def task_type_of(session_id):

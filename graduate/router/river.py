@@ -50,6 +50,7 @@ async def stream_completion(request, session):
         session["task_type"],
     )
     start = time.monotonic()
+    who = "Router → River" if str(model).startswith("river://") else "Router → local model"
     try:
         msg, used = await asyncio.to_thread(
             train.backend(model).complete,
@@ -59,7 +60,7 @@ async def stream_completion(request, session):
         )
     except Exception as e:
         trace.emit(
-            "Router → River",
+            who,
             f'complete(messages, checkpoint_path="{model}")',
             f"{e!r:.120} → frontier serves this call",
             37,
@@ -86,7 +87,7 @@ async def stream_completion(request, session):
         ", ".join(c["function"]["name"] for c in msg.get("tool_calls", [])) or "text"
     )
     trace.emit(
-        "Router → River",
+        who,
         f'complete(messages, checkpoint_path="{model}")',
         f"200 · {usage['completion_tokens']} output tokens · {tools} · {ms} ms",
         37,
@@ -117,7 +118,7 @@ async def stream_completion(request, session):
     )
     sse = "".join(f"data: {json.dumps(c)}\n\n" for c in sent) + "data: [DONE]\n\n"
     return StreamingResponse(
-        iter([sse]),
+        iter([sse.encode()]),
         media_type="text/event-stream",
         background=BackgroundTask(call_hooks, sid, request, chunks, ms, "owned", model),
     )
