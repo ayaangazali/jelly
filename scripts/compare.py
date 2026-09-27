@@ -122,6 +122,8 @@ def main(path, prices):
             if r["routed_to"] == "frontier" and r["escalated_from"] is not None
         ]
         print(f"  escalation reruns, in neither arm: {ids(reruns)}")
+        cached = [r for r in of_type if r["routed_to"] == "cache"]  # #144: replayed answers, no model ran
+        print(f"  cache sessions, in neither arm: {ids(cached)}")
         f, o = passed["frontier"], passed["owned"]
         if f and o:
             ft, ot, fc, oc = (

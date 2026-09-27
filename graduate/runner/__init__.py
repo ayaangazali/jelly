@@ -51,6 +51,8 @@ def _session_totals(session_id):
     calls = _router("GET", f"/api/sessions/{session_id}/log") or []
     if calls:
         out["upstream"], out["model"] = calls[-1]["upstream"], calls[-1]["model"]
+        if any(c["upstream"] == "cache" for c in calls):  # #144: never a verified frontier run or training data
+            out["upstream"] = "cache"
     return out
 
 
@@ -206,7 +208,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         f"{session_id} {row['routed_to']} exit {row['exit_code']} · {passed}/{total} passed · "
         f"{row['turns']} turns · ${row['cost_usd']} · {row['wall_secs']}s"
     )
-    if row["routed_to"] == "owned" and row["exit_code"] != 0 and not escalated_from:
+    if row["routed_to"] in ("owned", "cache") and row["exit_code"] != 0 and not escalated_from:
         try:  # #23; never escalate an escalation
             return escalator.escalate(row, pre_task)
         except Exception as e:  # fail open: the failed row is already on the ledger
