@@ -21,8 +21,8 @@ def render(task_types):
 
 
 def publish(task_types, path):
-    md = render(task_types)
     try:
+        md = render(task_types)
         with open(path, "w", encoding="utf-8") as f:
             f.write(md)
         r = subprocess.run(
@@ -33,8 +33,8 @@ def publish(task_types, path):
             timeout=30,
         )
         result = f"exit {r.returncode}"
-    except (OSError, subprocess.SubprocessError) as e:
-        result = f"skipped: {e}"
+    except Exception as e:
+        result = f"skipped: {e!r}"
     trace.emit(
         "Registry → GBrain", "gbrain put graduated --force", result, 28, ["registry", "disk"]
     )
