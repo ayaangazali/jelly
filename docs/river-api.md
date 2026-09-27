@@ -59,4 +59,10 @@ Not asked yet. When you post, record the time here, and later the answer.
 
 **2026-09-27, 01:30 PT:** the owner's key is in `.env` and **authenticates**: River returns a billing error, not `UNAUTHENTICATED`. But every call, including `get_capabilities()`, fails with `RESOURCE_EXHAUSTED - billing: insufficient_funds`. River's SDK labels this "Server capacity exceeded", which is misleading; the script now says what it actually means. Blocked until the account has credits.
 
+**2026-09-27, afternoon:** the account is funded and the key works. `get_capabilities()` returns `Qwen/Qwen3.8-27B-FP8`, `Qwen/Qwen3.6-35B-A3B-FP8`, `Qwen/Qwen3.5-397B-A17B-FP8`, `Qwen/Qwen3.5-122B-A10B-FP8`, `Qwen/Qwen3.5-9B`, `nvidia/Kimi-K2.6-NVFP4`, `nvidia/Kimi-K2.6-NVFP4-262K`, `nvidia/GLM-5.2-NVFP4`, `nvidia/GLM-5.2-NVFP4-262K`, `zai-org/GLM-5.3-Flash`, `deepseek-ai/DeepSeek-V4-Flash-0731`, `deepseek-ai/DeepSeek-V4.1-Flash` and `nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4`.
+
+GRADUATE trains and serves **`Qwen/Qwen3.5-9B`** on River. `graduate/registrar/dataset.py` `BASE_MODEL` is the one place it is set; `RIVER_BASE_MODEL` overrides it (an empty value keeps the default). `RiverBackend` trains and serves with that same name.
+
+Qwen3.5 thinks by default. Training renders the assistant turn with `get_renderer(BASE_MODEL, thinking=False)`, an empty `<think>\n\n</think>\n\n` block, so serving has to match: `chat_complete_from_checkpoint(..., base_model=BASE_MODEL, temperature=0, chat_template_kwargs={"enable_thinking": False})`. Without `enable_thinking: False` the model thinks for hundreds of tokens and can return empty content, and a LoRA served that way scored worse than the base model.
+
 `scripts/river_check.py` writes `docs/river-check.json` once a call succeeds.
