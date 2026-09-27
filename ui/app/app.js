@@ -34,7 +34,7 @@ async function poll() {
   const up = !s.error;
   $("#live").textContent = up ? "" : "router unreachable";
   if (up) data.state = s;
-  if (["overview", "agents", "live"].includes(page())) data.swarm = await get("/api/swarm");
+  if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "live" && !data.replay) {
     data.replay = await get("/api/replay");
@@ -103,7 +103,7 @@ ${tt.map(([id, t]) => {
     const r = data.reviews[id];
     return `<tr><td><b>${esc(t.title || id)}</b><br><code class="muted">${esc(id)}</code></td>
 <td>${stateTag(t.state)}</td>
-<td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} of ${N()} verified${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
+<td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
 <td>${base ? `big model ${Math.round(base.turns * 10) / 10} turns · ${money(base.cost_usd)}` : `<span class="muted">n/a</span>`}${cur ? `<br><b style="color:var(--owned)">yours ${cur.turns} · ${money(cur.cost_usd)}</b>` : ""}</td>
 <td class="actions"><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
@@ -249,7 +249,7 @@ function activity() {
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers };
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 
