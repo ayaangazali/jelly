@@ -46,7 +46,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `repo` | string | Path of the repo the task ran in |
 | `start_commit` | string | `git rev-parse HEAD` before the agent started |
 | `verify_command` | string | Command the runner ran after the agent exited |
-| `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out |
+| `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out. A verify that exits 0 is recorded as `1` when the row is `tampered`, or when the command runs `pytest` and its summary does not show at least one test with all of them passed |
 | `tests_passed` | int or null | Parsed from the pytest summary line |
 | `tests_total` | int or null | Parsed from the pytest summary line |
 | `routed_to` | `"frontier"` or `"owned"` | Which upstream served this session |
@@ -62,6 +62,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `ended_at` | string | Timestamp |
 | `escalated_from` | string or null | For an escalation rerun: the failed owned session it replaces |
 | `forced_failure` | bool | True only when `GRADUATE_FORCE_FAIL=1` faked the failure for the demo |
+| `tampered` | bool | The agent added, changed or deleted a file under a `tests/` directory or a `conftest.py`, compared with the working tree when the session started |
 
 A task type's `verified_runs` is the count of rows with `routed_to == "frontier"`, `exit_code == 0`, `escalated_from == null`. Escalation reruns don't count toward graduation, because they would reward the model for failing.
 
