@@ -100,7 +100,7 @@ systemctl --user daemon-reload && systemctl --user enable --now jelly-qa.timer
 systemctl --user start jelly-qa.service && cat qa-runs/latest.txt   # one run now, about 5 minutes
 ```
 
-`make e2e` reads the key from the file in the service's `QA_KEY_FILE` line (default `~/super.env`; edit it to yours) and nothing else from that file. `loginctl enable-linger $USER` keeps the timer running while you are logged out. No systemd (macOS): `crontab -e`, then `0 */2 * * * PATH=/opt/homebrew/bin:/usr/bin:/bin QA_KEY_FILE=$HOME/.openai.env $HOME/jelly-qa-clone/scripts/qa-timer/qa-run.sh`.
+`make e2e` reads the key from the file in the service's `QA_KEY_FILE` line (default `~/super.env`; edit it to yours) and nothing else from that file. `loginctl enable-linger $USER` keeps the timer running while you are logged out.
 
 ## Known gaps (already filed; do not re-file)
 
