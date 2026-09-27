@@ -155,7 +155,7 @@ fi
 
 say "numbers -> docs/results.md"
 jq -rs --argjson n "$base" --arg when "$(date -u +%Y-%m-%dT%H:%MZ)" --arg model "$(jq -r .frontier.model prices.json)" \
- --arg how "${checkpoint:+checkpoint $checkpoint, trained before the demo}" --arg stub "$offline" '
+ --arg how "${checkpoint:+checkpoint ${checkpoint##*/}, trained before the demo}" --arg stub "$offline" '
   def r: . * 1000 | round / 1000;
   . as $all | (.[:$n + 1] | map(select(.routed_to == "frontier" and .exit_code == 0 and .escalated_from == null))) as $b
   | .[$n:] as $d | ($d | map(select(.routed_to == "owned" and .exit_code == 0))[0]) as $a | ([$d[] | select(.escalated_from)][-1] as $r | [($d[] | select(.session_id == $r.escalated_from)), $r]) as $e
@@ -165,12 +165,12 @@ jq -rs --argjson n "$base" --arg when "$(date -u +%Y-%m-%dT%H:%MZ)" --arg model 
      ["Cost (USD)", "cost_usd"], ["Turns (model calls)", "turns"], ["Tool calls", "tool_calls"], ["Wall time (s)", "wall_secs"]]
   | map(. as [$label, $k] | ($b | map(.[$k]) | add / length) as $x
       | "| \($label) | \($x | r) | \(if $a then $a[$k] | r else "no passing run yet" end) | \(if $stub == "1" then "n/a: stub frontier" elif $a == null or $x == 0 then "n/a" else "\(($a[$k] - $x) / $x * 100 | round)%" end) |") as $table
-  | (if $stub == "1" then "**STUB FRONTIER, NOT REAL FRONTIER NUMBERS.** The frontier was `scripts/stub-upstream.py`: zero OpenAI calls, scripted sessions and made-up token counts. Rows served by `owned` are real: the local checkpoint on CPU. A live run replaces this section."
+  | (if $stub == "1" then "**STUB FRONTIER, NOT REAL FRONTIER NUMBERS.** The frontier was `scripts/stub-upstream.py`: zero OpenAI calls, scripted sessions and made-up token counts. Rows served by `owned` are the local checkpoint on CPU: their tokens, turns and wall time are real; their cost is priced at the `owned` rate in `prices.json`. A live run replaces this section."
      else "Live run. Frontier model `\($model)`, prices from `prices.json` (contracts §9)." end) as $label
   | ["### Last demo run: \($when)", "", $label, "",
      "Baseline: mean of the \($b | length) verified frontier runs before graduation (the staged corpus plus broken state 05), with the provider'"'"'s prompt caching on: \(($b | map(.cached_input_tokens) | add) / ([1, ($b | map(.input_tokens) | add)] | max) * 100 | round)% of their input tokens were cached and billed at the cached rate. Your model: its first passing session after graduation (a failed session is never counted as savings), graduated \(if $how == "" then "by the live training job" else "on the \($how)" end).",
      "", "| | Frontier baseline, caching on | Your model\($s) | Change |", "|---|---|---|---|"] + $table
-  + ["", "- Your model'"'"'s sessions: \($o | map("`\(.prompt | capture("mod_(?<s>\\d\\d)").s)` exit \(.exit_code)") | join(", ")). Broken states 01-08 are the training data of the checkpoints in `/home/ubuntu/jelly-corpus/checkpoints/`, so a pass on 01-08 is a repeat of a trained task, not a held-out result; 09 and 10 are held out.",
+  + ["", "- Your model'"'"'s sessions: \($o | map("`\(.prompt | capture("mod_(?<s>\\d\\d)").s)` exit \(.exit_code)") | join(", ")). Broken states 01-08 are the training data of the v1-v3 checkpoints (docs/pretrained-model.md), so a pass on 01-08 is a repeat of a trained task, not a held-out result; 09 and 10 are held out.",
      "- Pass rate: frontier \($f | map(select(.exit_code == 0)) | length) of \($f | length) sessions; owned \($o | map(select(.exit_code == 0)) | length) of \($o | length) (forced failures included).",
      "- Safety path: owned attempt `\($e[0].session_id)` exit \($e[0].exit_code), \(if $e[0].forced_failure then "forced for the demo with `GRADUATE_FORCE_FAIL=1` (forced failures are not kept as training negatives)" else "a real failure of your model" end); frontier rerun `\($e[1].session_id)` exit \($e[1].exit_code), escalated_from `\($e[1].escalated_from)`. The failed row stays in `ledger.jsonl`.",
      "- Task types in the ledger: \($all | group_by(.task_type) | map("`\(.[0].task_type)` \(length)") | join(", ")).",

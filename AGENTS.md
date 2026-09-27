@@ -23,6 +23,7 @@ Read first: [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md) (overrides the pack
 - **Done means:** every box in the issue's **Acceptance criteria** is ticked and shown in the PR (a command plus its output, or a screenshot for UI).
 - **End-to-end proofs in parallel:** `:4141` may be another lane's router. Run yours on another port and point both sides at it: `GRADUATE_ROUTER=http://localhost:<port>` for the runner, `OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"http://localhost:<port>/v1"}}}}'` for OpenCode. Run `scripts/reset-demo.sh clean` before committing.
 - **Tests:** `pip install -e '.[test,train]'` (Python 3.12+: `make check`'s dataset self-check needs river-client), then `make check && make test` before you push; CI runs both, plus `make e2e-replay` (real OpenCode on `scripts/stub-upstream.py`, $0, ~1 min), on every push and PR. Fully offline: the frontier is the `stub` fixture in `tests/conftest.py`. New behavior gets a test under `tests/`. CI's jq is 1.7: wrap operator expressions in object values in parens (`{k: (a / b)}`); this host's jq 1.8 hides the error. Humans: [`docs/QA.md`](docs/QA.md).
+- **Owned-model claims:** checkpoints are trained on demo broken states 01–08; only 09 and 10 are held out, so an owned pass on 01–08 is a repeat, never "held-out". Offline the frontier is the stub, so no savings ratio ([`docs/results.md`](docs/results.md)). With OpenAI credit, the live path is `scripts/live.sh`.
 
 ## Decided stack (don't re-litigate)
 

@@ -30,7 +30,7 @@ Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recordin
 ## Sponsors, and exactly how each is used
 
 - **River**: the key authenticates, but the account has no credits (`RESOURCE_EXHAUSTED billing: insufficient_funds`). So the same trainer interface (`train(chats, name, log)` / `complete(model, messages, tools)`) trains and serves locally, and `GRADUATE_OWNED_BACKEND=river` swaps River in. `river-client`'s renderer builds the training records (`graduate/registrar/dataset.py`). The Exit Code RL spike (#10, [`docs/river-rl.md`](docs/river-rl.md)) is River's `rl.Env` shape, with the pytest exit code as the reward, run locally.
-- **Memorable**: `memorable recall "<task>" --single` names the task type (`graduate/router/classify.py`, with a normalized-prompt hash as the fallback), and `memorable ingest` records every verified session (`graduate/memorable/bridge.py`). It runs on Ayaan's machine, which is logged in. The build host has no Memorable CLI, so the offline runs used the fallback and skipped ingest.
+- **Memorable**: `memorable recall "<task>" --single` names the task type (`graduate/router/classify.py`, with a normalized-prompt hash as the fallback), and `memorable ingest` records every verified session (`graduate/memorable/bridge.py`). It runs where the Memorable CLI is logged in (Ayaan's Mac, [`docs/sponsor-answers.md`](docs/sponsor-answers.md)). The build host has no Memorable CLI, so the offline runs used the fallback and skipped ingest.
 - **GBrain**: on every graduation, `GRADUATED.md` is piped to `gbrain put graduated --force` (#28). It fails open when `gbrain` is missing.
 - **QM**: the router registers as a custom QM provider, proven against a stub ([`docs/qm-config.md`](docs/qm-config.md)). There is no live QM demo.
 - **OpenAI**: the frontier model and the fallback, over Chat Completions. It had no credit today, so it was stubbed.
@@ -42,11 +42,11 @@ Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recordin
 uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo   # the dashboard on fixture data, no key
 ```
 
-The full demo runs from a clone with `.venv` active, `pip install -e '.[test,train]'` and OpenCode installed ([README quickstart](README.md#quickstart)):
+The full demo runs from a clone with `.venv` active, `pip install -e '.[test,train]'` and OpenCode installed ([README quickstart](README.md#quickstart)). `GRADUATE_CHECKPOINT` is the directory of the v3 LoRA adapter ([`docs/pretrained-model.md`](docs/pretrained-model.md)):
 
 ```bash
-scripts/demo.sh --offline --use-checkpoint /home/ubuntu/jelly-corpus/checkpoints/fix-failing-test-v3   # zero OpenAI calls; click Approve on http://localhost:4141/?present
-make record                                                                                           # the same run, filmed to docs/recordings/offline-rehearsal.mp4
+scripts/demo.sh --offline --use-checkpoint "$GRADUATE_CHECKPOINT"   # zero OpenAI calls; click Approve on http://localhost:4141/
+make record ARGS="--offline --auto-approve --use-checkpoint $GRADUATE_CHECKPOINT"   # the same run, filmed to docs/recordings/offline-rehearsal.mp4
 ```
 
 ### If credit arrives
@@ -57,7 +57,7 @@ make record                                                                     
 
 This one command, about 25 minutes:
 1. A 1-token credit probe. Without credit it refuses before touching anything (`refused: no credit`).
-2. The real corpus: `scripts/corpus.sh` on broken states 01–08, into `/home/ubuntu/jelly-corpus-live`, capped at USD 6 and 400 calls.
+2. The real corpus: `scripts/corpus.sh` on broken states 01–08, into `~/jelly-corpus-live`, capped at USD 6 and 400 calls.
 3. A retrain on that corpus: `graduate train fix-failing-test --corpus`.
 4. The live demo on the new checkpoint, filmed by `scripts/record.py`, which runs `scripts/demo.sh`. The results land in `docs/results.md` and the video is labelled "live run".
 
