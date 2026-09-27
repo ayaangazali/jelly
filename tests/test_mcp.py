@@ -36,3 +36,25 @@ def test_stdio_tools_match_state(workdir):
     assert status["task_types"] == {k: {f: t[f] for f in fields} for k, t in s["registry"]["task_types"].items()}
     assert status["task_types"]["update-changelog"]["state"] == "GRADUATED"
     assert savings == s["totals"] == {"saved_usd": 0.4174, "owned_runs": 2, "unclassified_runs": 0}
+
+
+def test_bad_lines_get_errors_and_the_server_keeps_serving(workdir):
+    lines = [
+        "garbage",
+        "[]",
+        "1",
+        json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "nope"}}),
+        json.dumps({"jsonrpc": "2.0", "id": 4, "method": "tools/list"}),
+    ]
+    out = subprocess.run(
+        [sys.executable, "-m", "graduate.mcp"],
+        input="\n".join(lines) + "\n",
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={**os.environ, "PYTHONPATH": str(ROOT)},
+    ).stdout
+    res = [json.loads(l) for l in out.splitlines()]
+    codes = [(r["id"], r.get("error", {}).get("code")) for r in res]
+    assert codes == [(None, -32700), (None, -32600), (None, -32600), (3, -32603), (4, None)]
+    assert len(res[-1]["result"]["tools"]) == 2
