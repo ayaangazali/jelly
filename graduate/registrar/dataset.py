@@ -6,6 +6,7 @@ python -m graduate.registrar.dataset --check                offline self-check o
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -63,6 +64,8 @@ def wire(r, record):
 
 
 def build(task_type, tokenizer=None):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", task_type):
+        raise ValueError(f"not a task type: {task_type!r}")
     rows = [r for r in ledger.rows() if r["task_type"] == task_type]
     passing = [
         r
@@ -216,8 +219,8 @@ def _check():
 if __name__ == "__main__":
     if sys.argv[1:] == ["--check"]:
         _check()
-    elif len(sys.argv) > 1:
-        s = build(sys.argv[1])
+    elif [a for a in sys.argv[1:] if not a.startswith("-")]:
+        s = build(next(a for a in sys.argv[1:] if not a.startswith("-")))
         if "--summary" in sys.argv:
             print(json.dumps(s, indent=2))
         else:
