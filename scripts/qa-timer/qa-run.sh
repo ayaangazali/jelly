@@ -7,7 +7,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 if [ -z "${QA_PULL:-}" ]; then # a fresh main, then that main's copy of this script
   git fetch -q origin && git reset -q --hard origin/main && QA_PULL=pass || QA_PULL=fail
-  QA_PULL=$QA_PULL exec "$0"
+  QA_PULL=$QA_PULL exec "$PWD/scripts/qa-timer/qa-run.sh"
 fi
 . .venv/bin/activate
 # Run state a crashed or finished run left in the root (demo.sh keeps its own copy in backups/demo-*/before/).

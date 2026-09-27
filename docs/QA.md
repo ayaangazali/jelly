@@ -94,7 +94,7 @@ Skip this part while the key returns `429 insufficient_quota`. `make e2e` tells 
 
 ```bash
 git clone https://github.com/ayaangazali/jelly ~/jelly-qa-clone && cd ~/jelly-qa-clone
-python3 -m venv .venv && .venv/bin/pip install -e '.[test,train]'
+python3 -m venv .venv && .venv/bin/pip install -e '.[test]' 'river-client>=0.12,<0.13'   # not [train]: no torch, Python 3.12+
 mkdir -p ~/.config/systemd/user && cp scripts/qa-timer/jelly-qa.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now jelly-qa.timer
 systemctl --user start jelly-qa.service && cat qa-runs/latest.txt   # one run now, about 5 minutes
