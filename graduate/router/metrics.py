@@ -40,7 +40,9 @@ _lock = threading.Lock()
 
 
 def cost(usage, role):
-    """Contracts §9: cached input at the cached price, the rest at the input price."""
+    """Contracts §9: cached input at the cached price, the rest at the input price. A cache replay (#144) is free."""
+    if role == "cache":
+        return 0.0
     p = PRICES[role]
     fresh = usage["input_tokens"] - usage["cached_input_tokens"]
     dollars = (
@@ -92,6 +94,7 @@ def record(session_id, request, response, usage, latency_ms, upstream, model):
             message(response).get("tool_calls", [])
         ),  # from the response, never the request
         "cost_usd": cost(usage, upstream),
+        **({"saved_usd": cost(usage, "frontier")} if upstream == "cache" else {}),
         "latency_ms": latency_ms,
         "stream": bool(request.get("stream")),
     }
