@@ -89,11 +89,11 @@ def test_the_agent_never_holds_the_openai_key(repo, workdir, monkeypatch):
     the dashboard and results/state.json."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-QWZXPLMK")
     agent = workdir / "agent"
-    agent.write_text(AGENT.format('echo "key=$OPENAI_API_KEY"'))
+    agent.write_text(AGENT.format('echo "key=${OPENAI_API_KEY-unset}"'))
     agent.chmod(0o755)
     monkeypatch.setattr(runner, "OPENCODE", str(agent))
     runner.run("Fix calc.", VERIFY, str(repo), timeout=5)
-    assert "key=\n" in (workdir / "terminal.log").read_text()
+    assert "key=unset" in (workdir / "terminal.log").read_text()  # absent, not just empty
     assert not [p for p in workdir.rglob("*") if p.is_file() and "QWZX" in p.read_text(errors="ignore")]
 
 
