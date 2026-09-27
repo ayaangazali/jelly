@@ -24,7 +24,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from graduate import registry, trace
+from graduate import ledger, registry, trace
+from graduate.registrar import dataset
 
 DATA = Path("data")
 BASE_MODEL = os.environ.get("GRADUATE_LOCAL_MODEL", "Qwen/Qwen2.5-Coder-0.5B-Instruct")
@@ -34,6 +35,7 @@ THREADS = int(
 KEEP_TOOLS = ("bash", "edit", "glob", "grep", "read", "write")
 SYSTEM = "You are a coding agent. Use the tools to read, edit and test code in the repository until the task is done."
 STALE = timedelta(hours=1)
+CORPUS = "/home/ubuntu/jelly-corpus"  # scripts/corpus.sh copies ledger.jsonl, stage-ledger.jsonl, sessions/ here
 MAX_LEN = int(
     os.environ.get("GRADUATE_MAX_LEN", "3072")
 )  # tokens per session; caps training memory
@@ -47,7 +49,7 @@ def compact(messages, tools):
     first line of their descriptions, and messages in the plain shape a HF chat template takes.
     """
     out = []
-    for m in messages:
+    for m in dataset.relative(messages):
         c = m.get("content") or ""
         if not isinstance(c, str):
             c = "".join(p.get("text", "") for p in c if isinstance(p, dict))
@@ -291,8 +293,6 @@ class RiverBackend:
     def train(self, chats, name, log, steps):
         from river_client import LoraConfig
 
-        from graduate.registrar import dataset
-
         rend = dataset.renderer()
         wires = [dataset.wire(rend, c)[0] for c in chats]
         with self._client().session() as session:
@@ -356,6 +356,20 @@ def reset_stale():
                 name,
                 f"Training of {name} stopped without finishing. Back to READY.",
             )
+
+
+def from_corpus(task_type, corpus):
+    """Rebuild data/<task_type>.chat.jsonl from the durable corpus copy (docs/corpus.md): its ledger, the staged
+    rows it holds back for the live demo, and its session logs."""
+    root = Path(corpus)
+    rows = "".join((root / f).read_text(encoding="utf-8") for f in ("ledger.jsonl", "stage-ledger.jsonl") if (root / f).exists())
+    if not rows:
+        sys.exit(f"{root}/ledger.jsonl not found: run the corpus first (docs/corpus.md)")
+    DATA.mkdir(exist_ok=True)
+    (DATA / "corpus-ledger.jsonl").write_text(rows, encoding="utf-8")
+    ledger.LEDGER_PATH, dataset.SESSIONS_DIR = str(DATA / "corpus-ledger.jsonl"), root / "sessions"
+    s = dataset.build(task_type)
+    print(f"{task_type}: {s['records']} records from {root} ({s['skipped']} skipped)")
 
 
 def run(task_type, steps=None, use_checkpoint=None):
@@ -453,7 +467,10 @@ def main():
         metavar="PATH",
         help="graduate from an existing checkpoint, no training",
     )
+    p.add_argument("--corpus", nargs="?", const=CORPUS, metavar="DIR", help=f"train on the durable corpus (default {CORPUS})")
     a = p.parse_args()
+    if a.corpus:
+        from_corpus(a.task_type, a.corpus)
     run(a.task_type, a.steps, a.use_checkpoint)
 
 
