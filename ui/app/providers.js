@@ -89,6 +89,12 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
     const calls = trace.filter((e) => /GBrain/.test(e.who)), writes = calls.filter((e) => /write|put/.test(e.call)), reads = calls.filter((e) => /read|get/.test(e.call));
     return page("GBrain", "agents share what worked: read a note before a task, write one after a verified pass", calls.length ? ["s-passed", "used"] : ["", "not called yet"], `
 <div class="kpis">${stat(writes.length, "notes written")}${stat(reads.length, "notes read")}${stat(calls.length - writes.length - reads.length, "other pages")}</div>
+<section class="panel pviz"><h2>How Jelly uses GBrain</h2><ul class="howto">
+<li><b>One feature:</b> reading and writing pages, locally on this machine with GBrain's built-in database.</li>
+<li><b>Agents share notes:</b> OpenCode agents connect to the local GBrain as an MCP tool. Before a task an agent reads the page <code>a2a-&lt;task type&gt;</code> (fixes that worked before); after its tests pass it writes its own page, e.g. <code>a2a-fix-failing-test/sess-…</code>, with the files, the fix, the test command, turns and cost. Jelly's runner also appends each verified fix to <code>a2a-&lt;task type&gt;</code>, keeping the newest 10.</li>
+<li><b>Graduation record:</b> on every graduation Jelly writes the page <code>graduated</code>, listing each graduated task type, its River model, run count and date.</li>
+<li><b>Not used:</b> GBrain search and embeddings, and hosted access.</li>
+</ul></section>
 <section class="panel pviz"><h2>Notes between agents</h2><div class="notes">${calls.map((e, i) => `<div class="gnote ${/write|put/.test(e.call) ? "w" : "r"}" style="animation-delay:${i * 0.2}s"><b>${/write|put/.test(e.call) ? "wrote" : /read|get/.test(e.call) ? "read" : "page"}</b><code>${esc(String(e.call).slice(0, 70))}</code><small>${esc(String(e.result).slice(0, 90))}</small></div>`).join("") || empty("No notes yet.")}</div></section>`);
   }
   if (id === "frontier") {
