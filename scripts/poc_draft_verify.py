@@ -214,7 +214,7 @@ def stage_train():
         ckpt = model.save_weights(f"poc-draft-{int(t0)}", mode="inference")
     save("train.jsonl", [{"base_model": base, "river_models": names, "examples": [r["name"] for r in chosen], "steps": steps,
                           "checkpoint": ckpt.path, "log": log, "secs": round(time.time() - t0, 1)}])
-    print(f"trained {base} LoRA r=16 on {len(chosen)} traces, {steps} steps -> {ckpt.path}")
+    print(f"trained {base} LoRA r={os.environ.get('POC_RANK', '16')} on {len(chosen)} traces, {steps} steps -> {ckpt.path}")
 
 
 def draft(client, base, prompt, checkpoint=None):
