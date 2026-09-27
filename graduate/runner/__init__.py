@@ -10,6 +10,7 @@ command in the repo, and appends one ledger row (contracts §2).
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -138,7 +139,8 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     # Always verify, even after a crash or timeout, and only inside the task repo.
     v = subprocess.run(verify, shell=True, cwd=repo, capture_output=True, text=True)
     passed, total = parse_pytest_summary(v.stdout)
-    verified = v.returncode == 0 and total and passed == total and not tampered
+    summary_ok = (total and passed == total) or not re.search(r"\bpytest\b", verify)
+    verified = v.returncode == 0 and summary_ok and not tampered
     exit_code = 124 if timed_out else v.returncode or (0 if verified else 1)
     for line in (v.stdout + v.stderr).splitlines():
         trace.terminal(f"[{session_id}] {line}")

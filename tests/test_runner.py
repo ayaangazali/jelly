@@ -1,5 +1,6 @@
 """`graduate run` verify path with a fake agent in a scratch git repo. No router: the runner fails open."""
 
+import os
 import re
 import subprocess
 import sys
@@ -120,6 +121,30 @@ def test_only_an_honest_fix_is_verified(repo, workdir, monkeypatch, before, acti
     monkeypatch.setattr(runner, "OPENCODE", str(agent))
     row = runner.run("Fix calc.", VERIFY, str(repo), timeout=10)
     assert (row["exit_code"], row["tampered"]) == (exit_code, tampered)
+
+
+@pytest.mark.parametrize(
+    "verify, exit_code",
+    [
+        ("ruff check .", 0),
+        (f"{sys.executable} scripts/check_changelog.py", 0),
+        (f"{sys.executable} -m pytest -q -p no:cacheprovider --co tests && ruff check .", 1),
+    ],
+)
+def test_a_verify_without_pytest_is_judged_by_its_exit_code(repo, workdir, monkeypatch, verify, exit_code):
+    (repo / "scripts").mkdir()
+    (repo / "scripts/check_changelog.py").write_text("print('changelog ok')\n")
+    ruff = workdir / "bin/ruff"
+    ruff.parent.mkdir()
+    ruff.write_text("#!/bin/sh\necho 'All checks passed!'\n")
+    ruff.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{ruff.parent}:{os.environ['PATH']}")
+    agent = workdir / "agent"
+    agent.write_text(AGENT.format(FIX))
+    agent.chmod(0o755)
+    monkeypatch.setattr(runner, "OPENCODE", str(agent))
+    row = runner.run("Fix calc.", verify, str(repo), timeout=10)
+    assert (row["exit_code"], row["tampered"]) == (exit_code, False)
 
 
 def test_the_agent_never_holds_the_openai_key(repo, workdir, monkeypatch):

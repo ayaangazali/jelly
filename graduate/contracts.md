@@ -46,7 +46,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `repo` | string | Path of the repo the task ran in |
 | `start_commit` | string | `git rev-parse HEAD` before the agent started |
 | `verify_command` | string | Command the runner ran after the agent exited |
-| `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out. A verify that exits 0 is recorded as `1` unless its pytest summary shows at least one test and all of them passed, and the row is not `tampered` |
+| `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out. A verify that exits 0 is recorded as `1` when the row is `tampered`, or when the command runs `pytest` and its summary does not show at least one test with all of them passed |
 | `tests_passed` | int or null | Parsed from the pytest summary line |
 | `tests_total` | int or null | Parsed from the pytest summary line |
 | `routed_to` | `"frontier"` or `"owned"` | Which upstream served this session |
