@@ -6,6 +6,7 @@ Aggregates are rebuilt from metrics.jsonl at import, so a router restart doesn't
 """
 
 import json
+import logging
 import threading
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -19,6 +20,14 @@ from graduate.router.sessionlog import message
 
 METRICS_PATH = Path("metrics.jsonl")
 PRICES = json.loads(upstream._prices.read_text())
+if upstream.MODEL != PRICES["frontier"]["model"]:
+    if upstream.MODEL in upstream.LIST_PRICES:
+        PRICES["frontier"] = {"model": upstream.MODEL, **upstream.LIST_PRICES[upstream.MODEL]}
+    else:
+        logging.getLogger("uvicorn.error").warning(
+            "OPENAI_MODEL=%s has no known price: costs use %s's from %s; set its prices in that file's frontier block",
+            upstream.MODEL, PRICES["frontier"]["model"], upstream._prices,
+        )
 SUMMED = (
     "input_tokens",
     "cached_input_tokens",
