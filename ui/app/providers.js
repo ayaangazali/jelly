@@ -97,7 +97,7 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
 <li><b>Not used:</b> GBrain search and embeddings, and hosted access.</li>
 <li><b>Memorable's store, not migrated:</b> Memorable keeps its 23 procedures in its own encrypted local store. We tried migrating them to GBrain with Memorable's native integration (<code>memorable init gbrain</code>, then GBrain's <code>integrations.memorable</code> switch); GBrain refused it (<code>writer_coordinator_required</code>): a new writer on the shared brain needs a deliberate ownership change by its operator, not made at the freeze. So the migration was rolled back at once and nothing moved. After the rollback a real recall on task 09 scored 0.727. Memorable and GBrain run side by side.</li>
 </ul></section>
-<section class="panel pviz"><h2>Notes between agents</h2><div class="notes">${calls.map((e, i) => `<div class="gnote ${/write|put/.test(e.call) ? "w" : "r"}" style="animation-delay:${i * 0.2}s"><b>${/write|put/.test(e.call) ? "wrote" : /read|get/.test(e.call) ? "read" : "page"}</b><code>${esc(String(e.call).slice(0, 70))}</code><small>${esc(String(e.result).slice(0, 90))}</small></div>`).join("") || empty("No notes yet.")}</div></section>`);
+<section class="panel pviz"><h2>Notes between agents</h2>${notesDiagram(calls)}<details><summary>Raw calls (${calls.length})</summary>${feedOf([...calls].reverse())}</details></section>`);
   }
   if (id === "frontier") {
     const rows = ledger.filter((r) => r.routed_to === "frontier"), top = Math.max(...rows.map((r) => r.cost_usd || 0), 0.0001);
@@ -114,3 +114,35 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
 // The whole trace's provider calls (GET /api/provider-calls), else /state's last 100 until the router has that endpoint.
 const allCalls = () => (Array.isArray(data.calls) ? data.calls : data.state.trace || []);
 const bigName = (m) => (/claude/i.test(m) ? "Anthropic Claude Haiku 4.5" : /gpt|openai/i.test(m) ? `OpenAI ${m}` : m);
+
+// The notes diagram: the GBrain page in the centre, each agent session around it; "wrote" is agent -> page, "read" is
+// page -> agent, numbered by the agent's first call in time order with a count; a fallback write goes dashed to the
+// shared notes file (the page was busy or GBrain was missing).
+function notesDiagram(calls) {
+  const ev = calls.filter((e) => /read|get|write|put/.test(e.call));
+  if (!ev.length) return empty("No notes read or written yet.");
+  const page = (ev.map((e) => (String(e.call).match(/a2a[-/][\w-]+/) || [])[0]).find(Boolean) || "a2a notes").replace(/\.md$/, "").replace("a2a/", "a2a-");
+  const agents = [...new Set(ev.map((e) => e.session_id || "agent"))];
+  const W = 1000, H = 600, cx = 500, cy = 270, RX = 400, RY = 215, n = agents.length;
+  // agents on an ellipse, leaving the bottom sector free for the shared-file node
+  const pos = agents.map((a, i) => { const t = (-Math.PI / 2) + ((Math.PI * 1.6) * (i + 0.5)) / n - Math.PI * 0.8 + Math.PI * 0.0; return [cx + Math.cos(t) * RX, cy + Math.sin(t) * RY]; });
+  const fx = cx, fy = 560, fall = (e) => /shared notes file/.test(e.result);
+  const edges = [], labels = [];
+  agents.forEach((a, i) => {
+    const mine = ev.filter((e) => (e.session_id || "agent") === a), order = ev.indexOf(mine[0]) + 1;
+    const w = mine.filter((e) => /write|put/.test(e.call) && !fall(e)).length, r = mine.filter((e) => /read|get/.test(e.call) && !fall(e)).length;
+    const fw = mine.filter((e) => fall(e)).length, [x, y] = pos[i];
+    const k = 0.62, lx = x + (cx - x) * (1 - k), ly = y + (cy - y) * (1 - k);
+    if (w) edges.push(`<path class="nw" d="M${x},${y} L${cx - 4},${cy - 4}" marker-end="url(#na)"/>`);
+    if (r) edges.push(`<path class="nr" d="M${cx + 4},${cy + 4} L${x + 4},${y + 4}" marker-end="url(#nb)"/>`);
+    if (fw) edges.push(`<path class="nf" d="M${x},${y} L${fx},${fy - 26}" marker-end="url(#na)"/>`);
+    labels.push(`<text x="${lx}" y="${ly}">#${order}${w ? ` · wrote ${w}` : ""}${r ? ` · read ${r}` : ""}${fw ? ` · file ${fw}` : ""}</text>`);
+  });
+  const box = (x, y, t, sub, cls) => `<g class="nnode ${cls}"><rect x="${x - 78}" y="${y - 22}" width="156" height="44" rx="6"/><text x="${x}" y="${y - 3}">${esc(t)}</text><text class="sub" x="${x}" y="${y + 13}">${esc(sub)}</text></g>`;
+  return `<svg class="notes-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Notes between agents through GBrain"><defs>
+<marker id="na" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#F5B94A"/></marker>
+<marker id="nb" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9A9DFF"/></marker></defs>
+${edges.join("")}${labels.join("")}${box(cx, cy, `GBrain · ${page}`, "the shared page", "hub")}${ev.some(fall) ? box(fx, fy, "shared notes file", "fallback when GBrain is busy", "file") : ""}
+${agents.map((a, i) => box(pos[i][0], pos[i][1], a === "agent" ? "runner" : a.slice(0, 13), a === "agent" ? "no session id" : `agent ${i + 1}`, "agent")).join("")}</svg>
+<p class="muted notes-cap">Arrows into the page: an agent wrote what worked after its tests passed. Arrows out: an agent read the page before its task. #n is the order of each agent's first note; dashed: the page was busy, so the note went to the shared file.</p>`;
+}

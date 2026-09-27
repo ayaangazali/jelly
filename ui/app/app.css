@@ -791,3 +791,18 @@ svg.arch { width: 100%; height: auto; max-height: 62vh; }
 .aedge.on path { stroke: var(--owned); stroke-width: 2.5; }
 .aedge.on text { fill: var(--owned); }
 .arch-fig figcaption { font-size: 0.8em; margin-top: 6px; }
+svg.notes-svg { width: 100%; height: auto; max-height: 60vh; }
+.notes-svg .nnode rect { fill: var(--sheet); stroke: var(--rule); }
+.notes-svg .nnode.hub rect { stroke: var(--owned); fill: var(--owned-wash); }
+.notes-svg .nnode.file rect { stroke-dasharray: 5 4; }
+.notes-svg .nnode text { fill: var(--ink); font: 700 14px "Archivo", sans-serif; text-anchor: middle; }
+.notes-svg .nnode text.sub { fill: var(--muted); font: 400 11px "JetBrains Mono", monospace; }
+.notes-svg path { fill: none; stroke-width: 1.8; }
+.notes-svg path.nw { stroke: var(--warn); }
+.notes-svg path.nr { stroke: var(--owned); }
+.notes-svg path.nf { stroke: var(--warn); stroke-dasharray: 6 5; }
+.notes-svg > text { fill: var(--muted); font: 400 12px "Archivo", sans-serif; text-anchor: middle; }
+.notes-cap { font-size: 0.8em; margin: 6px 0; }
+details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
+.notes-svg .nnode.hub rect { width: 230px; } svg.notes-svg { max-height: 66vh; }
+.notes-svg > text { font-size: 11px; paint-order: stroke; stroke: var(--sheet); stroke-width: 3px; }
