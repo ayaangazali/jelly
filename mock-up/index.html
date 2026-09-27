@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graduate mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #EDF0F3;
+  --sheet: #F8F9FB;
+  --ink: #17213A;
+  --muted: #5B6478;
+  --rule: #CBD1DA;
+  --owned: #3B3FB6;
+  --owned-wash: #E3E4F7;
+  --rented: #98A1B0;
+  --pass: #1E7A57;
+  --fail: #B3261E;
+  --warn: #9A5F00;
+  --focus: #3B3FB6;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10151F; --sheet: #171E2B; --ink: #E6E9EF; --muted: #9AA3B4; --rule: #2A3345;
+    --owned: #9A9DFF; --owned-wash: #232852; --rented: #5C6678; --pass: #4CC08E; --fail: #FF7A6E; --warn: #E0A840;
+    --focus: #9A9DFF; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10151F; --sheet: #171E2B; --ink: #E6E9EF; --muted: #9AA3B4; --rule: #2A3345;
+  --owned: #9A9DFF; --owned-wash: #232852; --rented: #5C6678; --pass: #4CC08E; --fail: #FF7A6E; --warn: #E0A840;
+  --focus: #9A9DFF; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 15px/1.5 "Archivo", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+code, pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 640px) { .wrap { padding: 0 16px; } }
+
+header.top { border-bottom: 1px solid var(--rule); background: var(--sheet); }
+header.top .wrap { display: flex; align-items: center; gap: 28px; min-height: 60px; flex-wrap: wrap; }
+.brand { font-weight: 800; font-stretch: 125%; font-size: 19px; letter-spacing: -0.01em; text-decoration: none; }
+nav.primary { display: flex; gap: 20px; }
+nav.primary a { text-decoration: none; color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
+nav.primary a[aria-current="page"] { color: var(--ink); border-color: var(--ink); }
+.proxy { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pass); display: inline-block; }
+
+.mockbar { background: var(--owned-wash); border-bottom: 1px solid var(--rule); font-size: 13px; }
+.mockbar .wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+.mockbar strong { font-weight: 600; margin-right: 6px; }
+.btn {
+  border: 1px solid var(--ink); background: transparent; padding: 7px 14px; border-radius: 4px; cursor: pointer;
+  font-weight: 500;
+}
+.btn.primary { background: var(--ink); color: var(--sheet); }
+.btn.owned { background: var(--owned); border-color: var(--owned); color: #fff; }
+.btn.quiet { border-color: var(--rule); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.sm { padding: 4px 10px; font-size: 13px; }
+
+main { padding: 32px 0 64px; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.015em; }
+h2 { font-size: 17px; font-weight: 700; margin: 0 0 12px; }
+.lede { color: var(--muted); margin: 0; max-width: 64ch; }
+
+.savings { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
+.savings .amount { font-size: 54px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.03em; line-height: 1; color: var(--owned); }
+.savings .what { max-width: 40ch; }
+.savings .what small { display: block; color: var(--muted); font-size: 13px; }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; align-items: start; }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; }
+
+.roster { width: 100%; border-collapse: collapse; }
+.roster th { text-align: left; font-weight: 500; font-size: 12.5px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.roster td { padding: 14px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.roster tr:last-child td { border-bottom: 0; }
+.roster tbody tr { cursor: pointer; }
+.roster tbody tr:hover td { background: color-mix(in srgb, var(--owned-wash) 45%, transparent); }
+.roster .name a { font-weight: 600; text-decoration: none; }
+.roster .name code { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.roster .num { white-space: nowrap; }
+.roster .num s { color: var(--muted); text-decoration-thickness: 1px; }
+.roster .route { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.roster .route.owned { color: var(--owned); font-weight: 600; }
+.unclassified td { color: var(--muted); font-size: 13.5px; cursor: default; }
+@media (max-width: 720px) {
+  .roster thead { display: none; }
+  .roster, .roster tbody, .roster tr, .roster td { display: block; width: 100%; }
+  .roster td { border: 0; padding: 4px 14px; }
+  .roster tr { border-bottom: 1px solid var(--rule); padding: 10px 0; }
+  .roster td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: 12.5px; }
+}
+
+.state { font-stretch: 125%; font-weight: 700; font-size: 13px; letter-spacing: 0.01em; }
+.state.LEARNING { color: var(--muted); }
+.state.READY { color: var(--warn); }
+.state.TRAINING { color: var(--owned); }
+.state.GRADUATED { color: var(--owned); }
+.state.PROBATION { color: var(--fail); }
+.pips { display: inline-flex; gap: 3px; margin-top: 5px; }
+.pips i { width: 14px; height: 6px; border-radius: 1px; background: var(--rule); }
+.pips i.on { background: var(--ink); }
+.trainbar { height: 6px; width: 90px; background: var(--rule); border-radius: 1px; margin-top: 6px; overflow: hidden; }
+.trainbar b { display: block; height: 100%; background: var(--owned); width: 0; transition: width .4s linear; }
+
+.log { max-height: 560px; overflow: auto; }
+.log ol { list-style: none; margin: 0; padding: 0; }
+.log li { padding: 10px 16px; border-bottom: 1px solid var(--rule); font-size: 13.5px; display: grid; grid-template-columns: 52px 1fr; gap: 10px; }
+.log li:last-child { border-bottom: 0; }
+.log time { color: var(--muted); font-size: 12.5px; padding-top: 1px; }
+.log .pass { color: var(--pass); font-weight: 600; }
+.log .fail { color: var(--fail); font-weight: 600; }
+.log .owned { color: var(--owned); font-weight: 600; }
+.log .fresh { animation: fresh 1.6s ease-out; }
+@keyframes fresh { from { background: var(--owned-wash); } to { background: transparent; } }
+.log header { padding: 14px 16px; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: baseline; }
+.log header h2 { margin: 0; }
+.log header span { color: var(--muted); font-size: 12.5px; }
+
+.banner { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 20px; border: 1px solid var(--warn); border-left-width: 4px; border-radius: 6px; background: var(--sheet); }
+.banner p { margin: 0; }
+
+.detail-head { display: flex; gap: 24px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 24px; position: relative; }
+.back { display: inline-block; margin-bottom: 14px; color: var(--muted); text-decoration: none; font-size: 14px; }
+.back:hover { color: var(--ink); }
+
+.stamp {
+  display: inline-block; border: 3px double var(--owned); color: var(--owned); border-radius: 6px;
+  padding: 6px 16px 4px; font-weight: 800; font-stretch: 125%; font-size: 26px; letter-spacing: 0.02em;
+  transform: rotate(-6deg); opacity: .92; line-height: 1.1; text-align: center;
+}
+.stamp small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; font-stretch: 100%; }
+.stamp.probation { border-color: var(--fail); color: var(--fail); }
+.stamp.land { animation: land .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes land { from { transform: rotate(-14deg) scale(1.9); opacity: 0; } to { transform: rotate(-6deg) scale(1); opacity: .92; } }
+
+.lifecycle { display: grid; grid-template-columns: repeat(5, 1fr); margin: 0 0 28px; padding: 0; list-style: none; counter-reset: step; }
+.lifecycle li { padding: 12px 12px 10px; border-top: 4px solid var(--rule); font-size: 13px; color: var(--muted); }
+.lifecycle li b { display: block; font-stretch: 125%; font-size: 13px; color: var(--muted); }
+.lifecycle li.done { border-color: var(--ink); }
+.lifecycle li.done b { color: var(--ink); }
+.lifecycle li.now { border-color: var(--owned); }
+.lifecycle li.now b { color: var(--owned); }
+.lifecycle li.now.PROBATION { border-color: var(--fail); }
+.lifecycle li.now.PROBATION b { color: var(--fail); }
+@media (max-width: 720px) { .lifecycle { grid-template-columns: 1fr; } }
+
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-bottom: 24px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.pad { padding: 18px 20px; }
+
+.compare { display: grid; gap: 16px; }
+.metric .label { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 6px; }
+.metric .label span:last-child { color: var(--muted); }
+.bar { display: grid; grid-template-columns: 78px 1fr 64px; align-items: center; gap: 10px; font-size: 12.5px; margin-top: 4px; }
+.bar .track { height: 12px; background: color-mix(in srgb, var(--rule) 50%, transparent); border-radius: 2px; overflow: hidden; }
+.bar .fill { height: 100%; border-radius: 2px; }
+.bar.rented .fill { background: var(--rented); }
+.bar.owned .fill { background: var(--owned); }
+.bar .v { text-align: right; }
+.note { color: var(--muted); font-size: 12.5px; margin: 12px 0 0; }
+
+dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 0; font-size: 14px; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+table.runs { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.runs th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+table.runs td { padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+table.runs tr:last-child td { border-bottom: 0; }
+.exit0 { color: var(--pass); font-weight: 600; }
+.exit1 { color: var(--fail); font-weight: 600; }
+.tbl-scroll { overflow-x: auto; }
+
+.consent { max-width: 780px; }
+.consent h1 { margin-bottom: 10px; }
+.consent section { margin-top: 22px; }
+.consent ul { margin: 0; padding-left: 18px; }
+.consent li { margin: 3px 0; }
+pre.sample { background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 14px; overflow: auto; line-height: 1.45; margin: 0; }
+
+.setup { max-width: 820px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule); margin: 22px 0 0; flex-wrap: wrap; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; color: var(--muted); }
+.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+.tabpanel { padding: 18px 0; }
+pre.cmd { background: var(--ink); color: var(--sheet); padding: 14px 16px; border-radius: 4px; overflow: auto; margin: 8px 0; }
+.check { display: flex; gap: 10px; align-items: baseline; margin: 8px 0; }
+.check .ok { color: var(--pass); font-weight: 700; }
+.check .no { color: var(--muted); font-weight: 700; }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--sheet); padding: 10px 18px; border-radius: 4px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.toast.show { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp.land, .log .fresh { animation: none; }
+  .trainbar b { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#/">Graduate</a>
+    <nav class="primary" aria-label="Main">
+      <a href="#/" data-nav="overview">Overview</a>
+      <a href="#/setup" data-nav="setup">Setup</a>
+    </nav>
+    <div class="proxy"><span class="dot" aria-hidden="true"></span>Proxy running on localhost:4141</div>
+  </div>
+</header>
+
+<div class="mockbar" role="region" aria-label="Mock-up controls">
+  <div class="wrap">
+    <strong>Mock-up controls</strong>
+    <button class="btn sm primary" id="play">Play the demo story</button>
+    <button class="btn sm" id="fail" disabled>Force a failure</button>
+    <button class="btn sm quiet" id="reset">Reset</button>
+    <span id="storyhint" style="color:var(--muted)">Sample data only. Nothing here talks to a real model.</span>
+  </div>
+</div>
+
+<main><div class="wrap" id="app"></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const N = 5;
+const STATES = ["LEARNING", "READY", "TRAINING", "GRADUATED", "PROBATION"];
+const STATE_TEXT = { LEARNING: "Learning", READY: "Ready to train", TRAINING: "Training", GRADUATED: "Graduated", PROBATION: "On probation" };
+const FAIL_LIMIT = 3;
+
+function seed() {
+  return {
+    savedUsd: 38.64, routedRuns: 131, unclassified: 41,
+    awaitingConsent: false, story: 0,
+    tasks: {
+      "fix-failing-test": {
+        title: "Fix a failing test", state: "LEARNING", verified: 4, failed: 1, consent: false,
+        verify: "pytest tests/", trainPct: 0,
+        baseline: { turns: 16, tools: 5, cost: 0.42, secs: 94 }, current: null,
+        model: null, trainedOn: 0, sinceGrad: 0, failsSinceGrad: 0,
+        runs: [
+          { t: "14:21", req: "Fix failing test in module_4", to: "frontier", turns: 15, tools: 5, cost: 0.40, exit: 0 },
+          { t: "14:09", req: "Fix failing test in module_3", to: "frontier", turns: 17, tools: 6, cost: 0.45, exit: 0 },
+          { t: "13:58", req: "Fix failing test in module_7", to: "frontier", turns: 19, tools: 7, cost: 0.51, exit: 1 },
+          { t: "13:40", req: "Fix failing test in module_2", to: "frontier", turns: 16, tools: 5, cost: 0.42, exit: 0 },
+          { t: "13:22", req: "Fix failing test in module_1", to: "frontier", turns: 16, tools: 4, cost: 0.41, exit: 0 },
+        ],
+      },
+      "update-changelog": {
+        title: "Update the changelog", state: "GRADUATED", verified: 6, failed: 0, consent: true,
+        verify: "python scripts/check_changelog.py", trainPct: 100,
+        baseline: { turns: 9, tools: 4, cost: 0.18, secs: 41 }, current: { turns: 2, tools: 2, cost: 0.004, secs: 6 },
+        model: "river://run-4c1e/sampler_weights/update-changelog-v1", trainedOn: 6, sinceGrad: 23, failsSinceGrad: 0, graduatedAt: "Sat 21:40",
+        runs: [
+          { t: "14:30", req: "Add 0.4.2 entry", to: "owned", turns: 2, tools: 2, cost: 0.004, exit: 0 },
+          { t: "14:02", req: "Add 0.4.1 entry", to: "owned", turns: 2, tools: 2, cost: 0.005, exit: 0 },
+          { t: "13:11", req: "Add 0.4.0 entry", to: "owned", turns: 3, tools: 2, cost: 0.006, exit: 0 },
+        ],
+      },
+      "add-endpoint": {
+        title: "Add an API endpoint", state: "LEARNING", verified: 2, failed: 0, consent: false,
+        verify: "pytest tests/api", trainPct: 0,
+        baseline: { turns: 22, tools: 9, cost: 0.71, secs: 160 }, current: null,
+        model: null, trainedOn: 0, sinceGrad: 0, failsSinceGrad: 0,
+        runs: [
+          { t: "12:50", req: "Add GET /users/:id", to: "frontier", turns: 21, tools: 9, cost: 0.69, exit: 0 },
+          { t: "11:32", req: "Add POST /orders", to: "frontier", turns: 23, tools: 10, cost: 0.74, exit: 0 },
+        ],
+      },
+      "bump-dependency": {
+        title: "Bump a dependency", state: "PROBATION", verified: 7, failed: 3, consent: true,
+        verify: "pytest && ruff check", trainPct: 100,
+        baseline: { turns: 12, tools: 6, cost: 0.31, secs: 70 }, current: { turns: 4, tools: 3, cost: 0.012, secs: 11 },
+        model: "river://run-9a07/sampler_weights/bump-dependency-v1", trainedOn: 7, sinceGrad: 9, failsSinceGrad: 3, graduatedAt: "Sat 22:15",
+        runs: [
+          { t: "13:05", req: "Bump httpx to 0.29", to: "owned → frontier", turns: 4, tools: 3, cost: 0.29, exit: 1 },
+          { t: "12:40", req: "Bump pydantic to 2.12", to: "owned → frontier", turns: 5, tools: 3, cost: 0.33, exit: 1 },
+          { t: "12:12", req: "Bump ruff to 0.8", to: "owned → frontier", turns: 4, tools: 3, cost: 0.27, exit: 1 },
+        ],
+      },
+    },
+    events: [
+      { t: "14:30", html: `update-changelog routed to <span class="owned">your model</span>. Verify <span class="pass">exit 0</span>.` },
+      { t: "14:21", html: `fix-failing-test routed to frontier. Verify <span class="pass">exit 0</span>. 4 of ${N} verified runs.` },
+      { t: "13:05", html: `bump-dependency failed verification 3 times. <span class="fail">Moved to probation</span>. Requests go to frontier until it retrains.` },
+    ],
+  };
+}
+
+let S = seed();
+let timers = [];
+let justGraduated = null;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = (v) => "$" + (v < 0.1 ? v.toFixed(3) : v.toFixed(2));
+const now = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+
+function log(html) { S.events.unshift({ t: now(), html, fresh: true }); }
+function toast(msg) { const el = $("#toast"); el.textContent = msg; el.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove("show"), 2400); }
+
+function stateCell(k, t) {
+  let extra = "";
+  if (t.state === "LEARNING" || t.state === "READY") {
+    extra = `<div class="pips" aria-label="${Math.min(t.verified, N)} of ${N} verified runs">${Array.from({ length: N }, (_, i) => `<i class="${i < t.verified ? "on" : ""}"></i>`).join("")}</div>`;
+  } else if (t.state === "TRAINING") {
+    extra = `<div class="trainbar" role="progressbar" aria-valuenow="${t.trainPct}" aria-valuemin="0" aria-valuemax="100"><b style="width:${t.trainPct}%"></b></div>`;
+  }
+  const sub = t.state === "LEARNING" ? `<div style="font-size:12.5px;color:var(--muted)">${t.verified} of ${N} verified</div>` : "";
+  return `<span class="state ${t.state}">${STATE_TEXT[t.state]}</span>${sub}${extra}`;
+}
+
+function viewOverview() {
+  const tasks = Object.entries(S.tasks);
+  const ready = tasks.find(([, t]) => t.state === "READY" && !t.consent);
+  const rows = tasks.map(([k, t]) => {
+    const cur = t.state === "GRADUATED" && t.current;
+    const num = (a, b, f = (x) => x) => cur ? `<s>${f(a)}</s> ${f(b)}` : f(a);
+    const route = t.state === "GRADUATED" ? `<span class="route owned">Your model</span>` : `<span class="route">Frontier</span>`;
+    return `<tr data-go="#/task/${k}">
+      <td class="name"><a href="#/task/${k}">${esc(t.title)}</a><code>${esc(t.verify)}</code></td>
+      <td data-label="State">${stateCell(k, t)}</td>
+      <td class="num" data-label="Turns">${num(t.baseline.turns, t.current?.turns)}</td>
+      <td class="num" data-label="Tool calls">${num(t.baseline.tools, t.current?.tools)}</td>
+      <td class="num" data-label="Cost per run">${num(t.baseline.cost, t.current?.cost, money)}</td>
+      <td data-label="Goes to">${route}</td>
+    </tr>`;
+  }).join("");
+  return `
+    <div class="savings">
+      <span class="amount">${money(S.savedUsd)}</span>
+      <span class="what">saved across ${S.routedRuns} runs your own models handled
+        <small>Compared with the same runs on the frontier model with prompt caching on.</small></span>
+    </div>
+    ${ready ? `<div class="banner"><p><strong>${esc(ready[1].title)}</strong> has ${N} verified runs and can graduate. Nothing is sent for training until you approve it.</p>
+      <a class="btn owned" href="#/consent/${ready[0]}">Review training data</a></div>` : ""}
+    <div class="cols">
+      <section aria-labelledby="roster-h">
+        <h2 id="roster-h">Task types</h2>
+        <div class="sheet">
+          <table class="roster">
+            <thead><tr><th>Task type</th><th>State</th><th>Turns</th><th>Tool calls</th><th>Cost per run</th><th>Goes to</th></tr></thead>
+            <tbody>${rows}
+              <tr class="unclassified"><td colspan="6">${S.unclassified} requests didn't match a known task type and went to the frontier model.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">A task type graduates after ${N} runs that pass their verify command. Every run on your model is still verified, and a failure goes back to the frontier model.</p>
+      </section>
+      <aside class="sheet log" aria-labelledby="log-h">
+        <header><h2 id="log-h">Activity</h2><span>Newest first</span></header>
+        <ol>${S.events.map((e) => `<li class="${e.fresh ? "fresh" : ""}"><time>${e.t}</time><span>${e.html}</span></li>`).join("")}</ol>
+      </aside>
+    </div>`;
+}
+
+function viewTask(k) {
+  const t = S.tasks[k];
+  if (!t) return `<a class="back" href="#/">Back to overview</a><h1>No task type called “${esc(k)}”</h1><p class="lede">Pick one from the overview.</p>`;
+  const idx = STATES.indexOf(t.state);
+  const flow = ["LEARNING", "READY", "TRAINING", "GRADUATED", "PROBATION"];
+  const life = flow.map((s, i) => {
+    const onPath = t.state === "PROBATION" ? i <= 4 : i <= idx;
+    const cls = s === t.state ? `now ${s}` : (onPath && i < (t.state === "PROBATION" ? 4 : idx) ? "done" : "");
+    const hint = { LEARNING: `Under ${N} verified runs`, READY: `${N} verified runs, waiting for approval`, TRAINING: "Training on River from this machine", GRADUATED: "Routed to your model, verified every run", PROBATION: "Failed too often, back on frontier" }[s];
+    return `<li class="${cls}"><b>${STATE_TEXT[s]}</b>${hint}</li>`;
+  }).join("");
+  const stamp = t.state === "GRADUATED"
+    ? `<div class="stamp ${justGraduated === k ? "land" : ""}">Graduated<small>${esc(t.graduatedAt || now())} · ${t.trainedOn} runs</small></div>`
+    : t.state === "PROBATION" ? `<div class="stamp probation">Probation<small>${t.failsSinceGrad} failed checks</small></div>` : "";
+  if (justGraduated === k) justGraduated = null;
+
+  const b = t.baseline, c = t.current;
+  const bar = (label, unit, bv, cv, fmt = (x) => x) => {
+    const max = Math.max(bv, cv ?? 0) || 1;
+    return `<div class="metric"><div class="label"><span>${label}</span><span>${cv != null ? Math.round((1 - cv / bv) * 100) + "% less" : "Not graduated yet"}</span></div>
+      <div class="bar rented"><span>Frontier</span><span class="track"><span class="fill" style="width:${(bv / max) * 100}%;display:block"></span></span><span class="v">${fmt(bv)}${unit}</span></div>
+      ${cv != null ? `<div class="bar owned"><span>Your model</span><span class="track"><span class="fill" style="width:${Math.max((cv / max) * 100, 1.5)}%;display:block"></span></span><span class="v">${fmt(cv)}${unit}</span></div>` : ""}
+    </div>`;
+  };
+  const actions = [];
+  if (t.state === "READY" && !t.consent) actions.push(`<a class="btn owned" href="#/consent/${k}">Review training data</a>`);
+  if (t.state === "GRADUATED") actions.push(`<button class="btn" data-act="demote" data-k="${k}">Send back to frontier</button>`);
+  if (t.state === "PROBATION") actions.push(`<a class="btn owned" href="#/consent/${k}">Retrain with the failed runs</a>`);
+
+  return `
+    <a class="back" href="#/">Back to overview</a>
+    <div class="detail-head">
+      <div><h1>${esc(t.title)}</h1><p class="lede">Verified by <code>${esc(t.verify)}</code>. ${t.verified} passing runs, ${t.failed} failing.</p></div>
+      ${stamp}
+    </div>
+    <ol class="lifecycle" aria-label="Lifecycle">${life}</ol>
+    <div class="grid2">
+      <section class="sheet pad" aria-labelledby="cmp-h">
+        <h2 id="cmp-h">Frontier versus your model, per run</h2>
+        <div class="compare">
+          ${bar("Turns", "", b.turns, c?.turns)}
+          ${bar("Tool calls", "", b.tools, c?.tools)}
+          ${bar("Cost", "", b.cost, c?.cost, money)}
+          ${bar("Time", "s", b.secs, c?.secs)}
+        </div>
+        <p class="note">Frontier numbers are the average of this task type's verified runs with prompt caching on.</p>
+      </section>
+      <section class="sheet pad" aria-labelledby="facts-h">
+        <h2 id="facts-h">Model</h2>
+        <dl class="facts">
+          <dt>State</dt><dd><span class="state ${t.state}">${STATE_TEXT[t.state]}</span></dd>
+          <dt>Model</dt><dd>${t.model ? `<code>${esc(t.model)}</code>` : "None yet"}</dd>
+          <dt>Trained on</dt><dd>${t.trainedOn ? `${t.trainedOn} verified runs` : "Not trained"}</dd>
+          <dt>Since graduating</dt><dd>${t.model ? `${t.sinceGrad} passed, ${t.failsSinceGrad} failed (limit ${FAIL_LIMIT})` : "—"}</dd>
+          <dt>Training data</dt><dd>${t.consent ? "Approved" : "Not approved"}</dd>
+        </dl>
+        <div class="actions">${actions.join("")}</div>
+      </section>
+    </div>
+    <section aria-labelledby="runs-h">
+      <h2 id="runs-h">Recent runs</h2>
+      <div class="sheet tbl-scroll">
+        <table class="runs">
+          <thead><tr><th>Time</th><th>Request</th><th>Handled by</th><th>Turns</th><th>Tool calls</th><th>Cost</th><th>Verify</th></tr></thead>
+          <tbody>${t.runs.map((r) => `<tr><td>${r.t}</td><td>${esc(r.req)}</td><td>${r.to === "owned" ? `<span style="color:var(--owned);font-weight:600">Your model</span>` : r.to === "frontier" ? "Frontier" : "Your model, then frontier"}</td><td>${r.turns}</td><td>${r.tools}</td><td>${money(r.cost)}</td><td class="exit${r.exit ? 1 : 0}">exit ${r.exit}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function viewConsent(k) {
+  const t = S.tasks[k];
+  if (!t) return viewTask(k);
+  const n = t.state === "PROBATION" ? t.verified + t.failed : Math.min(t.verified, 99);
+  const sample = {
+    messages: [
+      { role: "system", content: "You fix failing pytest tests in this repository." },
+      { role: "user", content: t.runs[0].req },
+      { role: "assistant", content: "<the tool calls and edits from the passing run>" },
+    ],
+    metadata: { task_type: k, verify_command: t.verify, exit_code: 0, tool_calls: t.runs[0].tools },
+  };
+  return `
+    <div class="consent">
+      <a class="back" href="#/task/${k}">Back to ${esc(t.title.toLowerCase())}</a>
+      <h1>Send ${n} runs to River to train “${esc(t.title)}”?</h1>
+      <p class="lede">Graduate trains a small model on River with these runs, using your River key. The weights are saved to your River account. After that, matching requests go to it, and each one is still checked with <code>${esc(t.verify)}</code>.</p>
+      <section><h2>What gets sent</h2>
+        <ul>
+          <li>${t.verified} passing runs as training examples${t.state === "PROBATION" ? `, plus ${t.failed} failing runs as examples of what not to do` : ""}</li>
+          <li>For each run: the request, the tool calls it made, the verify command and its exit code</li>
+          <li>Destination: your River account. The trained weights are yours.</li>
+        </ul>
+      </section>
+      <section><h2>What stays on this machine</h2>
+        <ul><li>Full transcripts, file contents and command output</li><li>Runs from other task types</li><li>Anything recorded before you turned recording on</li></ul>
+      </section>
+      <section><h2>One record, exactly as it would be sent</h2>
+        <pre class="sample">${esc(JSON.stringify(sample, null, 2))}</pre>
+      </section>
+      <div class="actions">
+        <button class="btn owned" data-act="approve" data-k="${k}">Approve and train</button>
+        <a class="btn quiet" href="#/task/${k}">Not now</a>
+      </div>
+    </div>`;
+}
+
+function viewSetup() {
+  const tabs = {
+    claude: { label: "Claude Code", body: `<p>Claude Code talks the Anthropic Messages API. Point it at the proxy and turn on the headers Graduate uses to count turns:</p><pre class="cmd">export ANTHROPIC_BASE_URL=http://localhost:4141
+export ANTHROPIC_AUTH_TOKEN=graduate-local
+export CLAUDE_CODE_GATEWAY_HINT_HEADERS=1</pre><p class="note">This is the harness the demo uses.</p>` },
+    opencode: { label: "OpenCode", body: `<p>Add a provider in <code>opencode.json</code>:</p><pre class="cmd">"provider": { "graduate": {
+  "npm": "@ai-sdk/openai-compatible",
+  "options": { "baseURL": "http://localhost:4141/v1" }
+} }</pre>` },
+    aider: { label: "Aider and scripts", body: `<p>Anything that speaks OpenAI Chat Completions:</p><pre class="cmd">export OPENAI_API_BASE=http://localhost:4141/v1</pre><p class="note">The variable name differs by tool. Aider reads OPENAI_API_BASE, the OpenAI SDK reads OPENAI_BASE_URL.</p>` },
+    codex: { label: "Codex", body: `<p>Codex only talks the OpenAI Responses API, which Graduate doesn't serve yet. Codex runs go straight to OpenAI for now.</p>` },
+  };
+  const sel = viewSetup.sel || "claude";
+  return `
+    <div class="setup">
+      <h1>Point your agent at Graduate</h1>
+      <p class="lede">Graduate sits between your agent and the model. You change one setting per tool, and your agent works exactly as before. Graduate watches which runs pass their tests and takes over the task types it has learned.</p>
+      <div class="tabs" role="tablist">${Object.entries(tabs).map(([k, v]) => `<button role="tab" aria-selected="${k === sel}" data-tab="${k}">${v.label}</button>`).join("")}</div>
+      <div class="tabpanel" role="tabpanel">${tabs[sel].body}</div>
+      <h2>Checks</h2>
+      <div class="sheet pad">
+        <div class="check"><span class="ok">✓</span><span>Proxy running on localhost:4141</span></div>
+        <div class="check"><span class="ok">✓</span><span>Memorable recording is on. 18 runs recorded.</span></div>
+        <div class="check"><span class="ok">✓</span><span>River key found</span></div>
+        <div class="check"><span class="no">–</span><span>Frontier prompt caching: on for Anthropic, automatic for OpenAI</span></div>
+        <div class="check"><span class="no">–</span><span>No task type trains until you approve its training data</span></div>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const h = location.hash || "#/";
+  const [, route, arg] = h.split("/");
+  document.querySelectorAll("[data-nav]").forEach((a) => a.removeAttribute("aria-current"));
+  let html;
+  if (route === "task") html = viewTask(decodeURIComponent(arg || ""));
+  else if (route === "consent") html = viewConsent(decodeURIComponent(arg || ""));
+  else if (route === "setup") { html = viewSetup(); $('[data-nav="setup"]').setAttribute("aria-current", "page"); }
+  else { html = viewOverview(); $('[data-nav="overview"]').setAttribute("aria-current", "page"); }
+  $("#app").innerHTML = html;
+  S.events.forEach((e) => (e.fresh = false));
+  $("#fail").disabled = S.tasks["fix-failing-test"].state !== "GRADUATED";
+}
+
+function later(ms, fn) { timers.push(setTimeout(() => { fn(); render(); }, ms)); }
+
+function play() {
+  const t = S.tasks["fix-failing-test"];
+  if (t.state !== "LEARNING") { toast("Reset first to replay the story."); return; }
+  $("#play").disabled = true;
+  location.hash = "#/";
+  $("#storyhint").textContent = "Watch the fix-failing-test row and the activity log.";
+  later(300, () => log(`New request: “Fix failing test in module_5”. Matched <strong>fix-failing-test</strong>. No graduated model yet, so it goes to frontier.`));
+  later(2200, () => {
+    t.runs.unshift({ t: now(), req: "Fix failing test in module_5", to: "frontier", turns: 16, tools: 5, cost: 0.42, exit: 0 });
+    t.verified = 5; t.state = "READY";
+    log(`Verify <code>pytest tests/test_module_5.py</code>: <span class="pass">exit 0</span>. fix-failing-test has ${N} of ${N} verified runs.`);
+  });
+  later(3600, () => {
+    S.awaitingConsent = true;
+    log(`fix-failing-test is ready to graduate. Waiting for you to approve the training data.`);
+    $("#storyhint").textContent = "Your turn: click “Review training data”.";
+  });
+}
+
+function approve(k) {
+  const t = S.tasks[k];
+  const retrain = t.state === "PROBATION";
+  t.consent = true; t.state = "TRAINING"; t.trainPct = 0; S.awaitingConsent = false;
+  log(`Approved. Training started on River with ${retrain ? t.verified + t.failed : t.verified} runs.`);
+  toast("Approved. Training started.");
+  location.hash = "#/";
+  $("#storyhint").textContent = "Training on River. In the real product this takes minutes to hours.";
+  for (let i = 1; i <= 10; i++) later(i * 450, () => { t.trainPct = i * 10; });
+  later(4900, () => {
+    t.state = "GRADUATED"; t.model = `river://run-${Math.random().toString(16).slice(2, 6)}/sampler_weights/${k}-v${retrain ? 2 : 1}`; t.trainedOn = retrain ? t.verified + t.failed : t.verified;
+    t.current = t.current || { turns: 3, tools: 3, cost: 0.011, secs: 9 };
+    t.graduatedAt = now(); t.sinceGrad = 0; t.failsSinceGrad = 0; justGraduated = k;
+    log(`<span class="owned">${k} graduated.</span> Model <code>${t.model}</code>. Matching requests now go to your model.`);
+    location.hash = `#/task/${k}`;
+  });
+  if (k !== "fix-failing-test") return;
+  later(8200, () => {
+    t.runs.unshift({ t: now(), req: "Fix failing test in module_6", to: "owned", turns: 3, tools: 3, cost: 0.011, exit: 0 });
+    t.sinceGrad++; S.routedRuns++; S.savedUsd += 0.42 - 0.011;
+    log(`“Fix failing test in module_6” went to <span class="owned">your model</span>. 3 turns instead of 16. Verify <span class="pass">exit 0</span>. Saved $0.41.`);
+    $("#storyhint").textContent = "Now try “Force a failure” to see the safety path.";
+  });
+}
+
+function forceFail() {
+  const t = S.tasks["fix-failing-test"];
+  if (t.state !== "GRADUATED") return;
+  log(`“Fix failing test in module_8” went to <span class="owned">your model</span>. Verify <span class="fail">exit 1</span>.`);
+  render();
+  later(1400, () => {
+    t.failsSinceGrad++; t.failed++;
+    t.runs.unshift({ t: now(), req: "Fix failing test in module_8", to: "owned → frontier", turns: 3 + 16, tools: 8, cost: 0.011 + 0.42, exit: 0 });
+    log(`Retried on frontier: verify <span class="pass">exit 0</span>. You got a passing result. The failed attempt is saved as a negative example (${t.failsSinceGrad} of ${FAIL_LIMIT} before probation).`);
+    if (t.failsSinceGrad >= FAIL_LIMIT) {
+      t.state = "PROBATION";
+      log(`<span class="fail">fix-failing-test moved to probation.</span> Requests go to frontier until it retrains.`);
+    }
+  });
+}
+
+function demote(k) {
+  const t = S.tasks[k];
+  t.state = "PROBATION";
+  log(`You sent ${k} back to frontier. Its model is kept, but nothing is routed to it.`);
+  toast("Sent back to frontier.");
+}
+
+function reset() {
+  timers.forEach(clearTimeout); timers = [];
+  S = seed(); justGraduated = null;
+  $("#play").disabled = false;
+  $("#storyhint").textContent = "Sample data only. Nothing here talks to a real model.";
+  location.hash = "#/"; render();
+}
+
+document.addEventListener("click", (e) => {
+  const act = e.target.closest("[data-act]");
+  if (act) { const k = act.dataset.k; ({ approve, demote })[act.dataset.act](k); render(); return; }
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { viewSetup.sel = tab.dataset.tab; render(); return; }
+  const row = e.target.closest("tr[data-go]");
+  if (row && !e.target.closest("a")) location.hash = row.dataset.go;
+});
+$("#play").addEventListener("click", play);
+$("#fail").addEventListener("click", forceFail);
+$("#reset").addEventListener("click", reset);
+window.addEventListener("hashchange", render);
+render();
+</script>
+</body>
+</html>
