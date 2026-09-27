@@ -104,9 +104,16 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
     const model = (rows[rows.length - 1] || {}).model || "big model", esc_ = rows.filter((r) => r.escalated_from).length;
     const earlier = [...new Set(rows.map((r) => r.model))].filter((m) => m && m !== model).map((m) => `${bigName(m)}, ${rows.filter((r) => r.model === m).length} runs`);
     const sum = (k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
-    return page(`Big model: ${esc(bigName(model))}`, `the big model: answers until a task type graduates, and re-runs every failure${earlier.length ? ` · earlier: ${esc(earlier.join("; "))}` : ""}`, rows.length ? ["s-passed", "used"] : ["", "not called yet"], `
-<div class="kpis">${stat(rows.length, "sessions")}${stat(money(sum("cost_usd")), "spent")}${stat(num(sum("output_tokens")), "tokens written")}${stat(rows.length ? (sum("turns") / rows.length).toFixed(1) : "–", "turns per session")}${stat(esc_, "re-runs after your model failed")}</div>
-<section class="panel pviz"><h2>Cost per session</h2><div class="bars">${rows.map((r, i) => `<div class="barrow"><code>${esc(r.session_id.slice(0, 12))}</code><div class="bar"><i style="width:${((r.cost_usd || 0) / top) * 100}%;animation-delay:${i * 0.1}s"></i></div><b>${money(r.cost_usd || 0)}</b><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"}</span></div>`).join("")}</div></section>`);
+    // Why the big model ran each task, from the ledger and registry: before its type graduated it was a training run;
+    // after, a comparison twin for the Race page; a type that never graduated is a run Memorable did not match.
+    const why = (r) => { const t = reg[r.task_type] || {}; if (!t.graduated_at) return ["not matched", "nm"];
+      return String(r.started_at) < String(t.graduated_at) ? ["training run", "tr"] : ["comparison run", "cmp"]; };
+    const label = (r) => { const n = (String(r.verify_command || r.prompt || "").match(/test_mod_(\d+)/) || [])[1];
+      const t = reg[r.task_type] || {};
+      return `${n ? `task ${n}` : "task"}${t.graduated_at ? ` · ${String(t.title || r.task_type).toLowerCase()}` : ""}`; };
+    return page(`Big model: ${esc(bigName(model))}`, `Every task the big model handled today, and what each one cost. It did the first runs of each task type so your model could learn from them.${earlier.length ? ` Earlier: ${esc(earlier.join("; "))}.` : ""}`, rows.length ? ["s-passed", "used"] : ["", "not called yet"], `
+<div class="kpis">${stat(rows.length, "tasks run")}${stat(money(sum("cost_usd")), "total cost")}${stat(num(sum("output_tokens")), "output tokens")}${stat(rows.length ? (sum("turns") / rows.length).toFixed(1) : "–", "avg turns per task")}${stat(esc_, esc_ ? "redid your model's failed tasks" : "redos: your model never failed")}</div>
+<section class="panel pviz"><h2>Cost per task</h2><div class="bars">${rows.map((r, i) => `<div class="barrow" title="${esc(r.session_id)}"><span class="blabel">${esc(label(r))} <em class="why ${why(r)[1]}">${why(r)[0]}</em></span><div class="bar"><i style="width:${((r.cost_usd || 0) / top) * 100}%;animation-delay:${i * 0.1}s"></i></div><b>${money(r.cost_usd || 0)}</b><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"}</span></div>`).join("")}</div></section>`);
   }
   return `${back}${empty("No such provider.")}`;
 }
