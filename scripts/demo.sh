@@ -134,9 +134,11 @@ jq -r --arg t $T '"\($t): \(.task_types[$t].state) on \(.task_types[$t].model)"'
 
 say "5/6 broken state 09: routed to your model"
 run 09
-jq -rs '.[-1] | "09: routed_to \(.routed_to), model \(.model), exit \(.exit_code), \(.turns) turns"' ledger.jsonl
-[ "$(jq -rs '.[-1].routed_to' ledger.jsonl)" = owned ] ||
- echo "NOTE: owned serving (#37) is not on main: the router fell back to the frontier (see the trace), so 09 ran on the frontier"
+jq -rs --argjson n "$base" '.[$n + 1:] as $d | $d[0] as $a | ($d | map(select(.escalated_from == $a.session_id)))[0] as $e
+  | "09: \($a.routed_to) (\($a.model)), exit \($a.exit_code), \($a.turns) turns"
+  + (if $e then "; escalated: frontier rerun exit \($e.exit_code), \($e.turns) turns" else "" end)' ledger.jsonl
+[ "$(jq -rs --argjson n "$base" '.[$n + 1].routed_to' ledger.jsonl)" = owned ] ||
+ echo "NOTE: 09 was not served by the owned model: the router fell back to the frontier (see the trace)"
 
 say "6/6 GRADUATE_FORCE_FAIL=1 on broken state 10: fail, escalate, rerun on the frontier"
 GRADUATE_FORCE_FAIL=1 run 10
@@ -171,7 +173,7 @@ cat "$out/results.md"
 say "checks"
 check() { "$@" >/dev/null || die "$*"; }
 check jq -se --argjson n "$base" '.[$n] | .exit_code == 0 and .routed_to == "frontier"' ledger.jsonl
-check jq -se --argjson n "$base" '.[-2:] | .[0].forced_failure and .[0].exit_code == 1 and .[1].exit_code == 0 and .[1].escalated_from == .[0].session_id' ledger.jsonl
+check jq -se --argjson n "$base" '.[-2:] | .[0].routed_to == "owned" and .[0].exit_code == 1 and .[1].exit_code == 0 and .[1].escalated_from == .[0].session_id' ledger.jsonl
 ids=$(jq -sc --argjson n "$base" '.[$n:] | map(.session_id)' ledger.jsonl)
 curl -sf localhost:$PORT/state >"$out/state.json"
 check jq -e --argjson ids "$ids" '[.trace[] | select(.session_id as $s | $ids | index($s))] | length > 0' "$out/state.json"
