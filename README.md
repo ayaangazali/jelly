@@ -45,12 +45,14 @@ uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo
 # open http://localhost:4141/ (the dashboard on fixture data); Ctrl-C stops
 ```
 
+Or in Docker, from a clone: `docker build -t graduate . && docker run --rm -p 4141:4141 graduate` (same dashboard, 220 MB image).
+
 **Run it for real** (Python 3.11+, [OpenCode](https://opencode.ai): `curl -fsSL https://opencode.ai/install | bash`):
 
 ```bash
 git clone https://github.com/ayaangazali/jelly && cd jelly   # the demo repo and its tasks live here
 python3 -m venv .venv && . .venv/bin/activate
-pip install -e '.[test]'                                     # or: pip install git+https://github.com/ayaangazali/jelly
+pip install -e '.[test]'                                     # editable: graduate bench reads demo-repo/ from here
 graduate init          # checks Python + OpenCode, asks for OPENAI_API_KEY (hidden), validates it with the free GET /v1/models
 graduate up            # router + watcher on :4141, dashboard at http://localhost:4141/; leave it running
 ```
@@ -75,6 +77,7 @@ OpenCode fixes the test through the router, the verify command runs, and a ledge
 | River key | Training runs locally (`local`), or nothing graduates (`none`); everything routes to the frontier meanwhile |
 | OpenCode | Dashboard and router still work; `graduate run` needs it |
 | Memorable | The classifier names the task type from the normalized prompt instead (#45) |
+| `[train]` extra (Python 3.12+) | Runs, the router and the dashboard work; building training records and `scripts/demo.sh` stop with `pip install -e '.[test,train]'`, so nothing graduates |
 
 ---
 
