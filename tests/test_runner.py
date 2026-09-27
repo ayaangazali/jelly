@@ -84,6 +84,19 @@ def test_run_verifies_and_appends_one_ledger_row(
     ]
 
 
+def test_the_agent_never_holds_the_openai_key(repo, workdir, monkeypatch):
+    """#97: `graduate bench` needs the key in its env; an agent's `env` or `printenv` output lands in terminal.log,
+    the dashboard and results/state.json."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-QWZXPLMK")
+    agent = workdir / "agent"
+    agent.write_text(AGENT.format('echo "key=$OPENAI_API_KEY"'))
+    agent.chmod(0o755)
+    monkeypatch.setattr(runner, "OPENCODE", str(agent))
+    runner.run("Fix calc.", VERIFY, str(repo), timeout=5)
+    assert "key=\n" in (workdir / "terminal.log").read_text()
+    assert not [p for p in workdir.rglob("*") if p.is_file() and "QWZX" in p.read_text(errors="ignore")]
+
+
 def test_main_says_what_to_fix_before_launching_anything(repo, workdir, monkeypatch):
     """#83: wrong directory, no OpenCode, no router: one line each, not a traceback or a hang until --timeout."""
     task = workdir / "task.json"
