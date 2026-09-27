@@ -134,6 +134,8 @@ def transition(task_type: str, to_state: str, **fields) -> dict:
         edge = LEGAL.get((tt["state"], to_state))
         if edge is None:
             raise IllegalTransition(f"{task_type}: {tt['state']} -> {to_state}")
+        # The spawned trainer's pid (#116) is valid for one TRAINING only.
+        tt.pop("trainer", None)
         tt.update(fields)
         n = GRADUATE_N
         if (
