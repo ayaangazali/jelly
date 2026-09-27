@@ -2,7 +2,6 @@
 // other (A2A), from /api/swarm (shape: fixtures/swarm.example.json); ?swarm=<url> points it elsewhere. Polls once a
 // second while the view is open. Uses index.html's globals (render, route, esc, clock).
 const SWARM_URL = new URLSearchParams(location.search).get("swarm") || "/api/swarm";
-const LANE = { queued: "Queued", running: "Running", passed: "Passed", failed: "Failed" };
 let swarm = null, swarmText = "";
 
 async function pollSwarm() {
@@ -26,7 +25,7 @@ function viewSwarm() {
   const notes = (a) => [a.a2a_read && "read a note", a.a2a_write && "wrote a note"].filter(Boolean).join(" · ") || "—";
   const lanes = agents.map((a) => `<tr class="${esc(a.status)}" data-qa="lane-${esc(a.agent)}">
       <th scope="row">${esc(a.agent)}</th><td>${esc(a.task)} <small>${esc(a.task_type || "")}</small></td>
-      <td class="st">${LANE[a.status] || esc(a.status)}</td><td>${a.turns ?? "—"}</td>
+      <td class="st">${esc(a.status[0].toUpperCase() + a.status.slice(1))}</td><td>${a.turns ?? "—"}</td>
       <td>${a.exit_code ?? "—"}</td><td class="notes">${notes(a)}</td></tr>`).join("");
   const feed = swarm.a2a.slice(-4).reverse().map((e) => `<li>
       <time>${clock(e.ts, true)}</time><b>${esc(who[e.session_id] || e.session_id)}</b>
