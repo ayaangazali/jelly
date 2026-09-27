@@ -50,7 +50,7 @@ def _session_totals(session_id):
     return out
 
 
-def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None):
+def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None):
     session_id = "sess-" + uuid.uuid4().hex[:12]
     start_commit = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
@@ -68,6 +68,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
             "repo": repo,
             "verify": verify,
             "force_frontier": force_frontier,
+            "task_type": task_type,
         },
     )
 
@@ -185,5 +186,5 @@ def main():
     p.add_argument("--timeout", type=float, default=600)
     a = p.parse_args()
     task = json.loads(Path(a.task_file).read_text())
-    row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout)
+    row = run(task["prompt"], task["verify"], a.repo, a.force_frontier, a.timeout, task_type=task.get("task_type"))
     raise SystemExit(row["exit_code"])
