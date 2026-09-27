@@ -40,15 +40,13 @@ function viewShow(a) {
   const owned = rows.filter((r) => r.routed_to === "owned");
   const served = owned.filter((r) => r.model !== (rows.find((x) => x.routed_to === "frontier") || {}).model);
   const fellBack = owned.length > served.length;
-  const o = t.state === "GRADUATED" ? arm(served) : null, won = o && o.passed > 0;
+  // Tokens, cost, turns and time come from its passing runs only; "Tests pass" counts every run.
+  const all = t.state === "GRADUATED" ? arm(served) : null, o = all && arm(served.filter((r) => r.exit_code === 0)), won = !!o;
   const n = N(), grad = t.state === "GRADUATED" || t.state === "PROBATION";
-  // The savings headline needs a GRADUATED type whose own model passed a run in this ledger.
-  const savedReal = S.ledger.some((r) => r.routed_to === "owned" && r.exit_code === 0 && (tasks()[r.task_type] || {}).state === "GRADUATED"
-    && r.model !== (S.ledger.find((x) => x.task_type === r.task_type && x.routed_to === "frontier") || {}).model);
-  const none = `<span class="muted">${t.state === "GRADUATED" ? "no runs yet" : "not graduated yet"}</span>`;
+  const none = `<span class="muted">${t.state !== "GRADUATED" ? "not graduated yet" : all ? "no passing run yet" : "no runs yet"}</span>`;
   const cell = (x, fmt) => x ? fmt(x) : none;
   const row = (label, key, fmt, delta = true) => `<tr><th scope="row">${label}</th>
-    <td data-qa="${key}-frontier">${f ? fmt(f) : `<span class="muted">no runs yet</span>`}</td><td class="own" data-qa="${key}-owned">${cell(o, fmt)}</td>
+    <td data-qa="${key}-frontier">${f ? fmt(f) : `<span class="muted">no runs yet</span>`}</td><td class="own" data-qa="${key}-owned">${cell(key === "pass" ? all : o, fmt)}</td>
     <td class="chg">${delta && f && won ? change(f[key], o[key]) : ""}</td></tr>`;
   const pass = (x) => `${x.passed} of ${x.n} <span class="muted">${Math.round((x.passed / x.n) * 100)}%</span>`;
 
@@ -69,7 +67,7 @@ function viewShow(a) {
     <h2 id="hero-h">Output tokens per run</h2>
     <p class="hero"><span class="f" data-qa="out-frontier">${f ? Math.round(f.out).toLocaleString() : "—"}</span><span class="arrow" aria-label="to">→</span><span class="o" data-qa="out-owned">${o ? Math.round(o.out).toLocaleString() : "—"}</span></p>
     <p class="hero-sub">${f && won ? `<b data-qa="out-change">${change(f.out, o.out)}</b> frontier model → your graduated model`
-      : o ? `Your model hasn't passed a run yet: its ${o.n} ${o.n === 1 ? "run" : "runs"} failed and went back to the frontier`
+      : all ? `Your model hasn't passed a run yet: its ${all.n} ${all.n === 1 ? "run" : "runs"} failed and went back to the frontier`
       : fellBack ? `<span class="badge">Not wired</span> owned serving: “your model” runs fell back to the frontier model`
       : t.state === "GRADUATED" ? "No runs on your model yet" : `Your model takes over after ${n} passing frontier runs`}</p>
     <table class="show-cmp">
@@ -98,7 +96,7 @@ function viewShow(a) {
     </ol>` : `<p>A failed run on your model re-runs on the frontier.${grad ? " No escalations yet." : " It starts once this type graduates."}</p>`}
     ${grad ? `<p class="muted">${t.failures_since_graduation} of ${S.config.fail_limit} failures before probation</p>` : ""}
   </section>
-  <footer class="show-foot">${savedReal ? `<b data-qa="saved">${money(S.totals.saved_usd)}</b> saved across ${S.totals.owned_runs} runs on your models <span class="muted">· est.: tokens × list prices, frontier with caching on</span>` : `<span class="muted" data-qa="saved">No savings yet: no graduated task type has a passing run on your model.</span>`}</footer>
+  <footer class="show-foot">${S.totals.saved_usd > 0 ? `<b data-qa="saved">${money(S.totals.saved_usd)}</b> saved across all task types <span class="muted">· est.: passing runs on your models, frontier with caching on</span>` : `<span class="muted" data-qa="saved">No savings yet: no run on your models has passed.</span>`}</footer>
 </div>`;
 }
 

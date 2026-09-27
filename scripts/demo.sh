@@ -133,15 +133,19 @@ jq -rs --argjson n "$n09" '.[$n:][] | "09: routed_to \(.routed_to), model \(.mod
 [ "$(jq -rs --argjson n "$n09" '.[$n].routed_to' ledger.jsonl)" = owned ] ||
  echo "NOTE: 09 was not served by your model: the router fell back to the frontier (see the trace)"
 
-say "6/6 GRADUATE_FORCE_FAIL=1 on broken state 10: fail, escalate, rerun on the frontier"
-GRADUATE_FORCE_FAIL=1 run 10
+if [ "$(jq -rs '.[-1].escalated_from != null' ledger.jsonl)" = true ]; then
+ say "6/6 skipped: 09 already failed on your model and escalated to the frontier (the safety path is above)"
+else
+ say "6/6 GRADUATE_FORCE_FAIL=1 on broken state 10: fail, escalate, rerun on the frontier"
+ GRADUATE_FORCE_FAIL=1 run 10
+fi
 
 say "numbers -> docs/results.md"
 jq -rs --argjson n "$base" --arg when "$(date -u +%Y-%m-%dT%H:%MZ)" --arg model "$(jq -r .frontier.model prices.json)" \
  --arg how "${checkpoint:+checkpoint $checkpoint, trained before the demo}" --arg stub "$offline" '
   def r: . * 1000 | round / 1000;
   . as $all | (.[:$n + 1] | map(select(.routed_to == "frontier" and .exit_code == 0 and .escalated_from == null))) as $b
-  | .[$n:] as $d | ($d | map(select(.prompt | test("mod_09")))[0]) as $a | ($d | map(select(.prompt | test("mod_10")))) as $e
+  | .[$n:] as $d | ($d | map(select(.prompt | test("mod_09")))[0]) as $a | ([$d[] | select(.escalated_from)][-1] as $r | [($d[] | select(.session_id == $r.escalated_from)), $r]) as $e
   | map(select(.routed_to == "frontier" and .escalated_from == null)) as $f | map(select(.routed_to == "owned")) as $o
   | [["Output tokens", "output_tokens"], ["Input tokens (cached included)", "input_tokens"], ["Cached input tokens", "cached_input_tokens"],
      ["Cost (USD)", "cost_usd"], ["Turns (model calls)", "turns"], ["Tool calls", "tool_calls"], ["Wall time (s)", "wall_secs"]]
@@ -152,9 +156,9 @@ jq -rs --argjson n "$base" --arg when "$(date -u +%Y-%m-%dT%H:%MZ)" --arg model 
   | ["### Last demo run: \($when)", "", $label, "",
      "Baseline: mean of the \($b | length) verified frontier runs before graduation (the staged corpus plus broken state 05), with the provider'"'"'s prompt caching on: \(($b | map(.cached_input_tokens) | add) / ([1, ($b | map(.input_tokens) | add)] | max) * 100 | round)% of their input tokens were cached and billed at the cached rate. After: broken state 09 on the graduated task type, graduated \(if $how == "" then "by the live training job" else "on the \($how)" end).",
      "", "| | Frontier baseline, caching on | Graduated, broken state 09 | Change |", "|---|---|---|---|"] + $table
-  + ["", "- 09 served by: `\($a.routed_to)` (`\($a.model)`), exit \($a.exit_code)." + (if $a.routed_to != "owned" then " Owned serving (#37) is not on main yet, so the router fell back to the frontier and the After column is a frontier run." else "" end),
+  + ["", "- 09 served by: `\($a.routed_to)` (`\($a.model)`), exit \($a.exit_code)." + (if $a.routed_to != "owned" then " The router fell back to the frontier, so the After column is a frontier run." else "" end),
      "- Pass rate: frontier \($f | map(select(.exit_code == 0)) | length) of \($f | length) sessions; owned \($o | map(select(.exit_code == 0)) | length) of \($o | length) (forced failures included).",
-     "- Safety path, broken state 10 with `GRADUATE_FORCE_FAIL=1`: owned attempt `\($e[0].session_id)` exit \($e[0].exit_code) (forced_failure \($e[0].forced_failure)); frontier rerun `\($e[1].session_id)` exit \($e[1].exit_code), escalated_from `\($e[1].escalated_from)`. The failed row stays in `ledger.jsonl`; forced failures are not kept as training negatives.",
+     "- Safety path: owned attempt `\($e[0].session_id)` exit \($e[0].exit_code), \(if $e[0].forced_failure then "forced for the demo with `GRADUATE_FORCE_FAIL=1` (forced failures are not kept as training negatives)" else "a real failure of your model" end); frontier rerun `\($e[1].session_id)` exit \($e[1].exit_code), escalated_from `\($e[1].escalated_from)`. The failed row stays in `ledger.jsonl`.",
      "- Task types in the ledger: \($all | group_by(.task_type) | map("`\(.[0].task_type)` \(length)") | join(", ")).",
      "- All sessions (\($all | length)): \($all | map(.cost_usd) | add | r) USD, \($all | map(.output_tokens) | add) output tokens."] | join("\n")' \
  ledger.jsonl >"$out/results.md"
