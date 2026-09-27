@@ -149,3 +149,36 @@ def test_a_pasted_control_character_never_puts_the_key_in_an_error(router, stub,
     r = post(router, sid)
     on_disk = "".join(p.read_text() for p in workdir.rglob("*") if p.is_file())
     assert r.status_code in (401, 502) and "QWZX" not in r.text + on_disk and "PLMK" not in r.text + on_disk
+
+
+def test_claude_code_messages_stream_through_the_same_path(router, stub, sid, workdir):
+    stub.tools = True
+    r = router(
+        "POST",
+        "/v1/messages?beta=true",
+        headers={"x-api-key": sid, "x-claude-code-prompt-id": "prompt-1"},
+        json={
+            "model": "claude-sonnet-4-5",
+            "stream": True,
+            "max_tokens": 64,
+            "system": [{"type": "text", "text": "Be brief."}],
+            "tools": [{"name": "read", "input_schema": {"type": "object"}}],
+            "messages": [
+                {"role": "user", "content": "The test tests/test_mod_05.py is failing."},
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "read", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": "ok"}]},
+            ],
+        },
+    )
+    events = [json.loads(l[5:]) for l in r.text.splitlines() if l.startswith("data:")]
+    blocks = [e["content_block"] for e in events if e["type"] == "content_block_start"]
+    args = "".join(e["delta"]["partial_json"] for e in events if e["type"] == "content_block_delta")
+    assert [(b["id"], b["name"]) for b in blocks] == [("call_1", "read"), ("call_2", "bash")]
+    assert args == '{"file_path": "calc/mod_05.py"}{"command": "pytest -q"}'
+    assert events[-2]["delta"]["stop_reason"] == "tool_use"
+    assert events[-2]["usage"] == {"input_tokens": 120, "cache_read_input_tokens": 1280, "output_tokens": 60}
+    sent = stub.requests[-1][1]
+    assert [m["role"] for m in sent["messages"]] == ["system", "user", "assistant", "tool"]
+    assert sent["user"] == "prompt-1" and sid not in json.dumps(sent)
+    [line] = jsonl(workdir / f"sessions/{sid}.jsonl")
+    assert line["request"]["user"] == "prompt-1" and line["response"] == stub.message()
