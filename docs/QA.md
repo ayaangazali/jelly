@@ -11,7 +11,7 @@ When a step does not match, write down the step number, what you expected and wh
 1. `python3 -m venv .venv && . .venv/bin/activate && pip install -e '.[test,train]'`
    **Expected:** the install ends with `Successfully installed … graduate-0.1.0 …`.
 2. `graduate`
-   **Expected:** a usage line, then `run`, `init`, `up` and `bench`, one line of help each.
+   **Expected:** a usage line, then `run`, `init`, `up`, `bench` and `results`, one line of help each.
 3. `make test`
    **Expected:** `N passed` and no failures, in about 30 s.
 4. `make e2e-replay`
