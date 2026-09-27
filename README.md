@@ -103,7 +103,7 @@ With `--offline`, the frontier is [`scripts/stub-upstream.py`](scripts/stub-upst
 
 1. Builds a 4-of-5 corpus on first use.
 2. Runs broken state 05 on the frontier, which makes the task type READY.
-3. Approves training, then trains the owned model live on this machine. This step takes about 10 minutes and about 5 GB of RAM.
+3. Approves training, then trains the owned model live on this machine. Training took about 1 minute on an M4 Mac mini (57.7 s and 76.6 s in two runs), with a peak of about 5 GB of RAM.
 4. Runs broken state 07 (a repeat of the training data) and 09 (never seen) on the owned model.
 5. Shows a failure escalating to the frontier. If 09 passed, the failure is forced on state 10.
 
