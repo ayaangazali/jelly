@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The 3-minute demo as one command (#31): 4 of 5 -> broken 05 -> READY -> Approve -> GRADUATED -> broken 09 on your
-# model -> forced failure on broken 10 -> escalation -> numbers into docs/results.md. Unattended apart from the Approve click.
+# The 3-minute demo as one command (#31): 4 of 5 -> broken 05 -> READY -> Approve -> GRADUATED -> broken 07 on your model
+# (a repeat of a trained state) -> broken 09 (never seen) -> a failure escalates to the frontier (forced on 10 if 09 passed)
+# -> numbers into docs/results.md. Unattended apart from the Approve click.
 #
 #   scripts/demo.sh [--offline] [--use-checkpoint PATH] [--auto-approve]
 #
@@ -135,17 +136,20 @@ else
 fi
 jq -r --arg t $T '"\($t): \(.task_types[$t].state) on \(.task_types[$t].model)"' registry.json
 
-say "5/6 broken state 09: routed to your model"
-n09=$(wc -l <ledger.jsonl)
-run 09 || true # the owned session may fail its tests: the escalator reruns it on the frontier
-jq -rs --argjson n "$n09" '.[$n:][] | "09: routed_to \(.routed_to), model \(.model), exit \(.exit_code), \(.turns) turns, \(.wall_secs) s\(if .escalated_from then ", rerun of \(.escalated_from)" else "" end)"' ledger.jsonl
-[ "$(jq -rs --argjson n "$n09" '.[$n].routed_to' ledger.jsonl)" = owned ] ||
- echo "NOTE: 09 was not served by your model: the router fell back to the frontier (see the trace)"
-
-if [ "$(jq -rs '.[-1].escalated_from != null' ledger.jsonl)" = true ]; then
- say "6/6 skipped: 09 already failed on your model and escalated to the frontier (the safety path is above)"
-else
- say "6/6 GRADUATE_FORCE_FAIL=1 on broken state 10: fail, escalate, rerun on the frontier"
+own() { # own NN: one run routed to your model; a failed session escalates, and the escalator reruns it on the frontier
+ local n
+ n=$(wc -l <ledger.jsonl)
+ run "$1" || true
+ jq -rs --argjson n "$n" --arg s "$1" '.[$n:][] | "\($s): routed_to \(.routed_to), model \(.model), exit \(.exit_code), \(.turns) turns, \(.wall_secs) s\(if .escalated_from then ", rerun of \(.escalated_from)" else "" end)"' ledger.jsonl
+ [ "$(jq -rs --argjson n "$n" '.[$n].routed_to' ledger.jsonl)" = owned ] ||
+  echo "NOTE: $1 was not served by your model: the router fell back to the frontier (see the trace)"
+}
+say "5/6 broken state 07 on your model: a repeat of a task in its training data (checkpoints trained on 01-08)"
+own 07
+say "6/6 broken state 09 on your model: a state it never saw"
+own 09
+if [ "$(jq -rs '.[-1].escalated_from != null' ledger.jsonl)" != true ]; then
+ say "09 passed: GRADUATE_FORCE_FAIL=1 on broken state 10 shows the safety path"
  GRADUATE_FORCE_FAIL=1 run 10
 fi
 
@@ -154,18 +158,19 @@ jq -rs --argjson n "$base" --arg when "$(date -u +%Y-%m-%dT%H:%MZ)" --arg model 
  --arg how "${checkpoint:+checkpoint $checkpoint, trained before the demo}" --arg stub "$offline" '
   def r: . * 1000 | round / 1000;
   . as $all | (.[:$n + 1] | map(select(.routed_to == "frontier" and .exit_code == 0 and .escalated_from == null))) as $b
-  | .[$n:] as $d | ($d | map(select(.prompt | test("mod_09")))[0]) as $a | ([$d[] | select(.escalated_from)][-1] as $r | [($d[] | select(.session_id == $r.escalated_from)), $r]) as $e
+  | .[$n:] as $d | ($d | map(select(.routed_to == "owned" and .exit_code == 0))[0]) as $a | ([$d[] | select(.escalated_from)][-1] as $r | [($d[] | select(.session_id == $r.escalated_from)), $r]) as $e
+  | (if $a then ", broken state \($a.prompt | capture("mod_(?<s>\\d\\d)").s)" else "" end) as $s
   | map(select(.routed_to == "frontier" and .escalated_from == null)) as $f | map(select(.routed_to == "owned")) as $o
   | [["Output tokens", "output_tokens"], ["Input tokens (cached included)", "input_tokens"], ["Cached input tokens", "cached_input_tokens"],
      ["Cost (USD)", "cost_usd"], ["Turns (model calls)", "turns"], ["Tool calls", "tool_calls"], ["Wall time (s)", "wall_secs"]]
-  | map(. as [$label, $k] | ($b | map(.[$k]) | add / length) as $x | $a[$k] as $y
-      | "| \($label) | \($x | r) | \($y | r) | \(if $x == 0 then "n/a" else "\(($y - $x) / $x * 100 | round)%" end) |") as $table
-  | (if $stub == "1" then "**STUB RUN, NOT REAL NUMBERS.** The frontier was `scripts/stub-upstream.py`: zero OpenAI calls, scripted three-turn sessions and made-up token counts. A live run replaces this section."
+  | map(. as [$label, $k] | ($b | map(.[$k]) | add / length) as $x
+      | "| \($label) | \($x | r) | \(if $a then $a[$k] | r else "no passing run yet" end) | \(if $stub == "1" then "n/a: stub frontier" elif $a == null or $x == 0 then "n/a" else "\(($a[$k] - $x) / $x * 100 | round)%" end) |") as $table
+  | (if $stub == "1" then "**STUB FRONTIER, NOT REAL FRONTIER NUMBERS.** The frontier was `scripts/stub-upstream.py`: zero OpenAI calls, scripted sessions and made-up token counts. Rows served by `owned` are real: the local checkpoint on CPU. A live run replaces this section."
      else "Live run. Frontier model `\($model)`, prices from `prices.json` (contracts §9)." end) as $label
   | ["### Last demo run: \($when)", "", $label, "",
-     "Baseline: mean of the \($b | length) verified frontier runs before graduation (the staged corpus plus broken state 05), with the provider'"'"'s prompt caching on: \(($b | map(.cached_input_tokens) | add) / ([1, ($b | map(.input_tokens) | add)] | max) * 100 | round)% of their input tokens were cached and billed at the cached rate. After: broken state 09 on the graduated task type, graduated \(if $how == "" then "by the live training job" else "on the \($how)" end).",
-     "", "| | Frontier baseline, caching on | Graduated, broken state 09 | Change |", "|---|---|---|---|"] + $table
-  + ["", "- 09 served by: `\($a.routed_to)` (`\($a.model)`), exit \($a.exit_code)." + (if $a.routed_to != "owned" then " The router fell back to the frontier, so the After column is a frontier run." else "" end),
+     "Baseline: mean of the \($b | length) verified frontier runs before graduation (the staged corpus plus broken state 05), with the provider'"'"'s prompt caching on: \(($b | map(.cached_input_tokens) | add) / ([1, ($b | map(.input_tokens) | add)] | max) * 100 | round)% of their input tokens were cached and billed at the cached rate. Your model: its first passing session after graduation (a failed session is never counted as savings), graduated \(if $how == "" then "by the live training job" else "on the \($how)" end).",
+     "", "| | Frontier baseline, caching on | Your model\($s) | Change |", "|---|---|---|---|"] + $table
+  + ["", "- Your model'"'"'s sessions: \($o | map("`\(.prompt | capture("mod_(?<s>\\d\\d)").s)` exit \(.exit_code)") | join(", ")). Broken states 01-08 are the training data of the checkpoints in `/home/ubuntu/jelly-corpus/checkpoints/`, so a pass on 01-08 is a repeat of a trained task, not a held-out result; 09 and 10 are held out.",
      "- Pass rate: frontier \($f | map(select(.exit_code == 0)) | length) of \($f | length) sessions; owned \($o | map(select(.exit_code == 0)) | length) of \($o | length) (forced failures included).",
      "- Safety path: owned attempt `\($e[0].session_id)` exit \($e[0].exit_code), \(if $e[0].forced_failure then "forced for the demo with `GRADUATE_FORCE_FAIL=1` (forced failures are not kept as training negatives)" else "a real failure of your model" end); frontier rerun `\($e[1].session_id)` exit \($e[1].exit_code), escalated_from `\($e[1].escalated_from)`. The failed row stays in `ledger.jsonl`.",
      "- Task types in the ledger: \($all | group_by(.task_type) | map("`\(.[0].task_type)` \(length)") | join(", ")).",

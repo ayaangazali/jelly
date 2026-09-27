@@ -30,6 +30,26 @@ TASK = "01"
 http = httpx.Client(timeout=30)
 
 
+def probe(key):
+    """One call for 1 output token (the free GET /v1/models says 200 without credit too): None when the key can spend,
+    else why not. scripts/live.sh refuses on it as well."""
+    r = http.post(
+        upstream.URL,
+        headers={"Authorization": f"Bearer {key}"},
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": "ok"}],
+            "max_completion_tokens": 1,
+        },
+    )
+    if r.status_code == 429 and "insufficient_quota" in r.text:
+        return "no credit"
+    if (
+        r.status_code != 200
+    ):  # a rejected key, an unknown model, a rate limit: no session
+        return f"FAIL: probe {r.status_code}: {r.text[:200]}"
+
+
 def main():
     print(
         f"plan   1 session, demo broken state {TASK}, {MODEL} via {upstream.BASE_URL}"
@@ -41,23 +61,9 @@ def main():
     if not key:
         print("skipped: no key")
         return 0
-    r = http.post(
-        upstream.URL,
-        headers={"Authorization": f"Bearer {key}"},
-        json={
-            "model": MODEL,
-            "messages": [{"role": "user", "content": "ok"}],
-            "max_completion_tokens": 1,
-        },
-    )
-    if r.status_code == 429 and "insufficient_quota" in r.text:
-        print("skipped: no credit")
-        return 0
-    if (
-        r.status_code != 200
-    ):  # a rejected key, an unknown model, a rate limit: no session
-        print(f"FAIL: probe {r.status_code}: {r.text[:200]}")
-        return 1
+    if why := probe(key):
+        print("skipped: no credit" if why == "no credit" else why)
+        return 0 if why == "no credit" else 1
 
     root = bench.ROOT
     out = Path("backups") / f"e2e-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
