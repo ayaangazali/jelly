@@ -31,7 +31,7 @@ from pathlib import Path
 
 import httpx
 
-from graduate import ledger, runner
+from graduate import cli, ledger, runner
 from graduate.router.upstream import _prices
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -288,6 +288,8 @@ def main():
         raise SystemExit(
             f"OpenCode not found at {runner.OPENCODE}: curl -fsSL https://opencode.ai/install | bash"
         )
+    if not (os.environ.get("OPENAI_API_KEY") or cli._dotenv().get("OPENAI_API_KEY")):  # #94: not six 0/2 runs
+        raise SystemExit("no OPENAI_API_KEY here: the bench's routers need it (`graduate init`; on the stub, export OPENAI_BASE_URL and a stub key)")
     if not a.yes:
         try:
             ok = input("Proceed? [y/N] ").strip().lower() == "y"
