@@ -1,9 +1,9 @@
-"""The submission video (#146): the /app showcase on a running router, headless Chromium at 1920x1080, ~105 s.
+"""The submission video (#146): the /app showcase on a running router, headless Chromium at 1920x1080, ~114 s.
 
     python scripts/record_app.py [base-url] [out.mp4] [seconds-scale]
     default: http://127.0.0.1:4151 docs/recordings/showcase-real.mp4 1
 
-Tour: Live (the main screen) 50 s, Race 25 s (replayed at 4x after the first pass), Task types 12 s, Agents 12 s, back to Live.
+Tour: Live (the main screen) 50 s, Race 34 s (a real pair, replayed at 4x after the first pass for 20 s), Task types 12 s, Agents 12 s, back to Live.
 Playwright's screencast -> ffmpeg (H.264, yuv420p). Nothing is labelled here: the page's own source tag says whether it
 shows a recorded real run or demo data. Needs playwright and ffmpeg.
 """
@@ -42,7 +42,7 @@ def main():
         wait(14)
         if page.query_selector('button[data-race="4"]'):  # only once your model has a run to race
             page.click('button[data-race="4"]')
-        wait(11)
+        wait(20)
         page.click('nav.side a[data-nav="tasks"]')
         wait(12)
         page.click('nav.side a[data-nav="agents"]')
