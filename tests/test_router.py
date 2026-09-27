@@ -182,3 +182,6 @@ def test_claude_code_messages_stream_through_the_same_path(router, stub, sid, wo
     assert sent["user"] == "prompt-1" and sid not in json.dumps(sent)
     [line] = jsonl(workdir / f"sessions/{sid}.jsonl")
     assert line["request"]["user"] == "prompt-1" and line["response"] == stub.message()
+    for bad in (b"{not json", b"[]", b'{"model":"m"}', b'{"model":"m","messages":"hi"}'):
+        r = router("POST", "/v1/messages", headers={"x-api-key": sid}, content=bad)
+        assert r.status_code == 400 and r.json()["error"]["type"] == "invalid_request_error", (bad, r.status_code)
