@@ -131,9 +131,13 @@ async def chat_completions(request: Request):
     bearer = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
     session_id = bearer if bearer.startswith("sess-") else "sess-anon"
     for route in _routes:
-        served = route(session_id, body)
-        if inspect.isawaitable(served):
-            served = await served
+        try:
+            served = route(session_id, body)
+            if inspect.isawaitable(served):
+                served = await served
+        except Exception:
+            log.exception("route %s failed for %s; the frontier answers", route.__name__, session_id)
+            continue
         if served is not None:
             return served
 

@@ -307,6 +307,25 @@ def test_truncated_metrics_line_is_skipped_and_the_next_record_survives(workdir)
     assert metrics.get_session("sess-later")["turns"] == 1
 
 
+def test_bad_extra_body_still_reaches_the_frontier(router, stub, sid, monkeypatch):
+    monkeypatch.setenv("OPENAI_EXTRA_BODY", "not json")
+    assert post(router, sid).status_code == 200
+    monkeypatch.setenv("OPENAI_EXTRA_BODY", "[1]")
+    assert post(router, sid).status_code == 200
+    assert len(stub.requests) == 2
+
+
+def test_a_route_that_raises_hands_the_call_to_the_frontier(router, stub, sid, monkeypatch):
+    from graduate.router import app
+
+    def broken(session_id, request):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "memorable output")
+
+    monkeypatch.setattr(app, "_routes", [broken, *app._routes])
+    assert post(router, sid).status_code == 200
+    assert len(stub.requests) == 1
+
+
 def test_frontier_calls_are_priced_as_the_model_the_router_sends(tmp_path):
     import os
     import subprocess

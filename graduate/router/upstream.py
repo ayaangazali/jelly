@@ -9,6 +9,7 @@ The frontier is any OpenAI-compatible Chat Completions endpoint:
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -54,6 +55,17 @@ def clean_key(key):
     return key if key.isascii() and key.isprintable() else ""
 
 
+def _extra_body():
+    try:
+        extra = json.loads(os.environ.get("OPENAI_EXTRA_BODY") or "{}")
+    except ValueError:
+        extra = None
+    if isinstance(extra, dict):
+        return extra
+    logging.getLogger("uvicorn.error").warning("OPENAI_EXTRA_BODY is not a JSON object; sending the request without it")
+    return {}
+
+
 async def send(body):
     """POST `body` to the frontier and return the response with its body still unread (stream it or `aread()` it).
     Without a key it answers 401 itself with the fix (#73), rather than sending `Bearer ` for httpx to reject."""
@@ -70,7 +82,7 @@ async def send(body):
     if "max_tokens" in body:
         body = dict(body)
         body.setdefault("max_completion_tokens", body.pop("max_tokens"))
-    if extra := json.loads(os.environ.get("OPENAI_EXTRA_BODY") or "{}"):
+    if extra := _extra_body():
         body = {**body, **extra}
     request = client.build_request("POST", URL, json=body, headers=headers)
     return await client.send(request, stream=True)
