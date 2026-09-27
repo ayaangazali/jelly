@@ -52,8 +52,9 @@ def decide(session_id, request, headers, hint=None, prompt=None):
     if session_id not in _announced:
         _announced.add(session_id)
         why = f"forced to {force}" if force in ("owned", "frontier") else state
+        to = "frontier" if not owned else "your River model" if str(decision["model"]).startswith("river://") else "your local model"
         trace.emit("Router → registry.json", f'registry["{task_type}"].state',
-                   f"{why} → route to {'your River model' if owned else 'frontier'}", 20,
+                   f"{why} → route to {to}", 20,
                    nodes=["router", "registry", "river" if owned else "openai"],
                    edges=["reads", "owned" if owned else "frontier"], session_id=session_id)
     return decision
