@@ -1,0 +1,83 @@
+/* Projector theme, showcase stage and presenter mode (#55). Sidecar to index.html: its tokens, extended.
+   --u is a 16:9 unit (1vh on a 16:9 screen), so 1920x1080 and 1280x720 get the same layout. */
+@font-face { font-family: "Archivo"; src: url("fonts/archivo.woff2") format("woff2"); font-weight: 400 800; font-stretch: 62% 125%; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 400 500; font-display: swap; }
+
+:root { --u: min(1vh, 0.5625vw); }
+
+/* Presenter: chrome hidden, projector tokens (contrast on #0B0F17, r2 roadmap) in the mock-up's token names. */
+html.present {
+  --paper: #0B0F17; --sheet: #141A26; --ink: #F2F4F8; --muted: #B4BCCB; --rule: #2A3345;
+  --owned: #A9ACFF; --owned-wash: #232852; --rented: #8C95A6; --pass: #5FD39E; --fail: #FF8A7E; --warn: #F0B955;
+  --focus: #A9ACFF; color-scheme: dark;
+}
+html.present header.top { display: none; }
+html.present main { padding: calc(var(--u) * 3) 0; }
+html.present .wrap { max-width: none; padding: 0 3vw; }
+html.present body { font-size: calc(var(--u) * 2.6); }
+html.present h1 { font-size: calc(var(--u) * 5.5); }
+html.present h2 { font-size: calc(var(--u) * 3.2); }
+html.present .savings .amount { font-size: calc(var(--u) * 9); }
+html.present :is(code, pre, .btn.sm, .savings .what small, .roster th, .roster .name code, .roster .route,
+  .unclassified td, .roster td[data-label]::before, .state, .log li, .log time, .log header span, .back,
+  .stamp small, .lifecycle li, .lifecycle li b, .metric .label, .bar, .note, dl.facts, table.runs, table.runs th,
+  .toast, figure.arch figcaption, .detail h3, .where, .badge, .wire li, .wire time, .wire .who a) {
+  font-size: calc(var(--u) * 2.5);
+}
+html.present .cols { grid-template-columns: minmax(0, 1fr) 27vw; gap: 2vw; }
+html.present .roster :is(th, td) { padding: calc(var(--u) * 1) calc(var(--u) * 1.2); }
+html.present .log { max-height: none; }
+html.present :is(.log li, .wire li) { grid-template-columns: auto 1fr; }
+html.present .arch .node text { font-size: 16px; }
+html.present :is(.arch .node text.sub, .arch .edge text) { font-size: 15px; }
+html.present #app [style*="font-size"] { font-size: calc(var(--u) * 2.5) !important; }
+html.present .pips i { width: calc(var(--u) * 2.4); height: calc(var(--u) * 1); }
+html.blackout body { visibility: hidden; background: #000; }
+
+/* Showcase: fills the screen in both modes, sized in --u so nothing scrolls. */
+#app:has(.show) { max-width: none; padding: 0 3vw; }
+main:has(.show) { padding: calc(var(--u) * 3) 0; }
+.show {
+  display: grid; gap: calc(var(--u) * 2.4) 2.4vw; font-size: calc(var(--u) * 2.6);
+  align-content: center; min-height: calc(100vh - var(--u) * 6);
+  grid-template-columns: 1.3fr 1fr; grid-template-areas: "head head" "hero grad" "hero esc" "foot foot";
+}
+.show h1 { font-size: calc(var(--u) * 6); margin: 0; }
+.show h2 { font-size: calc(var(--u) * 3); margin: 0 0 calc(var(--u) * 1.2); }
+.show .muted, .show small { color: var(--muted); font-size: 1em; font-weight: 400; }
+.show code { font-size: 1em; }
+.show-head { grid-area: head; display: flex; justify-content: space-between; align-items: end; gap: 2vw; }
+.kicker { margin: 0; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.show-verify { margin: 0; color: var(--muted); }
+.show-hero { grid-area: hero; }
+.hero { margin: 0; display: flex; align-items: baseline; gap: 1.6vw; line-height: 1; font-weight: 800; font-stretch: 110%; font-size: calc(var(--u) * 13); letter-spacing: -0.02em; }
+.hero .f { color: var(--rented); }
+.hero .o { color: var(--owned); }
+.hero .arrow { font-size: 0.5em; color: var(--muted); }
+.hero-sub { margin: calc(var(--u) * 1.2) 0 calc(var(--u) * 3); font-size: calc(var(--u) * 3.2); }
+.hero-sub b { color: var(--pass); }
+.show-cmp { width: 100%; border-collapse: collapse; }
+.show-cmp :is(th, td) { text-align: left; padding: calc(var(--u) * 1) calc(var(--u) * 1.5) calc(var(--u) * 1) 0; border-bottom: 1px solid var(--rule); }
+.show-cmp thead th { color: var(--muted); font-weight: 600; }
+.show-cmp tbody th { font-weight: 500; }
+.show-cmp td { font-weight: 700; }
+.show-cmp .own { color: var(--owned); }
+.show-cmp .chg { color: var(--pass); }
+.show-grad { grid-area: grad; }
+.show-esc { grid-area: esc; }
+.show-grad, .show-esc { padding: calc(var(--u) * 2.2) calc(var(--u) * 2.6); }
+.show-grad p, .show-esc p { margin: calc(var(--u) * 1) 0 0; }
+.show-grad .count { font-size: calc(var(--u) * 3.4); margin: 0; }
+.show-grad .count b { font-size: 1.5em; }
+.bigpips { display: flex; gap: calc(var(--u) * 1); margin: calc(var(--u) * 1.4) 0; }
+.bigpips i { flex: 1; max-width: calc(var(--u) * 9); height: calc(var(--u) * 2.4); border-radius: 3px; background: var(--rule); }
+.bigpips i.on { background: var(--owned); }
+.show .state { font-size: 1em; }
+.show .stamp { display: block; width: fit-content; margin: calc(var(--u) * 1.6) calc(var(--u) * 1) 0 auto; font-size: calc(var(--u) * 4.2); }
+.show .stamp small { font-size: calc(var(--u) * 2.5); color: inherit; }
+.show .badge { font-size: calc(var(--u) * 2.5); }
+.steps { margin: 0; padding-left: 1.4em; display: grid; gap: calc(var(--u) * 0.8); }
+.steps .fail { color: var(--fail); }
+.steps .pass { color: var(--pass); }
+.show-foot { grid-area: foot; font-size: calc(var(--u) * 3); }
+.show-foot b { color: var(--pass); font-size: 1.3em; }

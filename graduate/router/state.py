@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from graduate import registry, trace
 from graduate.router.app import app
@@ -95,6 +96,7 @@ def dashboard():
 
 
 app.include_router(router)
+app.mount("/ui", StaticFiles(directory=UI.parent), name="ui")  # ui/projector.css, present.js, fonts/ (#55)
 
 
 if __name__ == "__main__":
