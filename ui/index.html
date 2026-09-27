@@ -492,7 +492,7 @@ function viewTask(k) {
   const runs = S.ledger.filter((r) => r.task_type === k).slice().reverse();
   const handled = (r) => r.escalated_from ? "Your model, then frontier" : r.routed_to === "owned" ? `<span style="color:var(--owned);font-weight:600">Your model</span>` : "Frontier";
   const actions = t.state === "READY" && !t.consent ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Review training data</a>`
-    : t.state === "PROBATION" ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Retrain with the failed runs</a>` : "";
+    : t.state === "PROBATION" ? `<a class="btn owned" href="#/consent/${encodeURIComponent(k)}">Review and retrain</a>` : "";
   return `
     <a class="back" href="#/">Back to overview</a>
     <div class="detail-head"><div><h1>${esc(t.title || k)}</h1><p class="lede">Verified by <code>${esc(t.verify_command)}</code>. ${t.verified_runs} passing runs, ${t.failed_runs} failing.</p></div>${stamp}</div>
