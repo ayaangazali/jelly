@@ -9,7 +9,8 @@ the `owned` block of --prices, contracts §9, default prices.json else fixtures/
 cost_usd used whatever prices the writer had) and local ($0 marginal, plus the training wall time from the newest
 `graduated` event in the registry.json beside the ledger, when there is one).
 
-Refuses stub data (exit 1): any row with the stub's model id, or an upstream-auth.log beside the ledger.
+Refuses stub data (exit 1): any row with exactly the usage scripts/stub-upstream.py serves, or an upstream-auth.log
+beside the ledger. Not the model id: graduate init's prices.json names the same frontier model as the stub (#128).
 """
 
 import argparse
@@ -19,7 +20,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STUB_MODEL = "gpt-5.6-terra"  # only scripts/stub-upstream.py serves it (the prices.example.json frontier id)
+
+
+def stub_served(r):
+    """scripts/stub-upstream.py answers every call with usage 25000 input, 20000 cached, 40 output."""
+    # mirrors the stub's hardcoded usage; change both together (tests/compare/stub.jsonl is one such row)
+    calls, rest = divmod(r["output_tokens"], 40)
+    return calls > 0 and not rest and (r["input_tokens"], r["cached_input_tokens"]) == (25000 * calls, 20000 * calls)
 
 
 def river_usd(r, p):
@@ -59,10 +66,10 @@ def main(path, prices):
         for l in ledger.read_text(encoding="utf-8").splitlines()
         if l.strip()
     ]
-    stub = [r["session_id"] for r in rows if r["model"] == STUB_MODEL]
+    stub = [r["session_id"] for r in rows if stub_served(r)]
     if stub or (ledger.parent / "upstream-auth.log").exists():
         why = (
-            f"model {STUB_MODEL} on {', '.join(stub)}"
+            f"the stub's usage on {', '.join(stub)}"
             if stub
             else "upstream-auth.log beside the ledger"
         )

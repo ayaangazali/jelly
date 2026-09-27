@@ -77,3 +77,13 @@ def test_stub_data_is_refused(tmp_path):
     auth = compare(tmp_path / "ledger.jsonl")
     assert (auth.returncode, auth.stdout) == (1, "")
     assert auth.stderr.startswith("stub data, not a result")
+
+
+def test_real_run_on_the_init_default_model_is_accepted(tmp_path):
+    # graduate init copies fixtures/prices.example.json, whose frontier model is the stub's id (#128)
+    ledger = (FIXTURES / "ledger.jsonl").read_text().replace('"gpt-5-mini"', '"gpt-5.6-terra"')
+    (tmp_path / "ledger.jsonl").write_text(ledger)
+    r = compare(tmp_path / "ledger.jsonl")
+    assert r.returncode == 0, r.stderr
+    assert "pass rate 3/3" in r.stdout
+
