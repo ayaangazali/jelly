@@ -97,7 +97,7 @@ function viewShow(a) {
 // terminal lines large, and the nodes with no real call yet named.
 function viewStage() {
   // Skip the per-call "logs every call" rows, or they hide the call they log.
-  const last = [...S.trace].reverse().find((t) => t.edges.join() !== "log") || S.trace[S.trace.length - 1];
+  const last = S.trace.findLast((t) => t.edges.join() !== "log") || S.trace[S.trace.length - 1];
   const wired = new Set(S.trace.flatMap((t) => t.nodes));
   const idle = Object.values(NODE).filter((n) => !wired.has(n.id)).map((n) => n.label);
   return `<div class="stage-d">
