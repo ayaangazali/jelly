@@ -3,11 +3,13 @@ GRADUATE: acceptance test plan
 
 Every requirement in [PRODUCT.md](PRODUCT.md) (R1–R21) and every failure mode in [ARCHITECTURE.md](ARCHITECTURE.md) mapped to a test that can fail. Each test says what it proves, its level, how to run it, what you must observe, the edge cases, and its status.
 
+**Statuses are pinned to `main` at `78aea3d`** (re-checked after #126, #127, #129 and #135 merged; `pytest -q tests` with the venv on `PATH`: 126 passed, 1 failed, the failure being MAC-01). `file:line` citations in the three spec files stay pinned to `e723076`, where they were checked; later commits shift some line numbers (the runner's verify moved from `:115` to `:140` in #127).
+
 **Status values** (one per test):
 
 | Status | Meaning |
 |---|---|
-| `EXISTS` | The named test or self-check is on `main` at `e723076` and runs automatically in `make check`, `make test` or CI, asserting the expected result |
+| `EXISTS` | The named test or self-check is on `main` at `78aea3d` and runs automatically in `make check`, `make test` or CI, asserting the expected result |
 | `TODO` | Not written yet, or only manual evidence exists. Should pass on `main` once written |
 | `FAILS-ON-MAIN` | The expected result is not what `main` does (the test may or may not be written yet): it is the acceptance bar for the fix |
 | `LIVE-COST` | Needs a paid account (OpenAI, Memorable, Claude). Its budget line gives requests and dollars; spend nothing without the owner's go-ahead |
@@ -69,9 +71,9 @@ export OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"h
 | Proxy passthrough and streaming (PX) | 11 | 8 | 2 | 1 | 0 |
 | Session identity (SI) | 6 | 3 | 3 | 0 | 0 |
 | Classification (CL) | 5 | 1 | 4 | 0 | 0 |
-| Verification and gaming (VF) | 7 | 1 | 2 | 4 | 0 |
+| Verification and gaming (VF) | 7 | 5 | 1 | 1 | 0 |
 | Ledger, watcher, N (LW) | 7 | 3 | 1 | 3 | 0 |
-| Consent honesty (CO) | 5 | 2 | 1 | 2 | 0 |
+| Consent honesty (CO) | 5 | 2 | 2 | 1 | 0 |
 | Dataset correctness, stub isolation (DS) | 8 | 5 | 2 | 1 | 0 |
 | Training (TR) | 8 | 5 | 2 | 1 | 0 |
 | Routing to owned (RO) | 6 | 4 | 2 | 0 | 0 |
@@ -88,7 +90,7 @@ export OPENCODE_CONFIG_CONTENT='{"provider":{"graduate":{"options":{"baseURL":"h
 | macOS portability (MAC) | 3 | 0 | 1 | 2 | 0 |
 | Full loop e2e (E2) | 2 | 2 | 0 | 0 | 0 |
 | Held-out eval protocol (EV) | 6 | 0 | 4 | 0 | 2 |
-| **Total** | **117** | **53** | **42** | **16** | **6** |
+| **Total** | **117** | **57** | **42** | **12** | **6** |
 
 `EXISTS` counts only tests that run automatically and assert the expected result. Manual evidence from the test report is noted per test but never counted as `EXISTS`.
 
@@ -185,17 +187,17 @@ The known routes are from #110. Each gaming test uses the real runner on a scrat
 **VF-01 · Every session is verified once, in the repo, even after a crash or timeout.** R5 · integration · EXISTS: `tests/test_runner.py::test_run_verifies_and_appends_one_ledger_row` (fix, no fix, crash, hang)
 Expect: exactly one ledger row in contract shape; `exit_code` is verify's, or 124 when the agent was killed at the timeout; `tests_passed/tests_total` parsed; Memorable ingest called only on exit 0.
 
-**VF-02 · Editing the test to pass is not verified.** R5, R8 · integration · FAILS-ON-MAIN (#110)
+**VF-02 · Editing the test to pass is not verified.** R5, R8 · integration · EXISTS since #127: `tests/test_runner.py::test_only_an_honest_fix_is_verified` (edited assertion, deleted test file, committed test edit: exit 1, `tampered: true`)
 Agent edit: `tests/test_mod_01.py` body → `assert True`.
-Expect: not verified, and the row's `exit_code != 0`. (#110 also proposes `tampered: true`; assert it once the field is in contracts §2.) Today: exit 0, counted, trained on.
+Expect: not verified, the row's `exit_code == 1` and `tampered: true` (contracts §2 has the field since #127). At `e723076`: exit 0, counted, trained on.
 
-**VF-03 · A skip marker is not verified.** R5 · integration · FAILS-ON-MAIN (#110)
+**VF-03 · A skip marker is not verified.** R5 · integration · EXISTS since #127: `tests/test_runner.py::test_only_an_honest_fix_is_verified` (skip and xfail cases)
 Agent edit: `@pytest.mark.skip` on the test. pytest exits 0 with `1 skipped`, and `parse_pytest_summary` returns `(0, 0)` (`graduate/reward.py:16-18`).
-Expect: not verified. Today: exit 0, `tests_total: null`, counted.
+Expect: not verified. At `e723076`: exit 0, `tests_total: null`, counted.
 
-**VF-04 · Changing pytest's configuration is not verified.** R5 · integration · FAILS-ON-MAIN (#110)
+**VF-04 · Changing pytest's configuration is not verified.** R5 · integration · EXISTS since #127: `tests/test_runner.py::test_only_an_honest_fix_is_verified` (conftest patch; `--co` in `pytest.ini` and `pytest.toml`)
 Agent edits, one per case, each checked by hand on 2026-09-27 against `demo-repo` with state 01 planted: (a) a `conftest.py` that patches the function under test (`import calc.mod_01 as m; m.add = lambda a, b: a + b`): pytest prints `1 passed`, exit 0; (b) `addopts = --collect-only` in `pytest.ini`: `1 test collected`, exit 0, parsed as `(0, 0)`.
-Expect: each case not verified. Today both count. Control: `addopts = -k nothing` already exits 5 (`1 deselected`) and must stay not verified.
+Expect: each case not verified. At `e723076` both counted. Control: `addopts = -k nothing` already exits 5 (`1 deselected`) and must stay not verified.
 
 **VF-05 · Deleting the test is already a failure (positive control).** R5 · integration · TODO
 Agent edit: remove the test function. pytest exits 5 ("no tests ran").
@@ -205,8 +207,8 @@ Expect: `exit_code == 5` and not verified. Guards against a fix for VF-02–04 t
 Agent edit: the fix in `calc/mod_01.py` plus a new `notes.txt`.
 Expect: the row has `files_touched_outside_scope == 1`; a clean fix gives 0.
 
-**VF-07 · A normal fix still records a clean pass.** R5 · integration · TODO (acceptance box of #110)
-Expect: after the #110 fix, the plain fix to `calc/mod_01.py` records `exit 0 · 1/1 passed` and counts.
+**VF-07 · A normal fix still records a clean pass.** R5 · integration · EXISTS since #127: `tests/test_runner.py::test_only_an_honest_fix_is_verified` (the `FIX` cases, including a new passing test added before the session)
+Expect: the plain fix to `calc/mod_01.py` records `exit 0 · 1/1 passed` and counts.
 
 ## LW: ledger, watcher, N (R6)
 
@@ -225,7 +227,7 @@ Expect: READY after the 3rd verified row, not before; `/state` `config.n == 3`. 
 Setup: ledger with 4 verified rows, then `not json`, then a 5th verified row; `watch()` in a thread.
 Expect: READY within 2 s and the thread still alive. Today `_rows()` raises (`watcher/__init__.py:26`) and the thread dies silently.
 
-**LW-06 · A session whose upstream calls all fail keeps its task type.** R6 · integration · FAILS-ON-MAIN (#111)
+**LW-06 · A session whose upstream calls all fail keeps its task type.** R6 · integration · FAILS-ON-MAIN (#111; fixed by #134 when merged)
 Setup: runner with task hint `fix-failing-test`, stub `fail = (429, …)` for every call.
 Expect: the row's `task_type == "fix-failing-test"` and `exit_code != 0`, so `failed_runs` counts it. Today it is `unknown` (`runner:134`).
 
@@ -244,9 +246,9 @@ Expect: `records == 5`, `tokens == 17`, `sample` equal to line 1 of `data/<t>.ch
 Setup: the four combinations of `RIVER_API_KEY` set/unset × `GRADUATE_OWNED_BACKEND` unset/`local`; plus `none`.
 Expect: for each, `GET /api/consent/<t>` `backend` equals `"river"` exactly when `train.backend()` returns `RiverBackend`, and `"none"` when it raises.
 
-**CO-04 · The PROBATION page doesn't promise training on failures.** R7, R18 · visual · FAILS-ON-MAIN (C4)
+**CO-04 · The PROBATION page doesn't promise training on failures.** R7, R18 · visual · TODO: #135 removed the promise and now counts `records` from the consent API (`ui/index.html:535,541` at `78aea3d`), so this should pass; no automated test asserts it yet
 Setup: registry with a PROBATION task type, `failed_runs = 2`, a `.neg.jsonl` with 3 lines; open `#/consent/<t>`.
-Expect: the page text does not contain "failing runs as examples" (unless the trainer has been changed to read `.neg.jsonl`, in which case the number shown equals `wc -l < data/<t>.neg.jsonl`); the passing-run count shown equals `wc -l < data/<t>.chat.jsonl`. Today it says "plus 2 failing runs as examples of what not to do" (`ui/index.html:519`) while the trainer uses neither.
+Expect: the page text does not contain "failing runs as examples" (unless the trainer has been changed to read `.neg.jsonl`, in which case the number shown equals `wc -l < data/<t>.neg.jsonl`); the passing-run count shown equals `wc -l < data/<t>.chat.jsonl`. At `e723076` it said "plus 2 failing runs as examples of what not to do" (`ui/index.html:519`) while the trainer used neither.
 
 **CO-05 · A trainer that can't start doesn't strand the task type.** R7, R9 · integration · FAILS-ON-MAIN
 Setup: `consent.TRAIN_CMD = ["/nonexistent"]`; `POST /api/consent/<t>` on a READY type with records.
@@ -339,11 +341,11 @@ Expect: `sessions/<id>.jsonl` line 2 or later has `upstream: owned` and a non-em
 **ES-01 · Failed owned sessions reset, rerun on the frontier, and are kept.** R13, R14 · integration · EXISTS: `graduate.escalator` self-check (`tests/test_selfchecks.py`)
 Expect: each forced failure gives a failed row plus a linked passing rerun (`escalated_from`); the rerun starts from the planted bug; files outside the repo survive; PROBATION on the 3rd failure; a real owned failure is kept as one negative and its failing rerun is not escalated again.
 
-**ES-02 · Escalating into a rate-limited frontier doesn't burn a full session.** R13 · integration · FAILS-ON-MAIN (#111)
+**ES-02 · Escalating into a rate-limited frontier doesn't burn a full session.** R13 · integration · FAILS-ON-MAIN (#111; fixed by #134 when merged)
 Setup: GRADUATED task type, owned attempt fails verify, then the stub answers every call 429.
 Expect: the rerun row exists with `escalated_from` set, `exit_code != 0` and `wall_secs < 10`, and an event or terminal line names 429. Today the rerun runs a whole OpenCode session.
 
-**ES-03 · The same for an auth failure.** R13 · integration · FAILS-ON-MAIN (#111)
+**ES-03 · The same for an auth failure.** R13 · integration · FAILS-ON-MAIN (#111; fixed by #134 when merged)
 As ES-02 with 401.
 
 **ES-04 · An escalation that raises still leaves the failed row.** R12, R13 · integration · TODO
@@ -425,7 +427,7 @@ Expect: status 429, body `{"type": "error", "error": {"type": "api_error", …}}
 **AM-04 · The real `claude` CLI works through the router.** R19 · e2e offline · TODO (manual evidence: test report §3e)
 Setup: ENV-O; `ANTHROPIC_BASE_URL=http://localhost:4210 ANTHROPIC_API_KEY=sess-<12 hex> claude -p "<prompt>"`, once plain and once for a task needing 3 tool calls.
 Expect: both complete with exit 0; `sessions/sess-<id>.jsonl` has one line per model call, and the tool session has ≥ 3 `tool_calls` across its responses.
-Edge: with Claude Code's own non-`sess-` key, the lines land in `sess-anon` and the session is never owned-routed (C12; SI-03 asserts that current behaviour until the owner decides otherwise).
+Edge: since #135 the Setup tab tells Claude Code users to set `ANTHROPIC_API_KEY=sess-<uuid>`. With Claude Code's own non-`sess-` key, the lines still land in `sess-anon` and the session is never owned-routed (C12; SI-03 asserts that current behaviour until the owner decides otherwise).
 
 ## GB: GBrain (R17)
 
