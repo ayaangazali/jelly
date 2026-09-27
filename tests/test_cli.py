@@ -124,6 +124,22 @@ def test_demo_dir_serves_the_fixture_state(workdir):
         assert state[key] == fixture[key], key
 
 
+def test_up_refuses_a_taken_port_before_printing_a_url(capsys):
+    """#84: not the other process's dashboard URL, then uvicorn's Errno 98."""
+    import socket
+
+    with socket.socket() as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("127.0.0.1", 4141))
+            s.listen()
+        except OSError:
+            pass  # something already listens there: the same case
+        with pytest.raises(SystemExit, match="port 4141 is taken"):
+            cli.main(["up", "--demo"])
+    assert "dashboard" not in capsys.readouterr().out
+
+
 def test_the_wheel_ships_every_dashboard_file():
     """#82: package-data globs like setuptools does (`*` stops at `/`), so ui/fonts/ needs its own pattern."""
     import tomllib
