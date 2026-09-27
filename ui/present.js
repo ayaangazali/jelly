@@ -35,15 +35,21 @@ function viewShow(a) {
   if (!t) return `<h1>No task types yet</h1><p class="lede">Run a task with <code>graduate run</code> and it shows up here.</p>`;
   const rows = S.ledger.filter((r) => r.task_type === k);
   const f = arm(rows.filter((r) => r.routed_to === "frontier" && !r.escalated_from));
-  const o = arm(rows.filter((r) => r.routed_to === "owned"));
-  // Until owned serving (#37) is wired, the owned route falls back to the frontier: say so, don't claim a win.
-  const fellBack = o && rows.some((r) => r.routed_to === "owned" && r.model === (rows.find((x) => x.routed_to === "frontier") || {}).model);
+  // "Your model" only for a GRADUATED type with runs its model really served (not a fallback to the frontier
+  // model), and a change is claimed only once one of them passed (#87).
+  const owned = rows.filter((r) => r.routed_to === "owned");
+  const served = owned.filter((r) => r.model !== (rows.find((x) => x.routed_to === "frontier") || {}).model);
+  const fellBack = owned.length > served.length;
+  const o = t.state === "GRADUATED" ? arm(served) : null, won = o && o.passed > 0;
   const n = N(), grad = t.state === "GRADUATED" || t.state === "PROBATION";
-  const none = `<span class="muted">no runs yet</span>`;
+  // The savings headline needs a GRADUATED type whose own model passed a run in this ledger.
+  const savedReal = S.ledger.some((r) => r.routed_to === "owned" && r.exit_code === 0 && (tasks()[r.task_type] || {}).state === "GRADUATED"
+    && r.model !== (S.ledger.find((x) => x.task_type === r.task_type && x.routed_to === "frontier") || {}).model);
+  const none = `<span class="muted">${t.state === "GRADUATED" ? "no runs yet" : "not graduated yet"}</span>`;
   const cell = (x, fmt) => x ? fmt(x) : none;
   const row = (label, key, fmt, delta = true) => `<tr><th scope="row">${label}</th>
-    <td data-qa="${key}-frontier">${cell(f, fmt)}</td><td class="own" data-qa="${key}-owned">${cell(o, fmt)}</td>
-    <td class="chg">${delta && f && o ? change(f[key], o[key]) : ""}</td></tr>`;
+    <td data-qa="${key}-frontier">${f ? fmt(f) : `<span class="muted">no runs yet</span>`}</td><td class="own" data-qa="${key}-owned">${cell(o, fmt)}</td>
+    <td class="chg">${delta && f && won ? change(f[key], o[key]) : ""}</td></tr>`;
   const pass = (x) => `${x.passed} of ${x.n} <span class="muted">${Math.round((x.passed / x.n) * 100)}%</span>`;
 
   const esc_ = [...rows].reverse().find((r) => r.escalated_from);
@@ -62,7 +68,10 @@ function viewShow(a) {
   <section class="show-hero" aria-labelledby="hero-h">
     <h2 id="hero-h">Output tokens per run</h2>
     <p class="hero"><span class="f" data-qa="out-frontier">${f ? Math.round(f.out).toLocaleString() : "—"}</span><span class="arrow" aria-label="to">→</span><span class="o" data-qa="out-owned">${o ? Math.round(o.out).toLocaleString() : "—"}</span></p>
-    <p class="hero-sub">${f && o ? fellBack ? `<span class="badge">Not wired</span> owned serving: “your model” runs fell back to the frontier model` : `<b data-qa="out-change">${change(f.out, o.out)}</b> frontier model → your graduated model` : `Your model takes over after ${n} passing frontier runs`}</p>
+    <p class="hero-sub">${f && won ? `<b data-qa="out-change">${change(f.out, o.out)}</b> frontier model → your graduated model`
+      : o ? `Your model hasn't passed a run yet: its ${o.n} ${o.n === 1 ? "run" : "runs"} failed and went back to the frontier`
+      : fellBack ? `<span class="badge">Not wired</span> owned serving: “your model” runs fell back to the frontier model`
+      : t.state === "GRADUATED" ? "No runs on your model yet" : `Your model takes over after ${n} passing frontier runs`}</p>
     <table class="show-cmp">
       <thead><tr><th></th><th>Frontier</th><th class="own">Your model</th><th>Change</th></tr></thead>
       <tbody>
@@ -82,14 +91,14 @@ function viewShow(a) {
   </section>
   <section class="show-esc sheet" aria-labelledby="esc-h">
     <h2 id="esc-h">Safety net</h2>
-    ${esc_ ? `<ol class="steps">
+    ${esc_ && grad ? `<ol class="steps">
       <li class="fail">Your model failed · exit ${failed ? failed.exit_code : "≠0"}</li>
       <li class="pass">Re-ran on frontier · exit ${esc_.exit_code}</li>
       <li>${failed && failed.forced_failure ? "Forced failure (GRADUATE_FORCE_FAIL): not kept for training" : `Kept as a negative example ${negWired ? "" : `<span class="badge">Not wired</span>`}`}</li>
-    </ol>` : `<p>A failed run on your model re-runs on the frontier. No escalations yet.</p>`}
+    </ol>` : `<p>A failed run on your model re-runs on the frontier.${grad ? " No escalations yet." : " It starts once this type graduates."}</p>`}
     ${grad ? `<p class="muted">${t.failures_since_graduation} of ${S.config.fail_limit} failures before probation</p>` : ""}
   </section>
-  <footer class="show-foot"><b data-qa="saved">${money(S.totals.saved_usd)}</b> saved across ${S.totals.owned_runs} runs on your models <span class="muted">· est.: tokens × list prices, frontier with caching on</span></footer>
+  <footer class="show-foot">${savedReal ? `<b data-qa="saved">${money(S.totals.saved_usd)}</b> saved across ${S.totals.owned_runs} runs on your models <span class="muted">· est.: tokens × list prices, frontier with caching on</span>` : `<span class="muted" data-qa="saved">No savings yet: no graduated task type has a passing run on your model.</span>`}</footer>
 </div>`;
 }
 
@@ -110,6 +119,9 @@ function viewStage() {
 }
 
 const root = document.documentElement;
+// Fixture state (?state=…/fixtures/…, or a router started by `graduate up --demo`): every number on screen is sample data (#87).
+if (/\/fixtures\//.test(new URLSearchParams(location.search).get("state"))) root.classList.add("sample");
+else fetch("/api/sample").then((r) => r.json()).then((j) => j.sample && root.classList.add("sample")).catch(() => {});
 const stage = () => "#/" + location.hash.slice(2).split("/")[0];
 if (new URLSearchParams(location.search).has("present")) root.classList.add("present");
 if (root.classList.contains("present") && !location.hash) location.hash = STAGES[0];

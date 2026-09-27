@@ -197,6 +197,7 @@ def up():
         sys.exit("port 4141 is taken: stop the other `graduate up` or `make dev` (find it: lsof -i :4141)")
     if a.demo:
         os.chdir(_demo_dir())
+        os.environ["GRADUATE_SAMPLE"] = "1"  # the dashboard labels fixture numbers as sample data (#87)
     elif not (os.environ.get("OPENAI_API_KEY") or _dotenv().get("OPENAI_API_KEY")):
         sys.exit(
             "no OPENAI_API_KEY here: run `graduate init` first, or `graduate up --demo`"
