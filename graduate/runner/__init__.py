@@ -52,7 +52,7 @@ def _session_totals(session_id):
     calls = _router("GET", f"/api/sessions/{session_id}/log") or []
     if calls:
         out["upstream"], out["model"] = calls[-1]["upstream"], calls[-1]["model"]
-        if any(c["upstream"] == "cache" for c in calls):  # #144: never a verified frontier run or training data
+        if any(c["upstream"] == "cache" for c in calls):
             out["upstream"] = "cache"
     return out
 

@@ -98,7 +98,7 @@ def test_a_cache_session_is_in_neither_arm(tmp_path):
     for name, extra in (("before", []), ("after", [json.dumps(cached)])):
         (tmp_path / name).mkdir()
         (tmp_path / name / "ledger.jsonl").write_text("\n".join(rows + extra) + "\n")
-        outs.append(compare(tmp_path / name / "ledger.jsonl").stdout.splitlines()[1:])  # [0] is the path and row count
+        outs.append(compare(tmp_path / name / "ledger.jsonl").stdout.splitlines()[1:])
     before, after = outs
     line = before.index("  cache sessions, in neither arm: none")
     assert after[line] == "  cache sessions, in neither arm: sess-00000000cafe"
