@@ -6,9 +6,9 @@
 // it runs a scripted timeline seeded from the APIs' shapes: tagged "demo data". Uses app.js's globals at call time.
 const SPONSORS = [
   ["openai", "OpenAI", "the big model when credited · no credit today", "off"],
-  ["river", "River", "trains and serves your model · Qwen3.5-9B LoRA trained on 8 real runs", "on"],
+  ["river", "River", "trains and serves your model", "off"],
   ["memorable", "Memorable", "classifies each task by recalling past procedures learned from verified runs", "on"],
-  ["gbrain", "GBrain", "agents share notes · live on this host", "on"],
+  ["gbrain", "GBrain", "agents share notes", "off"],
 ];
 const NODES = { agent: [100, 210], grad: [360, 210], big: [640, 95], yours: [640, 325], tests: [900, 210] };
 const EDGES = { // straight lines, node edge to node edge; none cross
@@ -250,6 +250,8 @@ const topType = () => Object.entries((data.state && data.state.registry.task_typ
 const notYet = (short) => ((topType()[1] || {}).state === "GRADUATED" ? (short ? "no run yet" : "live · no run here yet") : short ? "model training" : "training on these runs");
 
 // Every frame, from the newest /state: the big model the latest runs used, and your model's plain one-liner.
+const toggleOn = (id, on) => { const el = document.getElementById(id); el.classList.toggle("on", on); el.classList.toggle("off", !on); };
+
 function facts() {
   const s = data.state || {}, rows = s.ledger || [], reg = (s.registry && s.registry.task_types) || {}, tot = s.totals || {};
   const latest = ([...rows].reverse().find((r) => r.routed_to === "frontier" && r.model && r.model !== "unknown") || {}).model || "";
@@ -260,6 +262,13 @@ function facts() {
   if (gpt) set("sp-openai-role", `the big model now: ${latest}`);
   const verified = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from).length;
   set("sp-memorable-role", `classifies each task by recalling past procedures · ${verified} learned from verified runs`);
+  const riverT = Object.values(reg).find((t) => String(t.model || "").startsWith("river://"));
+  const localT = Object.values(reg).find((t) => t.model && !String(t.model).startsWith("river://"));
+  toggleOn("sp-river", !!riverT);
+  set("sp-river-role", riverT ? `trains and serves your model · Qwen3.5-9B LoRA trained on ${riverT.trained_on_runs || "its"} real runs` : localT ? "not used · your model trained on this machine" : "not used yet · nothing trained");
+  const gb = (s.trace || []).filter((e) => /GBrain/.test(e.who)), gbLive = gb.filter((e) => !/GBrain not installed|skipped|^exit [1-9]/.test(e.result));
+  toggleOn("sp-gbrain", gbLive.length > 0);
+  set("sp-gbrain-role", gbLive.length ? `agents share notes · ${gbLive.length} recent calls` : gb.length ? "not installed · notes go to a shared file" : "not called yet");
   const g = Object.values(reg).find((t) => t.state === "GRADUATED" && t.model);
   if (g && String(g.model).startsWith("river://")) set("sp-river-role", `trains and serves your model · Qwen3.5-9B LoRA trained on ${g.trained_on_runs || "your"} real runs`);
   if (!g || !sim.S.real) return set("yours-line", "");
