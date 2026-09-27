@@ -17,13 +17,20 @@ NUMBERS = ("turns", "tool_calls", "cost_usd", "wall_secs")
 
 
 def _rows():
+    """Decoded rows and how many lines did not decode (a runner killed mid-append, #132)."""
     # Read the file directly: the row shape is the contract, ledger.py (#34) is the writer.
     try:
         with open(LEDGER_PATH, encoding="utf-8") as f:
             lines = f.read().split("\n")[:-1]  # drop a half-written last line
     except FileNotFoundError:
-        return []
-    return [json.loads(line) for line in lines if line.strip()]
+        return [], 0
+    rows, bad = [], 0
+    for line in filter(str.strip, lines):
+        try:
+            rows.append(json.loads(line))
+        except ValueError:
+            bad += 1
+    return rows, bad
 
 
 def _avg(rows):
@@ -33,7 +40,7 @@ def _avg(rows):
 def scan():
     """Recompute every task type from the whole ledger. Same ledger in, same registry out."""
     # ponytail: full re-read per change; keep a byte offset if the ledger outgrows a demo day.
-    rows = _rows()
+    rows, bad = _rows()
     by_type = {}
     for r in rows:
         if r["task_type"] != "unknown":
@@ -41,7 +48,8 @@ def scan():
     trace.emit(
         "Ledger → Watcher",
         f"tail {LEDGER_PATH}",
-        f"{len(rows)} rows, {len(by_type)} task types",
+        f"{len(rows)} rows, {len(by_type)} task types"
+        + (f", {bad} unreadable lines skipped" if bad else ""),
         19,
         ["ledger", "watcher"],
         ["tail"],
@@ -116,5 +124,16 @@ def watch():
     while True:
         if (m := _mtime()) != seen:
             seen = m
-            scan()
+            try:
+                scan()
+            except Exception as e:  # a dead watcher thread never flips READY again (#132); retry on the next change
+                print(f"watcher: scan failed: {e!r}")
+                trace.emit(
+                    "Ledger → Watcher",
+                    f"tail {LEDGER_PATH}",
+                    f"scan failed: {e!r:.120}",
+                    132,
+                    ["ledger", "watcher"],
+                    ["tail"],
+                )
         time.sleep(POLL_SECS)
