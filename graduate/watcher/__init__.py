@@ -5,6 +5,7 @@ python -m graduate.watcher --once    replay the whole ledger once and exit
 python -m graduate.watcher --check   self-check
 """
 
+import calendar
 import json
 import os
 import subprocess
@@ -107,12 +108,21 @@ def scan():
 
 
 def started(pid):
-    """Start time of a live process; None once it is gone or a zombie. `ps` so macOS works too."""
+    """Start time (epoch s) of a live process; None once it is gone or a zombie. `ps` so macOS works too."""
     ps = ["ps", "-o", "stat=,lstart=", "-p", str(pid)]
-    out = subprocess.run(
-        ps, capture_output=True, text=True, env={**os.environ, "LC_ALL": "C"}
-    ).stdout.split(None, 1)
-    return out[1].strip() if out and not out[0].startswith("Z") else None
+    env = {**os.environ, "LC_ALL": "C", "TZ": "UTC"}
+    out = subprocess.run(ps, capture_output=True, text=True, env=env).stdout.split(
+        None, 1
+    )
+    if not out or out[0].startswith("Z"):
+        return None
+    return calendar.timegm(time.strptime(out[1].strip(), "%a %b %d %H:%M:%S %Y"))
+
+
+def _alive(rec):
+    # Seen on this host: the same process's lstart one second apart between two ps calls. A reused pid starts later.
+    now = rec["started"] and started(rec["pid"])
+    return bool(now) and abs(now - rec["started"]) <= 2
 
 
 def reap():
@@ -120,11 +130,7 @@ def reap():
     The consent endpoint records the trainer's pid and start time; another start time is a reused pid."""
     for t, tt in registry.load()["task_types"].items():
         rec = tt.get("trainer")
-        if (
-            tt["state"] != "TRAINING"
-            or not rec
-            or (rec["started"] and started(rec["pid"]) == rec["started"])
-        ):
+        if tt["state"] != "TRAINING" or not rec or _alive(rec):
             continue
         try:
             registry.transition(t, "READY")
