@@ -1,4 +1,4 @@
-# jelly: results (#31)
+# Jelly: results (#31)
 
 ## Real runs (Claude Haiku 4.5 as the big model)
 
@@ -59,6 +59,39 @@ fix-failing-test
 **No live demo film.** The second film attempt graduated on the River checkpoint, but this checkout didn't yet have River's serving fix (646d797). So the router fell back to Claude on 07, and the spend watchdog stopped the run at $0.37 before 09. That run doesn't show the owned model serving, so it isn't published. Another attempt would have gone over the $3 cap.
 
 The ledger, sessions, metrics and registry are in `/home/ubuntu/jelly-corpus/claude-live/` on the build host, with the corpus, checkpoint and eval logs beside it.
+
+## Real benchmark (OpenAI frontier vs small vs River-trained owned)
+
+**Real, 2026-09-27 22:57–23:08Z, OpenAI credit.** This section uses OpenAI models. The Claude Haiku 4.5 numbers above are a separate, earlier baseline; nothing here mixes the two.
+
+**Arms.** Frontier: **OpenAI `gpt-5.5`**. Small: **OpenAI `gpt-5.4-mini`**. Owned: **the River-trained model** `river://9a2699b3-ce6f-4182-9da8-824a68de9c84/sampler_weights/fix-failing-test-v1` (Qwen3.5-9B LoRA, trained on the 8 Claude Haiku 4.5 sessions of broken states 01–08; [River section](#river-the-owned-model-trained-and-served-on-river-qwen35-9b)). Both OpenAI arms ran on the priority tier with `reasoning_effort: none` (`OPENAI_EXTRA_BODY`): on Chat Completions, every GPT-5.x after `gpt-5` rejects function tools beside a reasoning effort, and OpenCode sends one. We checked that with one 16-token call per model.
+
+**`graduate bench --tasks 09,10,07 --arms frontier,small,owned`** (`bench-20260927T225656Z`, git `7c80099`). 09 and 10 were not in the owned model's training data; 07 is a repeat of a trained state. One run per task and arm. Every session is real OpenCode through the router, verified by the task's test. Means per session:
+
+| Arm | Model | Pass | Output tokens | Input tokens | Cached | Cost | Turns | Wall p50 (s) |
+|---|---|---|---|---|---|---|---|---|
+| frontier | OpenAI `gpt-5.5` | 3/3 | 670 | 227,400 | 86% | $0.2808 | 8 | 23.8 |
+| small | OpenAI `gpt-5.4-mini` | 3/3 | 804 | 267,915 | 87% | $0.0469 | 9 | 81.4 |
+| owned | River-trained `fix-failing-test-v1` | 3/3 | 820 | 16,026 | 0% | $0.0060 | 9 | 33.8 |
+
+Sessions: frontier `sess-65546dfe4106` (09), `sess-f5788965e0b7` (10), `sess-4c276eda1a19` (07); small `sess-f9f388eddf8c`, `sess-b99051b8a1f0`, `sess-ce2f5df24988`; owned `sess-64a4a0796956`, `sess-e5ecaf329a4b`, `sess-87ddcb52646b`. Full record: `bench/latest/results.json`.
+
+**Read it honestly.**
+- **Output tokens, the headline metric, did not go down.** The owned model used 820 a session against `gpt-5.5`'s 670 (+22%). It passed all 3, including both states it never trained on, with zero frontier calls.
+- **Cost went down 47×** ($0.0060 vs $0.2808 a session), because the owned model is served a compacted prompt of ~2k tokens a call instead of OpenCode's ~28k, at the owned rate. That rate is River's Qwen3.6-35B-A3B preview price in `prices.json`, an upper bound for the 9B; River exposes no billing call, so the owned dollars are priced, not billed.
+- OpenAI costs are at standard list prices (`gpt-5.5` $5 / $0.50 cached / $30 per 1M; `gpt-5.4-mini` $0.75 / $0.075 / $4.50). The priority tier bills more than that.
+- 3 runs per arm is too few for a pass rate.
+
+**Live run on the public data, big model to small model** (22:59–23:08Z, one router on the public data directory, no task-type hints, so Memorable recall classified every session, and the agents used GBrain's MCP tools to read and write shared notes):
+1. `graduate swarm --agents 3` on broken states 01–05 through OpenAI `gpt-5.5`: **5 of 5 verified** (720–831 output tokens, ~$0.30 each).
+2. At 5 verified runs the task type went READY. Approving it trained a **fresh** LoRA on River on those 5 sessions: Qwen3.5-9B, 15 steps, loss 0.480 → 0.034, 95.5 s, `river://d8703e97-6a1a-4248-a883-ca5bdb6d670c/sampler_weights/fix-failing-test-v1`, GRADUATED.
+3. Broken states 06, 08 and 09 then **routed to that River model and passed with zero frontier calls** (1,388 / 1,562 / 1,334 output tokens, $0.007–0.011 each). None of the three was in its 5 training sessions. 07 went to `gpt-5.5` and passed there; Memorable didn't map it to the task type (below).
+
+Earlier the same evening, on the previous public data copy with the first River model: 7 of 7 owned sessions passed (repeats 03, 05, 06, 07, 08, held-out 09, 10), zero frontier calls.
+
+**`make e2e` (#59), live:** `sess-406b1acb3086` on OpenAI `gpt-5.4-mini`, verify exit 0, 13 calls, $0.0571 of its $0.10 cap. Its credit probe asked for 1 output token, which GPT-5.x answers with 400; it now asks for 16.
+
+**OpenAI spend for all of the above:** $3.68 at list prices (bench $1.10 including one aborted attempt, public-data runs $2.53, e2e $0.06), under the $25 cap.
 
 ## Offline rehearsal (stub frontier)
 
@@ -124,7 +157,7 @@ Baseline: mean of the 5 verified frontier runs before graduation (the staged cor
 
 ## Bench (#56)
 
-No frontier bench table: with no credit, `graduate bench` can only run its frontier arm against the stub, and the stub's scripted sessions measure nothing. The owned arm's rows are in the per-state table above.
+The real bench table (OpenAI `gpt-5.5` vs `gpt-5.4-mini` vs the River-trained model) is in [Real benchmark](#real-benchmark-openai-frontier-vs-small-vs-river-trained-owned). In the offline rehearsal the frontier arm could only run against the stub, which measures nothing; the owned rows from then are in the per-state table above.
 
 ## River: the owned model trained and served on River (Qwen3.5-9B)
 
