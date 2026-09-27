@@ -7,7 +7,7 @@
 const SPONSORS = [
   ["anthropic", "Anthropic · Claude Haiku 4.5", "the big model for today's real runs", "on"],
   ["openai", "OpenAI", "the big model when credited · no credit today", "off"],
-  ["river", "River", "trains and serves your model · key works, a training attempt is in progress; the demo model trained on this machine", "warn"],
+  ["river", "River", "trains and serves your model · Qwen3.5-9B LoRA trained on 8 real runs", "on"],
   ["memorable", "Memorable", "classifies each task by recalling past procedures · 8 procedures learned from verified runs", "on"],
   ["gbrain", "GBrain", "agents share notes · live on this host", "on"],
   ["superset", "Superset", "parallel runs · adapter behind a flag, not installed", "off"],
@@ -246,22 +246,34 @@ function training(dt) {
   }, 6000);
 }
 
+// The River run's recorded numbers (docs/results.md § River), shown when the registry's model is on River and this
+// directory has no loss curve of its own.
+const RIVER_RUN = " · 24 steps · loss 0.261 → 0.030 · 122 s";
+
 // Real mode: the ring is the registry's own count and state for its busiest task type, not the replay's.
+const topType = () => Object.entries((data.state && data.state.registry.task_types) || {}).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
+// Your model's side before it has a run in this directory: training, or live with no run recorded here yet.
+const notYet = (short) => ((topType()[1] || {}).state === "GRADUATED" ? (short ? "no run yet" : "live · no run here yet") : short ? "model training" : `training on ${sim.S.queue.length} real runs`);
+
 function realRing() {
-  const S = sim.S, reg = (data.state.registry.task_types || {}), n = data.state.config.n || 5;
-  const [slug, t] = Object.entries(reg).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
+  const S = sim.S, n = data.state.config.n || 5;
+  const [slug, t] = topType();
   if (!t) return;
   const v = t.verified_runs || 0, runs = `${v} real run${v === 1 ? "" : "s"}`;
   document.getElementById("ring").style.strokeDashoffset = 100 - (Math.min(v, n) / n) * 100;
   set("ring-n", String(Math.min(v, n))); set("ring-of", `of ${n} needed`); set("ring-name", `“${t.title || slug}” · ${runs}`);
   const said = { LEARNING: "learning on the big model", READY: "ready · training your model", TRAINING: `training your model on these ${runs}`,
-    GRADUATED: "graduated · your model is live for this task", PROBATION: "back on the big model after failures" };
+    GRADUATED: "graduated · your model is live", PROBATION: "back on the big model after failures" };
   set("ring-state", said[t.state] || t.state);
   const wrap = document.querySelector(".p-ring");
   wrap.classList.toggle("training", t.state === "TRAINING"); wrap.classList.toggle("ready", t.state === "READY"); wrap.classList.toggle("graduated", t.state === "GRADUATED");
-  const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, last = curve && curve.steps[curve.steps.length - 1];
-  set("train-line", last ? `LoRA on Qwen2.5-Coder-0.5B · on this machine · ${last.step} steps · loss ${last.loss.toFixed(3)}` : "LoRA on Qwen2.5-Coder-0.5B · on this machine");
-  document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || last ? 1 : 0})`;
+  const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, c = curve && curve.steps;
+  const river = String(t.model || "").startsWith("river://");
+  const where = river ? "LoRA on Qwen3.5-9B · on River" : "LoRA on Qwen2.5-Coder-0.5B · on this machine";
+  const run = c && c.length ? ` · ${c.length} steps · loss ${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)} · ${Math.round(c[c.length - 1].secs || 0)} s`
+    : river ? RIVER_RUN : "";
+  set("train-line", where + run);
+  document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || c ? 1 : 0})`;
   set("ring-what", `${n} passing runs of one kind of task, then your own model takes it over.`);
 }
 
@@ -320,7 +332,7 @@ function counters(dt) {
   document.getElementById("n-yours").classList.toggle("lit", sim.graduated.size > 0); set("k-cost", money(sim.shown.cost)); set("k-runs", num(sim.runs));
   set("k-yours", sim.runs ? `${Math.round((sim.yours / sim.runs) * 100)}%` : "0%");
   set("k-saved", `${sim.saved < 0 ? "−" : ""}${money(Math.abs(sim.saved))}`);
-  set("k-saved-l", sim.S.real && !sim.S.mine ? "saved · model training" : `saved · ${short(Math.max(0, sim.savedTok))} tokens`);
+  set("k-saved-l", sim.S.real && !sim.S.mine ? `saved · ${notYet(true)}` : `saved · ${short(Math.max(0, sim.savedTok))} tokens`);
 }
 const short = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
@@ -330,7 +342,7 @@ const set = (id, v) => { const el = document.getElementById(id); if (el && el.te
 function raceLoop(dt) {
   const S = sim.S;
   if (!S.mine || !S.big.out) { // real mode before your model has run: the big model's run only
-    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", `training on ${S.queue.length} real runs`); set("race-verdict", "");
+    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", notYet()); set("race-verdict", "");
     document.getElementById("rb-big").style.transform = "scaleX(1)"; document.getElementById("rb-yours").style.transform = "scaleX(0)";
     return;
   }
