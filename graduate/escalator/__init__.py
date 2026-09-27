@@ -62,6 +62,23 @@ def _keep_negative(row):
     return path
 
 
+def _dead_frontier():
+    try:
+        lines = Path(trace.TRACE_PATH).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return None
+    for line in reversed(lines):
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("who") == "Router → OpenAI":
+            r = e["result"]
+            dead = r.startswith("401") or (r.startswith("429") and "per min" not in r)
+            return r if dead else None
+    return None
+
+
 def escalate(row, pre):
     from graduate import runner  # the runner imports this module
 
@@ -113,6 +130,13 @@ def escalate(row, pre):
             "requests go to the frontier until it is retrained.",
         )
 
+    dead = _dead_frontier()
+    if dead:
+        why = f"no frontier rerun of {sid}: the frontier's last answer was {dead[:120]}"
+        trace.emit("Escalator → Runner", "graduate run --force-frontier", why, ISSUE,
+                   ["escalator", "router", "openai"], ["rerun", "frontier"], sid)
+        print(why)
+        return row
     trace.emit(
         "Escalator → Runner",
         "graduate run --force-frontier",
