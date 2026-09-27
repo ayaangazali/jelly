@@ -5,6 +5,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import river_client
+
 ROOT = Path(__file__).resolve().parent.parent
 PREFERRED = ["qwen3.6-35b-a3b", "qwen3.5-9b", "nemotron-3.5-lightning-30b-a3b"]
 
@@ -35,8 +37,6 @@ def main():
     key = os.environ.get("RIVER_API_KEY", "")
     if not key.startswith("rv_"):
         sys.exit("RIVER_API_KEY is missing or doesn't start with rv_. Put it in .env (see .env.example).")
-
-    import river_client
 
     client = river_client.Client(api_key=key)
     started = time.monotonic()
@@ -80,7 +80,5 @@ def _dist_version():
 if __name__ == "__main__":
     try:
         main()
-    except Exception as e:
-        if type(e).__module__.startswith("river_client"):
-            sys.exit(f"River: {e}")
-        raise
+    except river_client.RiverError as e:
+        sys.exit(f"River: {e}")
