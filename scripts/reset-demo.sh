@@ -25,6 +25,8 @@ esac
 cd "$(dirname "$0")/.."
 git restore --source=HEAD --worktree -- demo-repo
 git clean -fdq -- demo-repo
+# Same-size edits within one second leave stale .pyc files that Python trusts.
+find demo-repo -path demo-repo/.venv -prune -o -name __pycache__ -exec rm -rf {} +
 [ "$1" = clean ] && exit 0
 
 python3 - "demo-repo/calc/mod_$1.py" "$old" "$new" <<'PY'
