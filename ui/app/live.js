@@ -107,7 +107,7 @@ function startLive() {
   sim.dots.forEach((d) => d.els.forEach((el) => el.remove()));
   Object.assign(sim, { S, t: 0, next: 0.2, qi: 0, dots: [], tokens: 0, cost: 0, runs: 0, passed: 0, yours: 0, saved: 0, savedTok: 0, ring: 0, typeIx: 0, graduated: new Set(S.grads), raceT: 0, training: null });
   const tag = document.querySelector("#live-root .tag.src"); // one source tag for the page
-  tag.textContent = S.real ? `real run${S.speed > 1.5 ? ` · ${Math.round(S.speed)}×` : ""}` : "demo data";
+  tag.textContent = S.real ? `replaying real runs${S.speed > 1.5 ? ` · ${Math.round(S.speed)}× speed` : ""}` : "demo data";
   tag.classList.toggle("real", !!S.real);
   resetRing();
   sim.lanes = S.agents.map((a) => ({ a, busy: 0, dur: 1, status: "idle" }));
