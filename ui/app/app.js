@@ -188,8 +188,9 @@ function verdictHTML([f, o]) {
   const F = f.row, O = o.row;
   if (O.exit_code !== 0) return `<p class="diff fail">Your model failed this task${race.rescue ? " and the frontier finished it" : ""}. No win to claim here.</p>`;
   if (F.exit_code !== 0) return `<p class="diff">The frontier failed this task; your model passed.</p>`;
-  const x = O.output_tokens ? (F.output_tokens / O.output_tokens).toFixed(1) : "n/a";
-  return `<p class="diff">Both passed. Your model: <b>${x}× fewer output tokens</b> (${num(F.output_tokens)} → ${num(O.output_tokens)}) · ${F.turns} → ${O.turns} turns · ${money(F.cost_usd)} → ${money(O.cost_usd)} · ${F.wall_secs}s → ${O.wall_secs}s <span class="muted">(ledger)</span></p>`;
+  const cmp = (f, o, fmt, less, more) => `${o < f ? less : o > f ? more : "same"} ${fmt(f)} → ${fmt(o)}`;
+  const x = O.output_tokens < F.output_tokens ? `<b>${(F.output_tokens / (O.output_tokens || 1)).toFixed(1)}× fewer output tokens</b> (${num(F.output_tokens)} → ${num(O.output_tokens)})` : cmp(F.output_tokens, O.output_tokens, num, "fewer output tokens", "more output tokens");
+  return `<p class="diff">Both passed. Your model: ${x} · ${cmp(F.turns, O.turns, String, "fewer turns", "more turns")} · ${cmp(F.cost_usd, O.cost_usd, money, "cheaper", "costlier")} · ${cmp(F.wall_secs, O.wall_secs, (v) => `${v}s`, "faster", "slower")} <span class="muted">(ledger)</span></p>`;
 }
 
 function tick() {
