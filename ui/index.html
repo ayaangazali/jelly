@@ -343,6 +343,25 @@ const NODES = [
     calls: ["git diff > sessions/<id>.diff", "git checkout -- . && git clean -fd", "graduate run --force-frontier   (header x-graduate-force: frontier)"], files: ["data/<task>.neg.jsonl"] },
 ];
 const NODE = Object.fromEntries(NODES.map((n) => [n.id, { ...n, x: COL[n.c], y: ROW[n.r] }]));
+const LOCAL = {
+  router: { what: "An OpenAI-compatible proxy. Classifies each session once, reads the registry, sends the call to OpenAI or to your local model, streams the answer back untouched, and logs the call.",
+    calls: ["memorable recall … --single   (first call of a session only)", "registry.json → state of the task type", "POST api.openai.com/v1/chat/completions   or   the checkpoint on this machine"] },
+  river: { label: "Local model", sub: "your LoRA, on this CPU", ext: false, leaves: "", risk: "",
+    what: "Your trained model, served on this machine's CPU. The router generates the whole answer from the LoRA checkpoint, then streams it back. Nothing leaves this machine.",
+    calls: ["LocalBackend.complete(\"data/checkpoints/<task>-v<n>\", messages, tools)"] },
+  consent: { what: "Nothing is used for training until you approve the exact records on the consent screen." },
+  rivertrain: { label: "Local training", sub: "LoRA SFT on this CPU", ext: false, leaves: "", risk: "",
+    what: "LoRA fine-tuning of a small open model on this machine's CPU with torch and peft. The training records never leave this machine.",
+    calls: ["get_peft_model(\"Qwen/Qwen2.5-Coder-0.5B-Instruct\", LoraConfig(r=16))", "model.save_pretrained(\"data/checkpoints/<task>-v<n>\")"] },
+  registrar: { what: "Turns passing sessions into tokenized training records with the base model's chat template, trains a LoRA on this machine, and marks the task type Graduated with the new checkpoint.",
+    calls: ["tokenizer.apply_chat_template(messages, tools=…)", "registry.transition(\"GRADUATED\", model=\"data/checkpoints/<task>-v<n>\")"] },
+};
+const OWNED = {
+  local: LOCAL,
+  none: { ...LOCAL,
+    river: { ...LOCAL.river, label: "No owned model", sub: "backend: none", calls: null, what: "GRADUATE_OWNED_BACKEND=none: nothing is trained and the frontier serves every call." },
+    rivertrain: { ...LOCAL.rivertrain, label: "No training", sub: "backend: none", calls: null, what: "GRADUATE_OWNED_BACKEND=none: nothing is trained." } },
+};
 const EDGES = [
   { id: "launch", d: "M135,76 V130", lx: 141, ly: 107, t: "launches", a: "start" },
   { id: "ingest", d: "M230,48 H290", lx: 260, ly: 42, t: "ingest", a: "middle" },
@@ -394,6 +413,7 @@ async function poll() {
     if (text === lastJson) return;
     lastJson = text;
     S = JSON.parse(text);
+    for (const [id, o] of Object.entries(OWNED[S.config.backend] || {})) Object.assign(NODE[id], o);
     for (const [k, t] of Object.entries(tasks())) {
       if (t.state === "GRADUATED" && prevState[k] && prevState[k] !== "GRADUATED") { stampFor = k; stampUntil = Date.now() + 1500; }
       prevState[k] = t.state;
