@@ -16,6 +16,7 @@ import importlib.util
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,7 @@ COMMANDS = {
     ),
     "bench": ("graduate.bench:main", "frontier vs small vs owned on the demo tasks: output tokens, cost, turns, pass rate"),
     "results": ("graduate.results:main", "freeze the dashboard state to results/state.json; view it with ?state= (no key)"),
+    "train": ("graduate.registrar.train:main", "LoRA-train a task type's model, then TRAINING -> GRADUATED"),
 }
 
 # The repo root in a checkout; site-packages in a wheel, where ui/ and fixtures/ ship beside graduate/.
@@ -191,6 +193,8 @@ def up():
         help="no key: serve the dashboard on fixture state",
     )
     a = p.parse_args()
+    if socket.socket().connect_ex(("127.0.0.1", 4141)) == 0:  # #84: a bind check would trip on TIME_WAIT
+        sys.exit("port 4141 is taken: stop the other `graduate up` or `make dev` (find it: lsof -i :4141)")
     if a.demo:
         os.chdir(_demo_dir())
     elif not (os.environ.get("OPENAI_API_KEY") or _dotenv().get("OPENAI_API_KEY")):
