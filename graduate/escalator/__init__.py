@@ -14,6 +14,7 @@ escalated_from set. Self-check: python -m graduate.escalator
 import json
 import os
 import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from graduate import registry, trace
@@ -21,6 +22,7 @@ from graduate.registrar import dataset
 
 FAIL_LIMIT = int(os.environ.get("GRADUATE_FAIL_LIMIT", "3"))
 ISSUE = 23
+DEAD_429 = ("per day", "insufficient_quota", "Request too large")
 
 
 def _git(repo, *args, check=True):
@@ -60,6 +62,24 @@ def _keep_negative(row):
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
     return path
+
+
+def _dead_frontier():
+    try:
+        lines = Path(trace.TRACE_PATH).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return None
+    for line in reversed(lines):
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("who") == "Router → OpenAI":
+            r = e["result"]
+            dead = r.startswith("401") or (r.startswith("429") and any(s in r for s in DEAD_429))
+            ts = datetime.strptime(e["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            return r if dead and datetime.now(timezone.utc) - ts < timedelta(hours=1) else None
+    return None
 
 
 def escalate(row, pre):
@@ -113,6 +133,13 @@ def escalate(row, pre):
             "requests go to the frontier until it is retrained.",
         )
 
+    dead = _dead_frontier()
+    if dead:
+        why = f"no frontier rerun of {sid}: the frontier's last answer was {dead[:220]}"
+        trace.emit("Escalator → Runner", "graduate run --force-frontier", why, ISSUE,
+                   ["escalator", "router", "openai"], ["rerun", "frontier"], sid)
+        print(why)
+        return row
     trace.emit(
         "Escalator → Runner",
         "graduate run --force-frontier",
