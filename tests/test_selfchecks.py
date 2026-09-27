@@ -16,6 +16,7 @@ import pytest
         "graduate.router.app",
         "graduate.router.sessionlog",
         "graduate.router.metrics",
+        "graduate.router.consent",  # approve, revoke, 409 once TRAINING, path traversal 404
         "graduate.escalator",  # reset, rerun on frontier, demote at the fail limit
         pytest.param(  # SFT chat and wire records (#21): renders with River's SDK
             "graduate.registrar.dataset --check",

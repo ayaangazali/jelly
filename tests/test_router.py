@@ -131,3 +131,21 @@ def test_no_key_says_how_to_fix_it(router, stub, sid, monkeypatch):
         r = post(router, sid, stream=stream)
         assert r.status_code == 401 and "graduate init" in r.json()["error"]["message"]
     assert stub.requests == []  # nothing left the machine
+
+
+@pytest.mark.parametrize("key", ["sk-QWZXPLMK\r", "sk-QWZX\nPLMK", "sk-QWZX\u2019PLMK"])
+def test_a_pasted_control_character_never_puts_the_key_in_an_error(router, stub, sid, workdir, monkeypatch, key):
+    """A key sourced from a CRLF env file: httpx's header error quotes the whole Authorization value."""
+    import socket
+    import threading
+
+    from graduate.router import upstream
+
+    s = socket.create_server(("127.0.0.1", 0))  # a real socket: headers are validated on the way out
+    threading.Thread(target=lambda: [s.accept()[0].close() for _ in iter(int, 1)], daemon=True).start()
+    monkeypatch.setattr(upstream, "client", httpx.AsyncClient())
+    monkeypatch.setattr(upstream, "URL", f"http://127.0.0.1:{s.getsockname()[1]}/v1/chat/completions")
+    monkeypatch.setenv("OPENAI_API_KEY", key)
+    r = post(router, sid)
+    on_disk = "".join(p.read_text() for p in workdir.rglob("*") if p.is_file())
+    assert r.status_code in (401, 502) and "QWZX" not in r.text + on_disk and "PLMK" not in r.text + on_disk
