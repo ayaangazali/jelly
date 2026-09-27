@@ -14,6 +14,7 @@ from pathlib import Path
 from graduate import trace
 from graduate.router import upstream
 from graduate.router.app import app, register_on_call
+from graduate.router.route import task_type_of
 from graduate.router.sessionlog import message
 
 METRICS_PATH = Path("metrics.jsonl")
@@ -25,7 +26,7 @@ SUMMED = (
     "tool_calls",
     "cost_usd",
 )
-_sessions = defaultdict(lambda: dict.fromkeys(("turns",) + SUMMED, 0))
+_sessions = defaultdict(lambda: {"task_type": "unknown", **dict.fromkeys(("turns",) + SUMMED, 0)})
 _lock = threading.Lock()
 
 
@@ -44,6 +45,7 @@ def cost(usage, role):
 def _add(rec):
     agg = _sessions[rec["session_id"]]
     agg["turns"] += 1
+    agg["task_type"] = rec.get("task_type", "unknown")
     for k in SUMMED:
         agg[k] += rec[k]
     agg["cost_usd"] = round(
@@ -61,7 +63,7 @@ def record(session_id, request, response, usage, latency_ms, upstream, model):
     rec = {
         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "session_id": session_id,
-        "task_type": "unknown",  # the classifier (#20) is a stub; contracts §2: `unknown` if unmatched
+        "task_type": task_type_of(session_id),
         "upstream": upstream,
         "model": model,
         **usage,
@@ -189,6 +191,7 @@ if __name__ == "__main__":  # self-check: python -m graduate.router.metrics
     mine = [r for r in written if r["session_id"] == s]
     want = {
         "session_id": s,
+        "task_type": "unknown",
         "turns": 2,
         **{k: round(sum(r[k] for r in mine), 6) for k in SUMMED},
     }
