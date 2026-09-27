@@ -16,14 +16,17 @@ async function get(url, init) {
   }
 }
 
-const page = () => (location.hash.split("/")[1] || "compare");
+// Clean paths: /app is the live showcase (live.js), /app/<page> the working pages.
+const page = () => location.pathname.replace(/^\/app\/?/, "").split("/")[0] || "live";
 
 function render() {
-  const p = PAGES[page()] ? page() : "compare";
+  const p = PAGES[page()] ? page() : "live";
+  document.body.classList.toggle("on-live", p === "live");
   document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === p ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const html = data.state ? PAGES[p]() : `<p class="lede">Loading /state…</p>`;
   if ($("#view").dataset.html !== html) { $("#view").innerHTML = html; $("#view").dataset.html = html; }
   tick();
+  if (p === "live" && !sim.on) { sim.on = true; sim.last = performance.now(); requestAnimationFrame(frame); }
 }
 
 async function poll() {
@@ -31,8 +34,8 @@ async function poll() {
   const up = !s.error;
   $("#live").innerHTML = `<span class="dot${up ? " on" : ""}"></span> ${up ? "live · updates every 3s" : "router unreachable"}`;
   if (up) data.state = s;
-  if (["home", "agents"].includes(page())) data.swarm = await get("/api/swarm");
-  if (page() === "compare") data.race = await get("/api/race");
+  if (["overview", "agents", "live"].includes(page())) data.swarm = await get("/api/swarm");
+  if (["race", "live"].includes(page())) data.race = await get("/api/race");
   render();
 }
 
@@ -64,7 +67,7 @@ function home() {
 </div>
 <div class="cols">
   <section><h2>Live activity</h2>${feed(events)}</section>
-  <section><h2>Agents now</h2>${agents.length ? `<p>${agents.length} agents in <code>${esc(data.swarm.swarm_id)}</code>: ${["running", "passed", "failed", "queued"].map((st) => `${agents.filter((a) => a.status === st).length} ${st}`).join(" · ")}.</p><p><a href="#/agents">See the agents →</a></p>` : empty("No swarm running. <code>graduate swarm --tasks 01,02,03 --agents 3</code> starts one.")}</section>
+  <section><h2>Agents now</h2>${agents.length ? `<p>${agents.length} agents in <code>${esc(data.swarm.swarm_id)}</code>: ${["running", "passed", "failed", "queued"].map((st) => `${agents.filter((a) => a.status === st).length} ${st}`).join(" · ")}.</p><p><a href="/app/agents">See the agents →</a></p>` : empty("No swarm running. <code>graduate swarm --tasks 01,02,03 --agents 3</code> starts one.")}</section>
 </div>`;
 }
 
@@ -163,35 +166,32 @@ function startRace(p) {
 const elapsed = () => race.base + (performance.now() - race.since) * race.speed;
 function setSpeed(x) { race.base = elapsed(); race.since = performance.now(); race.speed = x; tick(); }
 
-const source = (r, side) => /stub/i.test(r.model) ? "stub model, offline" : r.model.startsWith("/") ? "local model on this machine"
-  : r.model.startsWith("river://") ? "River model" : side === "owned" ? `routed to your model, upstream reported ${esc(r.model)}` : "frontier API";
 const secsOf = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
+// A race pane: the recorded run replayed, a caption under each counter.
 function paneHTML(p, t, side) {
-  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t), next = p.steps.find((s) => s.at > t);
-  const counts = done ? { out: r.output_tokens, turns: r.turns, cost: r.cost_usd, ms: r.wall_secs * 1000 }  // the ledger has the last word
+  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t);
+  const c = done ? { out: r.output_tokens, turns: r.turns, cost: r.cost_usd, ms: r.wall_secs * 1000 }
     : { out: shown.reduce((a, s) => a + s.out, 0), turns: shown.length, cost: shown.reduce((a, s) => a + s.cost, 0), ms: t };
-  const verdict = !done ? `<p class="verify muted">running…</p>` : r.exit_code === 0
-    ? `<p class="verify pass">Tests pass: ${r.tests_passed} of ${r.tests_total} · exit 0</p>`
-    : `<p class="verify fail">Tests fail · exit ${r.exit_code}${race.rescue && side === "owned" ? `<br>Escalated to the frontier: <code>${esc(race.rescue.session_id)}</code>, exit ${race.rescue.exit_code}, ${money(race.rescue.cost_usd)}` : ""}</p>`;
-  return `<header><b>${side === "owned" ? "Your model" : "Frontier"}</b> <code>${esc(r.model.split("/").pop())}</code>
-<p class="muted">${data.sample ? "sample data" : "recorded run"} · ${source(r, side)} · ${p.logged ? `${p.steps.length} logged calls` : "no session log: ledger totals at the end"}</p></header>
-<div class="ctr"><div class="big"><b>${num(counts.out)}</b><span>output tokens</span></div>
-<div><b>${counts.turns}</b><span>turns</span></div><div><b>${money(counts.cost)}</b><span>cost est.</span></div>
-<div><b>${secsOf(counts.ms)}</b><span>wall time</span></div></div>
-<ol class="turns">${shown.map((s, i) => `<li><span class="muted">${i + 1}</span><span>${s.what}<br><small class="muted">${num(s.out)} output tokens · ${secsOf(s.at)}</small></span></li>`).join("")}
-${next && next.from <= t ? `<li class="now"><span class="muted">${shown.length + 1}</span><span class="muted">model thinking…</span></li>` : ""}${p.logged ? "" : `<li><span></span><span class="muted">This run kept no per-call log, so its turns can't be replayed. The ledger's totals show when its recorded ${r.wall_secs}s are up.</span></li>`}</ol>
-${verdict}`;
+  const end = !done ? `<p class="verify muted">working…</p>` : r.exit_code === 0 ? `<p class="verify pass">✓ Tests passed</p>`
+    : `<p class="verify fail">✗ Tests failed${race.rescue && side === "owned" ? `: re-run on the big model, which ${race.rescue.exit_code === 0 ? "passed" : "failed too"}` : ""}</p>`;
+  return `<header><b>${side === "owned" ? "Your model" : "Big model"}</b> <code class="muted">${esc(r.model.split("/").pop())}</code><p class="muted">${data.sample ? "sample data" : "recorded run"}, replayed at the speed it ran</p></header>
+<div class="ctr"><div class="big"><b>${num(c.out)}</b><span>tokens written: the text you pay for</span></div>
+<div><b>${c.turns}</b><span>times it asked the model</span></div><div><b>${money(c.cost)}</b><span>cost of the task</span></div>
+<div><b>${secsOf(c.ms)}</b><span>time until the tests ran</span></div></div>
+<ol class="turns">${shown.map((s, i) => `<li><span class="muted">${i + 1}</span><span>${s.what}</span></li>`).join("")}${p.logged ? "" : `<li><span></span><span class="muted">No step-by-step record for this run: its totals appear when its time is up.</span></li>`}</ol>
+${end}`;
 }
 
 function verdictHTML([f, o]) {
   const F = f.row, O = o.row;
-  if (O.exit_code !== 0) return `<p class="diff fail">Your model failed this task${race.rescue ? " and the frontier finished it" : ""}. No win to claim here.</p>`;
-  if (F.exit_code !== 0) return `<p class="diff">The frontier failed this task; your model passed.</p>`;
-  const cmp = (f, o, fmt, less, more) => `${o < f ? less : o > f ? more : "same"} ${fmt(f)} → ${fmt(o)}`;
-  const x = O.output_tokens < F.output_tokens ? `<b>${(F.output_tokens / (O.output_tokens || 1)).toFixed(1)}× fewer output tokens</b> (${num(F.output_tokens)} → ${num(O.output_tokens)})` : cmp(F.output_tokens, O.output_tokens, num, "fewer output tokens", "more output tokens");
-  return `<p class="diff">Both passed. Your model: ${x} · ${cmp(F.turns, O.turns, String, "fewer turns", "more turns")} · ${cmp(F.cost_usd, O.cost_usd, money, "cheaper", "costlier")} · ${cmp(F.wall_secs, O.wall_secs, (v) => `${v}s`, "faster", "slower")} <span class="muted">(ledger)</span></p>`;
+  if (O.exit_code !== 0) return `<p class="diff fail">Your model got this one wrong. The tests caught it${race.rescue ? " and it was re-run on the big model" : ""}. No win to claim here.</p>`;
+  if (F.exit_code !== 0) return `<p class="diff">The big model failed this one; your model fixed it.</p>`;
+  const fewer = O.output_tokens < F.output_tokens ? `wrote ${(F.output_tokens / (O.output_tokens || 1)).toFixed(0)}× less text` : `wrote ${O.output_tokens > F.output_tokens ? "more" : "the same amount of"} text`;
+  const caveat = data.sample ? " (sample data)" : bigIsReal() ? "" : " The big model here is a stand-in, not OpenAI, so there is no real saving to claim yet.";
+  return `<p class="diff">Both fixed it. Your model ${fewer} and cost ${money(O.cost_usd)} instead of ${money(F.cost_usd)}.${caveat}</p>`;
 }
+const bigIsReal = () => (data.race && data.race.big_model) === "api.openai.com";
 
 function tick() {
   const box = document.getElementById("race");
@@ -206,20 +206,25 @@ function tick() {
 }
 setInterval(tick, 100);
 
+// The pair on screen: the one picked, else the newest where your model passed, else the newest.
+function currentPair(ps) {
+  let p = ps.find((x) => x.owned.row.session_id === race.key);
+  if (!p) startRace((p = ps.find((x) => x.owned.row.exit_code === 0) || ps[0]));
+  return p;
+}
+
 function compare() {
   if (!data.race) return `<h1>Compare</h1><p class="lede">Loading the recorded runs…</p>`;
   if (data.race.error) return `<h1>Compare</h1>${empty(esc(data.race.error))}`;
   const ps = pairs();
   if (!ps.length) return `<h1>Compare</h1>${empty("No task has both a frontier run and a run on your model in the ledger yet. Once a task type graduates, its next run races here against a frontier run of the same task.")}`;
   const key = (x) => x.owned.row.session_id;
-  let p = ps.find((x) => key(x) === race.key);
-  if (!p) startRace((p = ps.find((x) => x.owned.row.exit_code === 0) || ps[0]));
-  const o = p.owned.row;
+  const p = currentPair(ps), o = p.owned.row;
   return `<h1>Same task, side by side</h1>
-<p class="lede">${esc(o.prompt)} <span class="muted">· ${esc(o.task_type)} · frontier on the left, your model on the right, replayed at recorded speed.</span></p>
+<p class="lede">${esc(o.prompt)} <span class="muted">· ${esc(o.task_type)} · big model on the left, your model on the right, replayed at the speed they ran.</span></p>
 <div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(x.owned.row.prompt.slice(0, 60))} · ${esc(x.owned.row.started_at.slice(11, 16))} · yours ${x.owned.row.exit_code === 0 ? "passed" : "failed"}</option>`).join("")}</select>
 <button class="btn" data-race="replay">Replay</button>${[1, 4, 16].map((x) => `<button class="btn" data-race="${x}">${x}×</button>`).join("")}
-<a href="/#/compare">Bench: frontier vs small vs yours →</a></div>
+<a href="/ui/index.html#/compare">Benchmark table →</a></div>
 <div id="race" class="race"><section class="pane frontier"></section><section class="pane owned"></section></div><div id="verdict"></div>`;
 }
 
@@ -227,16 +232,20 @@ function activity() {
   const s = data.state;
   const trace = [...(s.trace || [])].reverse().slice(0, 40);
   return `<h1>Activity</h1>
-<p class="lede">Every external call GRADUATE makes, newest first. The full architecture diagram, lit up live, is <a href="/#/system">Under the hood</a> on the classic dashboard.</p>
+<p class="lede">Every external call GRADUATE makes, newest first. The full architecture diagram, lit up live, is <a href="/ui/index.html#/system">Under the hood</a> on the classic dashboard.</p>
 <div class="cols">
 <section><h2>Call trace</h2>${trace.length ? `<ul class="feed">${trace.map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No calls traced yet.")}</section>
 <section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.slice(-60).join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
 </div>`;
 }
 
-const PAGES = { home, agents, tasks, compare, activity };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity };
+
+function go(url) { history.pushState(null, "", url); render(); poll(); }
 
 document.addEventListener("click", (e) => {
+  const a = e.target.closest('a[href^="/app"]');
+  if (a && !e.metaKey && !e.ctrlKey) { e.preventDefault(); go(a.getAttribute("href")); return; }
   const b = e.target.closest("button[data-act]");
   if (b) act(b.dataset.act, b.dataset.t);
   const r = e.target.closest("button[data-race]");
@@ -246,7 +255,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   if (e.target.id === "pair") { startRace(pairs().find((x) => x.owned.row.session_id === e.target.value)); render(); }
 });
-window.addEventListener("hashchange", poll);
+window.addEventListener("popstate", () => { render(); poll(); });
 get("/api/sample").then((r) => { data.sample = r.sample; $("#sample").hidden = !r.sample; });
 poll();
 setInterval(poll, 3000);

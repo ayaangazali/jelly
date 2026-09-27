@@ -3,21 +3,24 @@ number on it comes from the live APIs (/state, /api/swarm, /api/consent, /api/sa
 
 GET /api/race feeds its Compare page: one pair per owned run in the ledger, raced against the newest frontier run of
 the same prompt (a first-try run before an escalation rerun), each with its session log (null when none was kept),
-plus the frontier rerun that rescued the owned run if it failed. Newest owned run first."""
+plus the frontier rerun that rescued the owned run if it failed. Newest owned run first. `big_model` is the host the
+router sends frontier calls to, so the story can say when that is a stand-in rather than OpenAI."""
 
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from graduate.router.app import app
-from graduate.router import sessionlog, state
+from graduate.router import sessionlog, state, upstream
 
 PAGE = Path(__file__).resolve().parents[2] / "ui" / "app" / "index.html"
 
 
 @app.get("/app", include_in_schema=False)
-def product_app():
+@app.get("/app/{path:path}", include_in_schema=False)
+def product_app(path: str = ""):
     return FileResponse(PAGE, media_type="text/html")
 
 
@@ -45,4 +48,4 @@ def race():
                 "rescue": rescue,
             }
         )
-    return {"pairs": pairs}
+    return {"pairs": pairs, "big_model": urlparse(upstream.BASE_URL).netloc}  # api.openai.com, or a stand-in

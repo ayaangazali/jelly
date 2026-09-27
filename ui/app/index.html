@@ -12,15 +12,16 @@
 <body>
   <div class="shell">
     <nav class="side" aria-label="Primary">
-      <a class="brand" href="#/compare">GRADUATE</a>
-      <a href="#/compare" data-nav="compare">Compare</a>
-      <a href="#/home" data-nav="home">Home</a>
-      <a href="#/agents" data-nav="agents">Agents</a>
-      <a href="#/tasks" data-nav="tasks">Task types</a>
-      <a href="#/activity" data-nav="activity">Activity</a>
+      <a class="brand" href="/app">GRADUATE</a>
+      <a href="/app" data-nav="live">Live</a>
+      <a href="/app/race" data-nav="race">Race</a>
+      <a href="/app/tasks" data-nav="tasks">Task types</a>
+      <a href="/app/agents" data-nav="agents">Agents</a>
+      <a href="/app/logs" data-nav="logs">Logs</a>
+      <a href="/app/overview" data-nav="overview">Overview</a>
       <div class="side-foot">
         <p id="live"><span class="dot"></span> connecting…</p>
-        <a href="/">Classic dashboard</a>
+        <a href="/ui/index.html">Classic dashboard</a>
       </div>
     </nav>
     <main>
@@ -29,6 +30,7 @@
       <div id="view"></div>
     </main>
   </div>
+  <script src="/ui/app/live.js"></script>
   <script src="/ui/app/app.js"></script>
 </body>
 

@@ -9,8 +9,9 @@ from conftest import ROOT
 def test_app_page_and_its_assets_are_served(router, workdir):
     page = router("GET", "/app")
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
+    assert router("GET", "/app/explore/compare").text == page.text  # clean paths: the page routes itself
     assets = re.findall(r'(?:href|src)="(/ui/app/[^"]+)"', page.text)
-    assert sorted(assets) == ["/ui/app/app.css", "/ui/app/app.js"]
+    assert sorted(assets) == ["/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js"]
     for a in assets:
         assert router("GET", a).status_code == 200, a
 
@@ -50,4 +51,4 @@ def test_race_pairs_each_owned_run_with_a_first_try_frontier_run_of_the_same_pro
 
 
 def test_race_with_no_ledger_has_no_pairs(router, workdir):
-    assert router("GET", "/api/race").json() == {"pairs": []}
+    assert router("GET", "/api/race").json()["pairs"] == []
