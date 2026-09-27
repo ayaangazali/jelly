@@ -73,6 +73,8 @@ def test_parse_qwen_tool_calls():
     [c] = msg["tool_calls"]
     assert c["function"] == {"name": "read", "arguments": '{"filePath": "a.py"}'}
     assert train.parse("Fixed.") == {"role": "assistant", "content": "Fixed."}
+    msg = train.parse('</tool_call>\n{"name": "read", "arguments": {"filePath": "calc/mod_06.py"}}\n</tool_call>')
+    assert msg["content"] == "" and msg["tool_calls"][0]["function"]["name"] == "read"
 
 
 def test_compact_keeps_env_and_task_tools():
