@@ -9,7 +9,8 @@ from pathlib import Path
 
 import httpx
 
-OUT = Path("data/poc")
+OUT = Path(os.environ.get("POC_OUT", "data/poc"))
+DOCS, SDK, TESTKIT = "", "", ""
 SYSTEM = "You are a precise Python assistant. Reply with exactly one ```python code block containing only the requested function, with no explanation."
 FRONTIER = os.environ.get("POC_FRONTIER_MODEL", "gpt-4.1-mini")
 PRICE = {"input": 0.40, "cached_input": 0.10, "output": 1.60}
@@ -49,6 +50,11 @@ TASKS = [
 ]
 
 
+if os.environ.get("POC_SET") == "acme":
+    sys.path.insert(0, str(Path(__file__).parent))
+    from poc_acme import DOCS, SDK, SYSTEM, TASKS, TESTKIT
+
+
 def dotenv(key):
     if os.environ.get(key):
         return os.environ[key]
@@ -68,13 +74,17 @@ def code_of(text):
 def verify(code, tests):
     with tempfile.TemporaryDirectory() as d:
         Path(d, "solution.py").write_text(code)
+        if SDK:
+            Path(d, "acme").mkdir()
+            Path(d, "acme", "__init__.py").write_text(SDK)
+            Path(d, "testkit.py").write_text(TESTKIT)
         Path(d, "test_solution.py").write_text("from solution import *\n\n\ndef test_it():\n" + "".join(f"    {l}\n" for l in tests.splitlines()))
         r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_solution.py"], cwd=d, capture_output=True, text=True, timeout=60)
         return r.returncode, (r.stdout.strip().splitlines() or [""])[-1]
 
 
-def messages(prompt, answer=None):
-    m = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+def messages(prompt, answer=None, docs=False):
+    m = [{"role": "system", "content": SYSTEM + ("\n\n" + DOCS if docs else "")}, {"role": "user", "content": prompt}]
     return m + ([{"role": "assistant", "content": answer}] if answer is not None else [])
 
 
@@ -103,7 +113,7 @@ def stage_frontier():
             rows.append(done[name])
             continue
         r = httpx.post("https://api.openai.com/v1/chat/completions", timeout=120, headers={"Authorization": f"Bearer {key}"},
-                       json={"model": FRONTIER, "messages": messages(prompt), "max_completion_tokens": 600})
+                       json={"model": FRONTIER, "messages": messages(prompt, docs=bool(DOCS)), "max_completion_tokens": 600})
         body = r.json()
         if r.status_code != 200:
             sys.exit(f"frontier {r.status_code} on {name}: {json.dumps(body)[:300]}")
@@ -134,9 +144,10 @@ def stage_memorable():
     rows = load("frontier.jsonl")
     traces = OUT / "traces"
     traces.mkdir(parents=True, exist_ok=True)
-    ingested = []
+    prev = load("memorable.jsonl")
+    ingested = [i for i in (prev[0]["ingested"] if prev else []) if i["slug"]]
     for r in rows:
-        if r["split"] != "train" or r["exit_code"] != 0:
+        if r["split"] != "train" or r["exit_code"] != 0 or r["name"] in {i["name"] for i in ingested}:
             continue
         sid = f"sess-poc-{r['name']}"
         path = traces / f"{sid}.json"
@@ -154,8 +165,10 @@ def stage_memorable():
         hits = [(float(s), slug) for s, slug in re.findall(r"^\s*([0-9.]+)\s+(procedures/\S+)", out.stdout, re.M)]
         recalls.append({"name": r["name"], "split": r["split"], "hits": hits[:5], "top": hits[0][0] if hits else 0.0})
         print(f"recall {r['split']:8} {r['name']:18} top {recalls[-1]['top']:.3f} ({len(hits)} hits)")
-    by_slug = {i["slug"]: i["name"] for i in ingested if i["slug"]}
-    selected = sorted({by_slug[s] for rc in recalls for score, s in rc["hits"] if score >= MIN_RECALL and s in by_slug})
+    by_slug = {}
+    for i in ingested:
+        by_slug.setdefault(i["slug"], set()).add(i["name"])
+    selected = sorted({n for rc in recalls for score, s in rc["hits"] if score >= MIN_RECALL for n in by_slug.get(s, ())})
     save("memorable.jsonl", [{"ingested": ingested, "list_status": listed.returncode, "list": listed.stdout[:4000], "recalls": recalls,
                               "min_recall": MIN_RECALL, "selected": selected}])
     print(f"memorable: {len(ingested)} ingested, {len(selected)} traces selected at recall >= {MIN_RECALL}: {selected}")
@@ -193,7 +206,7 @@ def stage_train():
     steps = int(os.environ.get("POC_STEPS", str(2 * len(data))))
     log, t0 = [], time.time()
     with client.session() as session:
-        model = session.create_model(base, lora=LoraConfig(rank=16))
+        model = session.create_model(base, lora=LoraConfig(rank=int(os.environ.get("POC_RANK", "16"))))
         for step in range(1, steps + 1):
             fwd, _ = model.train_step(data=[data[(step - 1) % len(data)]], lr=float(os.environ.get("POC_LR", "5e-5")), loss_fn="cross_entropy")
             log.append({"step": step, "loss": fwd.metrics.get("loss"), "secs": round(time.time() - t0, 1)})
