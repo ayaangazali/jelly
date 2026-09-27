@@ -165,13 +165,10 @@ def _replay(session_id, request):
         "prompt_tokens_details": {"cached_tokens": used.get("cached_input_tokens", 0)},
     }
     ms = round((time.monotonic() - start) * 1000)
-    tools = (
-        ", ".join(c["function"]["name"] for c in msg.get("tool_calls", [])) or "text"
-    )
     trace.emit(
         "Router → Cache",
         f"lookup {k[:12]}",
-        f"hit · {src} · {tools} · $0 · {ms} ms",
+        f"hit · {src} · {', '.join(c['function']['name'] for c in msg.get('tool_calls', [])) or 'text'} · $0 · {ms} ms",
         ISSUE,
         ["router", "cache"],
         ["cache"],
