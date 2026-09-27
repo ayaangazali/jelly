@@ -29,6 +29,18 @@ graduate train fix-failing-test --use-checkpoint data/checkpoints/fix-failing-te
 
 Writes `data/<task>.loss.jsonl` (step, loss, secs, peak RSS), `data/checkpoints/<task>-v<n>/` (LoRA adapter + tokenizer), and moves the registry TRAINING -> GRADUATED with `model` (checkpoint path), `serving: "checkpoint"`, `trained_on_runs`, `graduated_at`. Any failure or SIGTERM goes back to READY with an event; a TRAINING entry older than an hour is reset on the next start. Memory: LoRA r=16 on all projections plus the two tool-call token rows, gradient checkpointing, logits only at labelled positions, sessions capped at 3072 tokens (`GRADUATE_MAX_LEN`). Run it under a cgroup cap on a shared box: `systemd-run --user --scope -p MemoryMax=5G ...`.
 
+## Reproduce the demo state
+
+From any checkout of main with the `[train]` extra installed, the task type READY, and consent given:
+
+```bash
+graduate train fix-failing-test --use-checkpoint /home/ubuntu/jelly-corpus/checkpoints/fix-failing-test-v2   # GRADUATED in 0.07 s
+```
+
+The router then serves `fix-failing-test` sessions from that path. It has been checked: one completion through the router gave `model: /home/ubuntu/jelly-corpus/checkpoints/fix-failing-test-v2`, `finish_reason: tool_calls`, `read calc/mod_09.py`, 44 output tokens, 29 s, and 0 frontier calls. `scripts/demo.sh --use-checkpoint /home/ubuntu/jelly-corpus/checkpoints/fix-failing-test-v2` does the same move on stage.
+
+Risk: the training sessions carry this worktree's absolute paths (`/home/ubuntu/.treehouse/jelly-f3f5da/6/jelly/demo-repo/...`), and the model repeats them. Run from another checkout, its `read` points at a path that doesn't exist there. The fix is retraining on the real corpus from the demo checkout.
+
 ## Results
 
 **Data.** 8 verified sessions of `fix-failing-test`, broken states 01-08, from the runner through the router to OpenCode. The model in those sessions is `scripts/stub-upstream.py` (a scripted `read`, `edit`, "Fixed."), not a frontier model: the OpenAI project has no credit, so no real corpus exists yet (`/home/ubuntu/jelly-corpus/` is empty). Retrain on the real corpus when it lands: `python -m graduate.registrar.dataset fix-failing-test && graduate train fix-failing-test`.
@@ -40,7 +52,7 @@ Writes `data/<task>.loss.jsonl` (step, loss, secs, peak RSS), `data/checkpoints/
 | `fix-failing-test-v1` | LoRA r16 | 631 s | 3.8 GB | 1.56 -> 0.29 | no: `<\|im_start\|>` where `<tool_call>` belongs |
 | **`fix-failing-test-v2`** | LoRA r16 + the `<tool_call>` `</tool_call>` token rows | **708 s** | 4.7 GB | 1.56 -> 0.002 | yes |
 
-v1 failed because LoRA can't move the special-token rows: after fine-tuning, `<tool_call>` and `<|im_start|>` scored alike and `<|im_start|>` won. v2 trains those two rows too (peft `trainable_token_indices`), at +0.9 GB. Checkpoint: `data/checkpoints/fix-failing-test-v2/` (45 MB adapter) on this host, finished 2026-09-27 09:45Z. `data/` is not in git.
+v1 answered `<|im_start|>` where `<tool_call>` belongs, and the JSON inside was right. v2 also trains those two token rows (peft `trainable_token_indices`, +0.9 GB peak) and emits real tool calls. That fix is what we observed; the cause is not pinned down. Both checkpoints (45 MB adapters) and v2's loss log are kept at **`/home/ubuntu/jelly-corpus/checkpoints/`**, finished 2026-09-27 09:45Z. Worktrees are disposable, and `data/` is not in git.
 
 **Serving.** 3.2 GB RSS, 10 s to load on the first call. Each call is a 1.3-1.5k-token prompt and 3-86 output tokens, and takes 6-31 s on the shared 8-core box.
 

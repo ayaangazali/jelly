@@ -124,7 +124,7 @@ def init():
         key = getpass.getpass("OPENAI_API_KEY (hidden): ").strip()
     if not key:
         sys.exit(
-            "no OPENAI_API_KEY: set it or rerun without --no-input; `graduate up --demo` needs no key"
+            "no OPENAI_API_KEY: export OPENAI_API_KEY=sk-... first, or run `graduate init` in a terminal to be asked; `graduate up --demo` needs no key"
         )
     base = env.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     try:  # the free endpoint: lists models, spends nothing
@@ -134,7 +134,7 @@ def init():
     except httpx.HTTPError as e:
         sys.exit(f"cannot reach {base}/models: {e!r}")
     if r.status_code != 200:
-        sys.exit(f"key rejected: GET {base}/models -> HTTP {r.status_code}")
+        sys.exit(f"key rejected: GET {base}/models -> HTTP {r.status_code}; get a key at https://platform.openai.com/api-keys, or try `graduate up --demo` (no key)")
     print(f"key ok: GET {base}/models -> 200")
 
     backend = a.backend or (

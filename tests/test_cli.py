@@ -96,7 +96,7 @@ def test_init_is_idempotent_and_keeps_what_it_does_not_own(
 def test_init_refuses_a_bad_or_missing_key(models, workdir, monkeypatch):
     _, status = models
     status[0] = 401
-    with pytest.raises(SystemExit, match="HTTP 401"):
+    with pytest.raises(SystemExit, match="HTTP 401; get a key at .*up --demo"):
         init()
     monkeypatch.delenv("OPENAI_API_KEY")
     with pytest.raises(SystemExit, match="up --demo"):
