@@ -334,6 +334,7 @@ def main():
                     str(ROOT / "demo-repo"),
                     force_frontier=arm != "owned",
                     timeout=a.timeout,
+                    task_type=spec.get("task_type"),
                 )
                 row = ledger.rows()[
                     before
