@@ -45,6 +45,8 @@ uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo
 # open http://localhost:4141/ (the dashboard on fixture data); Ctrl-C stops
 ```
 
+Or in Docker, from a clone: `docker build -t graduate . && docker run --rm -p 4141:4141 graduate` (same dashboard, 220 MB image).
+
 **Run it for real** (Python 3.11+, [OpenCode](https://opencode.ai): `curl -fsSL https://opencode.ai/install | bash`):
 
 ```bash
