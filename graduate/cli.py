@@ -119,7 +119,9 @@ def init():
         else "opencode not found: the dashboard works, `graduate run` needs it (curl -fsSL https://opencode.ai/install | bash)"
     )
 
-    key = env.get("OPENAI_API_KEY", "")
+    from graduate.router.upstream import clean_key
+
+    key = clean_key(env.get("OPENAI_API_KEY"))
     if not key and not a.no_input and sys.stdin.isatty():
         key = getpass.getpass("OPENAI_API_KEY (hidden): ").strip()
     if not key:
