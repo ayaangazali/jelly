@@ -84,6 +84,16 @@ def test_run_verifies_and_appends_one_ledger_row(
     ]
 
 
+def test_a_session_with_no_answered_call_keeps_the_runners_task_type(repo, workdir, monkeypatch):
+    agent = workdir / "agent"
+    agent.write_text(AGENT.format("exit 1"))
+    agent.chmod(0o755)
+    monkeypatch.setattr(runner, "OPENCODE", str(agent))
+    monkeypatch.setattr(runner, "_session_totals", lambda sid: {"session_id": sid, "task_type": "unknown", "turns": 0})
+    row = runner.run("Fix calc.", VERIFY, str(repo), timeout=5, task_type="fix-failing-test")
+    assert (row["task_type"], jsonl("ledger.jsonl")[0]["task_type"]) == ("fix-failing-test", "fix-failing-test")
+
+
 def test_the_agent_never_holds_the_openai_key(repo, workdir, monkeypatch):
     """#97: `graduate bench` needs the key in its env; an agent's `env` or `printenv` output lands in terminal.log,
     the dashboard and results/state.json."""

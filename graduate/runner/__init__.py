@@ -131,7 +131,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     routed_to = totals.get("upstream", "frontier")
     row = {
         "session_id": session_id,
-        "task_type": totals.get("task_type", "unknown"),
+        "task_type": task_type or totals.get("task_type", "unknown"),
         "procedure_slug": None,
         "prompt": prompt,
         "repo": repo,
