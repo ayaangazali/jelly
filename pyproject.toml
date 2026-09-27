@@ -13,7 +13,7 @@ dependencies = ["fastapi", "uvicorn", "httpx"]
 train = ["river-client>=0.12,<0.13", "transformers"]
 
 [project.scripts]
-graduate = "graduate.runner:main"
+graduate = "graduate.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["graduate*"]
