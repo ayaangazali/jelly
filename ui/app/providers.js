@@ -112,7 +112,7 @@ ${g ? `<p class="muted">Model <code>${esc(g[1].model)}</code></p>` : ""}`);
       const t = reg[r.task_type] || {};
       return `${n ? `task ${n}` : "task"}${t.graduated_at ? ` · ${String(t.title || r.task_type).toLowerCase()}` : ""}`; };
     return page(`Big model: ${esc(bigName(model))}`, `Every task the big model handled today, and what each one cost. It did the first runs of each task type so your model could learn from them.${earlier.length ? ` Earlier: ${esc(earlier.join("; "))}.` : ""}`, rows.length ? ["s-passed", "used"] : ["", "not called yet"], `
-<div class="kpis">${stat(rows.length, "tasks run")}${stat(money(sum("cost_usd")), "total cost")}${stat(num(sum("output_tokens")), "output tokens")}${stat(rows.length ? (sum("turns") / rows.length).toFixed(1) : "–", "avg turns per task")}${stat(esc_, esc_ ? "redid your model's failed tasks" : "redos: your model never failed")}</div>
+<div class="kpis">${stat(rows.length, "tasks run")}${stat(money(sum("cost_usd")), "total cost")}${stat(num(sum("output_tokens")), "output tokens")}${stat(rows.length ? (sum("turns") / rows.length).toFixed(1) : "–", "avg turns per task")}${stat(esc_, esc_ ? "redid failed tasks" : "redos (never failed)")}</div>
 <section class="panel pviz"><h2>Cost per task</h2><div class="bars">${rows.map((r, i) => `<div class="barrow" title="${esc(r.session_id)}"><span class="blabel">${esc(label(r))} <em class="why ${why(r)[1]}">${why(r)[0]}</em></span><div class="bar"><i style="width:${((r.cost_usd || 0) / top) * 100}%;animation-delay:${i * 0.1}s"></i></div><b>${money(r.cost_usd || 0)}</b><span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"}</span></div>`).join("")}</div></section>`);
   }
   return `${back}${empty("No such provider.")}`;

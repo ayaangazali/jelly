@@ -124,8 +124,8 @@ ${tt.map(([id, t]) => {
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
     const per = (x) => (x ? `${Math.round(x.turns * 10) / 10} turns · ${money(x.cost_usd)}` : `<span class="muted">–</span>`);
-    const runs = (t.verified_runs || 0) + (t.failed_runs || 0), unmatched = !t.procedure_slug && t.state === "LEARNING"; // no Memorable procedure behind it
-    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${unmatched ? `<br><small class="muted">${runs === 1 ? "1 run" : `${runs} runs`} Memorable could not match to a known type, so it stays on the big model.</small>` : ""}</td>
+    const passing = t.verified_runs || 0, learning = t.state === "LEARNING";
+    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${learning ? `<br><small class="muted">Only ${passing} passing run${passing === 1 ? "" : "s"} so far; it stays on the big model until ${N()} pass.</small>` : ""}</td>
 <td>${stateTag(t.state)}</td>
 <td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
@@ -324,6 +324,8 @@ function benchTakeaway(b) {
     `Your model: ${money(o.cost_usd)} a task vs ${cheap(f)}${ran(m) ? ` and ${cheap(m)}; it beats just buying a cheaper model` : ""}.`,
     `Why: it learned the job, so it reads ${x(f.input_tokens, o.input_tokens)}× fewer input tokens (${num(o.input_tokens)} vs ${num(f.input_tokens)} a task)${o.turns && f.turns ? `, about ${num(o.input_tokens / o.turns)} per call instead of ${num(f.input_tokens / f.turns)}` : ""}.`,
   ];
+  // Held out: stated only for the run docs/results.md describes, never inferred.
+  if (b.bench_id === "bench-20260927T225656Z") lines.splice(1, 0, "In this run, tasks 09 and 10 were held out of your model's training data (docs/results.md).");
   const limits = `Limits: it wrote ${pct >= 0 ? `${pct}% more` : `${-pct}% fewer`} output tokens than ${esc(f.model)} and took ${Math.round(o.wall_secs_p50)} s vs ${Math.round(f.wall_secs_p50)} s; ${o.runs} runs per model; your model's cost is priced at list rates, not billed.`;
   return `<section class="panel takeaway"><h2>What this shows</h2>${lines.map((l) => `<p>${l}</p>`).join("")}<p class="muted">${limits}</p></section>`;
 }
