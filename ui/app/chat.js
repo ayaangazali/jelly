@@ -11,7 +11,7 @@ function chat() {
   if (!document.getElementById("chat-css")) document.head.insertAdjacentHTML("beforeend", `<style id="chat-css">
 .oc{display:flex;flex-direction:column;gap:10px;font-family:"JetBrains Mono",ui-monospace,monospace}
 .oc-bar{margin:0;padding:6px 12px;border:1px solid var(--rule);border-radius:6px;font-size:.82em;color:var(--ink);background:var(--sheet)}
-.oc-panes{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:calc(100vh - 190px);min-height:420px}
+.oc-panes{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:420px}@media (max-height:800px){.oc-panes{height:340px}}
 .oc-pane{min-width:0;display:flex;flex-direction:column;background:#07090D;border:1px solid #1B2130;border-radius:6px;overflow:hidden}
 .oc-pane header{display:flex;justify-content:space-between;gap:12px;padding:6px 12px;border-bottom:1px solid #1B2130;font-size:.78em;color:#8A94A8}
 .oc-pane header b{color:#E8ECF4;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -40,7 +40,7 @@ function chat() {
 .oc-prompt input{flex:1;min-width:0;background:transparent;border:0;color:#E8ECF4;font:inherit;font-size:.9em;outline:0}
 .oc-prompt small{color:#6B7589;white-space:nowrap}
 .oc-prompt button{display:none}
-@media (max-width:999px){.oc-panes{grid-template-columns:1fr;height:auto}.oc-pane{height:60vh}}
+@media (max-width:999px){.oc-panes{grid-template-columns:1fr;height:auto}.oc-pane{height:360px}}
 </style>`);
   const env = data.preset;
   if (!env) fetch("/api/chat-preset").then((r) => r.json()).then((p) => { data.preset = p; render(); }).catch(() => {});
@@ -48,8 +48,8 @@ function chat() {
 <div class="oc-body"><div class="oc-user" data-f="user"></div><div class="oc-asst" data-f="out"></div><p class="oc-dim" data-f="status"></p></div>
 <footer class="oc-tiles"><div data-t="tokens"><b data-f="tokens">–</b><span>output tokens</span></div><div data-t="cost"><b data-f="cost">–</b><span>cost</span></div><div data-t="time"><b data-f="time">–</b><span>time to complete</span></div></footer></section>`;
   setTimeout(paintChat);
-  return `<div class="oc"><p class="oc-bar" id="chat-verdict" hidden></p>
-<div class="oc-panes">${pane("small")}${pane("big")}</div>
+  return `<div class="oc">
+<div class="oc-panes">${pane("small")}${pane("big")}</div><p class="oc-bar" id="chat-verdict" hidden></p>
 <form class="oc-prompt" id="chat-form"><b>&gt;</b><input id="chat-q" maxlength="2000" value="${esc(env ? env.instruction : "")}" autocomplete="off" aria-label="Prompt for both models"><small>enter send</small><button id="chat-send">Send</button></form></div>`;
 }
 
@@ -86,7 +86,9 @@ function paintChat() {
     const tile = (k, v) => { if (f(k).textContent !== v) f(k).textContent = v; };
     if (!s) { put("out", ""); put("status", "press enter to send to both"); tile("tokens", "–"); tile("cost", "–"); tile("time", "–"); continue; }
     const secs = ((s.done ? s.done.wall_ms : performance.now() - s.t0) / 1000).toFixed(2);
-    put("out", md(s.text) + (!s.done && !s.error && s.text ? `<span class="oc-cursor">&nbsp;</span>` : ""));
+    const body = el.querySelector(".oc-body"), atEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+    const changed = put("out", md(s.text) + (!s.done && !s.error && s.text ? `<span class="oc-cursor">&nbsp;</span>` : ""));
+    if (changed && atEnd && !s.done) body.scrollTop = body.scrollHeight;
     put("status", esc(s.error || (s.done ? "" : s.text ? "" : `thinking… ${secs}s`)));
     tile("tokens", s.done ? String(s.done.output_tokens) : s.pieces ? `~${s.pieces}` : "–");
     tile("cost", s.done ? `$${s.done.cost_usd.toFixed(6)}` : "–");
