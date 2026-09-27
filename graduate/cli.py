@@ -35,6 +35,7 @@ COMMANDS = {
         "graduate.cli:up",
         "start the router and watcher on :4141 and serve the dashboard (--demo: no key)",
     ),
+    "bench": ("graduate.bench:main", "frontier vs small vs owned on the demo tasks: output tokens, cost, turns, pass rate"),
 }
 
 # The repo root in a checkout; site-packages in a wheel, where ui/ and fixtures/ ship beside graduate/.
