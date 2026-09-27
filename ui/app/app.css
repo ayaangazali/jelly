@@ -582,3 +582,28 @@ svg.graph { width: 100%; flex: 1; min-height: 0; }
 }
 .race-row .unit { display: none; }
 .race-row b::after { content: " tokens"; font: 400 0.55em "Archivo", sans-serif; color: var(--muted); }
+/* No layout shift: every live number and label keeps a reserved box. */
+.live { font-variant-numeric: tabular-nums; }
+.kpi b { min-width: 5.5ch; }
+.ring-what { margin: 0 0 6px; font-size: 0.85em; color: var(--muted); line-height: 1.35; min-height: 2.7em; max-width: 36ch; }
+.ring-mid b { min-width: 2ch; }
+.ring-name, .ring-state { min-height: 1.4em; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.train p { min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.race-row b, .race-row .rv { min-height: 1.3em; white-space: nowrap; }
+.race-verdict { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane .note { min-height: 1.2em; }
+.lane .note:empty { display: block; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--sheet); border-left: 1px solid var(--rule); box-shadow: -20px 0 60px #0008; padding: 20px; overflow: auto; z-index: 10; }
+.drawer h2 { margin-top: 0; }
+.drawer .close { float: right; }
+td .btn { margin-bottom: 4px; }
+.p-ring.ready .fill { stroke: var(--warn); filter: drop-shadow(0 0 8px var(--warn)); }
+.p-ring.ready .ring-state { color: var(--warn); font-weight: 700; }
+@media (max-height: 800px) and (min-width: 1000px) {
+  .ring-wrap { width: min(70%, 15vh); }
+  .ring-what { font-size: 0.78em; min-height: 0; margin-bottom: 2px; }
+  .ring-mid b { font-size: 2.6em; }
+  .p-ring .ring-name { margin-top: 4px; font-size: 1em; }
+}
+.p-ring > * { flex-shrink: 0; }
+.race-row .rv { white-space: normal; line-height: 1.25; }

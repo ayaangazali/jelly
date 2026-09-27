@@ -34,7 +34,7 @@ ${node("big", "Big model", "Claude Haiku 4.5 · pay per token")}${node("yours", 
 <header class="live-top"><div><span class="pulse"></span> <b>Live</b> <span class="muted">every task your agents send, checked by its own tests</span></div>
 <div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs the big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent on models")}${kpi("k-runs", "tasks passed their tests")}${kpi("k-yours", "handled by your model")}</div><span class="tag src">demo data</span></header>
 <section class="panel p-graph"><h2>Request flow <span class="tag src">demo data</span></h2>${svg}</section>
-<section class="panel p-ring"><h2>Graduation <span class="tag src">demo data</span></h2><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
+<section class="panel p-ring"><h2>Graduation <span class="tag src">demo data</span></h2><p class="ring-what" id="ring-what">After 5 passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
 <div class="ring-mid"><b id="ring-n">0</b><span id="ring-of">of 5 passing runs</span></div></div><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
 <div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div></section>
 <section class="panel p-race"><h2>Same task, both models <span class="tag src">demo data</span></h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
@@ -129,6 +129,7 @@ function frame(now) {
     if (sim.qi >= q.length && !sim.dots.length && !sim.training) { sim.end = (sim.end || 0) + dt; if (sim.end > 4) { sim.end = 0; startLive(); } }
   } else if (sim.t >= sim.next) { launch(); sim.next = sim.t + 0.3 + Math.random() * 0.4; }
   moveDots(dt); lanes(dt); counters(dt); raceLoop(dt); training(dt);
+  if (sim.S.real) realRing();
   requestAnimationFrame(frame);
 }
 
@@ -200,7 +201,7 @@ function finish(d) {
   log(`<span class="who ${d.mine ? "mine" : "big"}">${esc(who)}</span><span class="what">${esc(step.replace(/\/\S*\/(\S+\/\S+)/g, "…/$1"))}</span><span class="tok">${short(out)} tok</span><span class="${d.pass ? "ok" : "bad"}">${d.pass ? "✓ tests pass" : "✗ tests fail"}</span>`);
   if (d.lane >= 0 && sim.lanes[d.lane]) sim.lanes[d.lane].status = d.pass ? "passed" : "failed";
   if (!S.real && d.mine && !d.pass) addDot({ route: ["big", "bigOut"], mine: false, pass: true, type: d.type, lane: -1, speed: 1.2, rerun: true, pre: true });
-  if (!d.mine && d.pass && !d.rerun && d.type === ringType() && !sim.graduated.has(d.type) && !sim.training && sim.ring < S.n) graduateStep(d.type);
+  if (!S.real && !d.mine && d.pass && !d.rerun && d.type === ringType() && !sim.graduated.has(d.type) && !sim.training && sim.ring < S.n) graduateStep(d.type);
 }
 
 // The task type filling the ring: the next one still learning, in turn.
@@ -244,6 +245,25 @@ function training(dt) {
     if (sim.graduated.size >= sim.S.types.length) sim.graduated = new Set(sim.S.grads);
     resetRing();
   }, 6000);
+}
+
+// Real mode: the ring is the registry's own count and state for its busiest task type, not the replay's.
+function realRing() {
+  const S = sim.S, reg = (data.state.registry.task_types || {}), n = data.state.config.n || 5;
+  const [slug, t] = Object.entries(reg).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
+  if (!t) return;
+  const v = t.verified_runs || 0, runs = `${v} verified real run${v === 1 ? "" : "s"}`;
+  document.getElementById("ring").style.strokeDashoffset = 100 - (Math.min(v, n) / n) * 100;
+  set("ring-n", String(Math.min(v, n))); set("ring-of", `of ${n} needed`); set("ring-name", `“${t.title || slug}” · ${runs}`);
+  const said = { LEARNING: "learning on the big model", READY: "ready · your model is training on these runs", TRAINING: `training your model on these ${runs}`,
+    GRADUATED: "graduated · your model is live for this task", PROBATION: "back on the big model after failures" };
+  set("ring-state", said[t.state] || t.state);
+  const wrap = document.querySelector(".p-ring");
+  wrap.classList.toggle("training", t.state === "TRAINING"); wrap.classList.toggle("ready", t.state === "READY"); wrap.classList.toggle("graduated", t.state === "GRADUATED");
+  const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, last = curve && curve.steps[curve.steps.length - 1];
+  set("train-line", last ? `LoRA on Qwen2.5-Coder-0.5B · on this machine · ${last.step} steps · loss ${last.loss.toFixed(3)}` : "LoRA on Qwen2.5-Coder-0.5B · on this machine");
+  document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || last ? 1 : 0})`;
+  set("ring-what", `After ${n} passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.`);
 }
 
 function resetRing() {
@@ -311,7 +331,7 @@ const set = (id, v) => { const el = document.getElementById(id); if (el && el.te
 function raceLoop(dt) {
   const S = sim.S;
   if (!S.mine || !S.big.out) { // real mode before your model has run: the big model's run only
-    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", `your model: training on these ${S.queue.length} real runs`); set("race-verdict", "");
+    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", `training on these ${S.queue.length} real runs`); set("race-verdict", "");
     document.getElementById("rb-big").style.transform = "scaleX(1)"; document.getElementById("rb-yours").style.transform = "scaleX(0)";
     return;
   }
