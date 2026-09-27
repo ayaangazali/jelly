@@ -32,9 +32,9 @@ ${node("big", "Big model", "Claude Haiku 4.5 · pay per token")}${node("yours", 
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
 <header class="live-top">
-<div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs the big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent on models")}${kpi("k-runs", "tasks passed their tests")}${kpi("k-yours", "handled by your model")}</div><span class="tag src">demo data</span></header>
+<div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent")}${kpi("k-runs", "tests passed")}${kpi("k-yours", "on your model")}</div><span class="tag src">demo data</span></header>
 <section class="panel p-graph"><h2>Request flow</h2>${svg}</section>
-<section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">After 5 passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
+<section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">5 passing runs of one kind of task, then your own model takes it over.</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
 <div class="ring-mid"><b id="ring-n">0</b><span id="ring-of">of 5 passing runs</span></div></div><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
 <div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div></section>
 <section class="panel p-race"><h2>Race</h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
@@ -107,7 +107,7 @@ function startLive() {
   sim.dots.forEach((d) => d.els.forEach((el) => el.remove()));
   Object.assign(sim, { S, t: 0, next: 0.2, qi: 0, dots: [], tokens: 0, cost: 0, runs: 0, passed: 0, yours: 0, saved: 0, savedTok: 0, ring: 0, typeIx: 0, graduated: new Set(S.grads), raceT: 0, training: null });
   const tag = document.querySelector("#live-root .tag.src"); // one source tag for the page
-  tag.textContent = S.real ? `recorded real run${S.speed > 1.5 ? ` · ${Math.round(S.speed)}× speed` : ""}` : "demo data";
+  tag.textContent = S.real ? `real run${S.speed > 1.5 ? ` · ${Math.round(S.speed)}×` : ""}` : "demo data";
   tag.classList.toggle("real", !!S.real);
   resetRing();
   sim.lanes = S.agents.map((a) => ({ a, busy: 0, dur: 1, status: "idle" }));
@@ -251,10 +251,10 @@ function realRing() {
   const S = sim.S, reg = (data.state.registry.task_types || {}), n = data.state.config.n || 5;
   const [slug, t] = Object.entries(reg).sort((a, b) => (b[1].verified_runs || 0) - (a[1].verified_runs || 0))[0] || [];
   if (!t) return;
-  const v = t.verified_runs || 0, runs = `${v} verified real run${v === 1 ? "" : "s"}`;
+  const v = t.verified_runs || 0, runs = `${v} real run${v === 1 ? "" : "s"}`;
   document.getElementById("ring").style.strokeDashoffset = 100 - (Math.min(v, n) / n) * 100;
   set("ring-n", String(Math.min(v, n))); set("ring-of", `of ${n} needed`); set("ring-name", `“${t.title || slug}” · ${runs}`);
-  const said = { LEARNING: "learning on the big model", READY: "ready · your model is training on these runs", TRAINING: `training your model on these ${runs}`,
+  const said = { LEARNING: "learning on the big model", READY: "ready · training your model", TRAINING: `training your model on these ${runs}`,
     GRADUATED: "graduated · your model is live for this task", PROBATION: "back on the big model after failures" };
   set("ring-state", said[t.state] || t.state);
   const wrap = document.querySelector(".p-ring");
@@ -262,7 +262,7 @@ function realRing() {
   const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, last = curve && curve.steps[curve.steps.length - 1];
   set("train-line", last ? `LoRA on Qwen2.5-Coder-0.5B · on this machine · ${last.step} steps · loss ${last.loss.toFixed(3)}` : "LoRA on Qwen2.5-Coder-0.5B · on this machine");
   document.getElementById("train-bar").style.transform = `scaleX(${t.state === "GRADUATED" || last ? 1 : 0})`;
-  set("ring-what", `After ${n} passing runs of the same kind of task, GRADUATE trains your own model on them and sends that task to it.`);
+  set("ring-what", `${n} passing runs of one kind of task, then your own model takes it over.`);
 }
 
 function resetRing() {
@@ -320,7 +320,7 @@ function counters(dt) {
   document.getElementById("n-yours").classList.toggle("lit", sim.graduated.size > 0); set("k-cost", money(sim.shown.cost)); set("k-runs", num(sim.runs));
   set("k-yours", sim.runs ? `${Math.round((sim.yours / sim.runs) * 100)}%` : "0%");
   set("k-saved", `${sim.saved < 0 ? "−" : ""}${money(Math.abs(sim.saved))}`);
-  set("k-saved-l", sim.S.real && !sim.S.mine ? `saved: your model is training on these ${sim.S.queue.length} real runs` : `saved vs the big model · ${num(Math.max(0, sim.savedTok))} tokens`);
+  set("k-saved-l", sim.S.real && !sim.S.mine ? "saved · model training" : `saved · ${short(Math.max(0, sim.savedTok))} tokens`);
 }
 const short = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
@@ -330,7 +330,7 @@ const set = (id, v) => { const el = document.getElementById(id); if (el && el.te
 function raceLoop(dt) {
   const S = sim.S;
   if (!S.mine || !S.big.out) { // real mode before your model has run: the big model's run only
-    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", `training on these ${S.queue.length} real runs`); set("race-verdict", "");
+    set("rt-big", num(S.big.out)); set("rv-big", "✓ tests pass"); set("rt-yours", "–"); set("rv-yours", `training on ${S.queue.length} real runs`); set("race-verdict", "");
     document.getElementById("rb-big").style.transform = "scaleX(1)"; document.getElementById("rb-yours").style.transform = "scaleX(0)";
     return;
   }
