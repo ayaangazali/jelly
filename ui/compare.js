@@ -11,10 +11,32 @@ function loadBench() {
     .then((b) => { bench = b; render(); });
 }
 
+function claudePrice(r, p) {
+  return ((r.input_tokens - r.cached_input_tokens) * p.input + r.cached_input_tokens * p.cached_input + r.output_tokens * p.output) / 1e6;
+}
+
+function claudeCost() {
+  const p = S.config.reference;
+  const rows = S.ledger.filter((r) => r.harness === "claude-code");
+  if (!p || !rows.length) return `<section class="cmp-claude"><h2>Claude Code: Claude API vs through GRADUATE</h2><p class="lede">No Claude Code sessions yet. Run one with <code>graduate run --harness claude-code --task-file demo-repo/tasks/01.json --repo demo-repo</code>.</p></section>`;
+  const pair = (label, api, us) => {
+    const max = Math.max(api, us) || 1;
+    return `<div class="metric" title="${esc(label)}: Claude API ${money(api)}, through GRADUATE ${money(us)}"><div class="label"><span>${esc(label)}</span><span>${api ? (us <= api ? Math.round((1 - us / api) * 100) + "% less" : Math.round((us / api - 1) * 100) + "% more") : ""}</span></div>
+      <div class="bar rented"><span>Claude API</span><span class="track"><span class="fill" style="width:${(api / max) * 100}%;display:block"></span></span><span class="v">${money(api)}</span></div>
+      <div class="bar owned"><span>Through GRADUATE</span><span class="track"><span class="fill" style="width:${Math.max((us / max) * 100, 1.5)}%;display:block"></span></span><span class="v">${money(us)}</span></div></div>`;
+  };
+  const recent = rows.slice(-6);
+  const api = rows.reduce((a, r) => a + claudePrice(r, p), 0), us = rows.reduce((a, r) => a + r.cost_usd, 0);
+  return `<section class="cmp-claude" data-qa="claude-cost"><h2>Claude Code: Claude API vs through GRADUATE</h2>
+  <div class="compare">${pair(`All ${rows.length} Claude Code sessions`, api, us)}${recent.map((r) => pair(`${r.session_id} · ${r.routed_to} · exit ${r.exit_code}`, claudePrice(r, p), r.cost_usd)).join("")}</div>
+  <p class="cmp-foot muted">Claude API: the same token counts at ${esc(p.model)} list prices ($${p.input} in, $${p.cached_input} cached, $${p.output} out per 1M), an estimate because tokenizers differ. Through GRADUATE: what the router paid for the session, frontier or your model.</p></section>`;
+}
+
 function viewCompare() {
   if (!bench) loadBench();
-  if (bench.loading) return `<p class="lede">Loading the bench…</p>`;
-  if (bench.error) return `<h1>Compare</h1><p class="lede">No bench results yet: ${esc(bench.error)} Run <code>graduate bench</code> (it prints its cost estimate and asks first).</p>`;
+  const cc = claudeCost();
+  if (bench.loading) return `${cc}<p class="lede">Loading the bench…</p>`;
+  if (bench.error) return `${cc}<h1>Compare</h1><p class="lede">No bench results yet: ${esc(bench.error)} Run <code>graduate bench</code> (it prints its cost estimate and asks first).</p>`;
   const arms = [["frontier", "Frontier"], ["small", "Small model"], ["owned", "Your model"]].filter(([k]) => bench.arms[k]);
   const f = bench.arms.frontier, o = bench.arms.owned;
   const ran = (a) => a && a.runs > 0;
@@ -23,7 +45,7 @@ function viewCompare() {
     return `<td class="${k}" data-qa="cmp-${key}-${k}">${ran(a) && a[key] != null ? fmt(a[key], a) : `<span class="muted">${esc(a.note || "n/a")}</span>`}</td>`;
   }).join("")}<td class="chg">${ran(f) && ran(o) && key !== "passed" ? change(f[key], o[key]) : ""}</td></tr>`;
   const b = bench.budget;
-  return `<div class="cmp">
+  return `${cc}<div class="cmp">
   <header class="show-head">
     <div><p class="kicker">Same tasks, each model</p><h1>Compare</h1></div>
     <p class="show-verify">Tasks ${bench.tasks.map(esc).join(", ")} · ${esc(bench.started_at.slice(0, 16).replace("T", " "))}Z · ${esc(bench.git_sha)} · spent ${money(b.spent_usd)} of ${money(b.cap_usd)} cap</p>
