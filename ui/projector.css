@@ -17,29 +17,36 @@ html.present .wrap { max-width: none; padding: 0 3vw; }
 html.present body { font-size: calc(var(--u) * 2.6); }
 html.present h1 { font-size: calc(var(--u) * 5.5); }
 html.present h2 { font-size: calc(var(--u) * 3.2); }
-html.present .savings .amount { font-size: calc(var(--u) * 9); }
+html.present .savings .amount { font-size: calc(var(--u) * 7); }
 html.present :is(code, pre, .btn.sm, .savings .what small, .roster th, .roster .name code, .roster .route,
-  .unclassified td, .roster td[data-label]::before, .state, .log li, .log time, .log header span, .back,
+  .unclassified td, .state, .log li, .log time, .log header span, .back,
   .stamp small, .lifecycle li, .lifecycle li b, .metric .label, .bar, .note, dl.facts, table.runs, table.runs th,
   .toast, figure.arch figcaption, .detail h3, .where, .badge, .wire li, .wire time, .wire .who a) {
   font-size: calc(var(--u) * 2.5);
 }
-html.present .cols { grid-template-columns: minmax(0, 1fr) 27vw; gap: 2vw; }
-html.present .roster :is(th, td) { padding: calc(var(--u) * 1) calc(var(--u) * 1.2); }
+html.present .cols { grid-template-columns: minmax(0, 1fr) 25vw; gap: 2vw; }
+html.present .roster :is(th, .name a) { white-space: nowrap; }
+html.present .savings { margin-bottom: calc(var(--u) * 2); }
+html.present .savings .what { max-width: 70ch; }
+html.present .cols .note { display: none; }
+html.present .roster :is(th, td) { padding: calc(var(--u) * 0.6) calc(var(--u) * 1); }
 html.present .log { max-height: none; }
+html.present .log li:nth-child(n+4), html.present .roster .name code { display: none; }  /* fits 720p: 3 newest events; verify commands are on each task page */
+html.present #app:has(.arch) > .lede { display: none; }
+html.present figure.arch svg { width: min(100%, (100vh - var(--u) * 26) * 1030 / 530); min-width: 0; margin: 0 auto; }
 html.present :is(.log li, .wire li) { grid-template-columns: auto 1fr; }
-html.present .arch .node text { font-size: 16px; }
-html.present :is(.arch .node text.sub, .arch .edge text) { font-size: 15px; }
+html.present .arch .node text { font-size: 17px; }
+html.present :is(.arch .node text.sub, .arch .edge text) { font-size: 16px; font-stretch: 75%; }
 html.present #app [style*="font-size"] { font-size: calc(var(--u) * 2.5) !important; }
 html.present .pips i { width: calc(var(--u) * 2.4); height: calc(var(--u) * 1); }
 html.blackout body { visibility: hidden; background: #000; }
 
 /* Showcase: fills the screen in both modes, sized in --u so nothing scrolls. */
+html.present .show { align-content: center; min-height: calc(100vh - var(--u) * 6); }
 #app:has(.show) { max-width: none; padding: 0 3vw; }
-main:has(.show) { padding: calc(var(--u) * 3) 0; }
+main:has(.show) { padding: calc(var(--u) * 2) 0; }
 .show {
-  display: grid; gap: calc(var(--u) * 2.4) 2.4vw; font-size: calc(var(--u) * 2.6);
-  align-content: center; min-height: calc(100vh - var(--u) * 6);
+  display: grid; gap: calc(var(--u) * 2) 2.4vw; font-size: calc(var(--u) * 2.6);
   grid-template-columns: 1.3fr 1fr; grid-template-areas: "head head" "hero grad" "hero esc" "foot foot";
 }
 .show h1 { font-size: calc(var(--u) * 6); margin: 0; }
@@ -51,6 +58,7 @@ main:has(.show) { padding: calc(var(--u) * 3) 0; }
 .show-verify { margin: 0; color: var(--muted); }
 .show-hero { grid-area: hero; }
 .hero { margin: 0; display: flex; align-items: baseline; gap: 1.6vw; line-height: 1; font-weight: 800; font-stretch: 110%; font-size: calc(var(--u) * 13); letter-spacing: -0.02em; }
+html.present .hero { font-size: calc(var(--u) * 15); }
 .hero .f { color: var(--rented); }
 .hero .o { color: var(--owned); }
 .hero .arrow { font-size: 0.5em; color: var(--muted); }
@@ -73,7 +81,7 @@ main:has(.show) { padding: calc(var(--u) * 3) 0; }
 .bigpips i { flex: 1; max-width: calc(var(--u) * 9); height: calc(var(--u) * 2.4); border-radius: 3px; background: var(--rule); }
 .bigpips i.on { background: var(--owned); }
 .show .state { font-size: 1em; }
-.show .stamp { display: block; width: fit-content; margin: calc(var(--u) * 1.6) calc(var(--u) * 1) 0 auto; font-size: calc(var(--u) * 4.2); }
+.show .stamp { display: block; width: fit-content; margin: calc(var(--u) * 0.8) calc(var(--u) * 1) 0 auto; font-size: calc(var(--u) * 3.8); }
 .show .stamp small { font-size: calc(var(--u) * 2.5); color: inherit; }
 .show .badge { font-size: calc(var(--u) * 2.5); }
 .steps { margin: 0; padding-left: 1.4em; display: grid; gap: calc(var(--u) * 0.8); }
