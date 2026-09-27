@@ -40,12 +40,13 @@ def check():
     assert tt["baseline"]["turns"] == (10 + 11 + 12 + 13) / 4, tt["baseline"]
     assert tt["procedure_slug"] == base["procedure_slug"]
     assert "unknown" not in registry.load()["task_types"]
+    assert (tt["title"], tt["verify_command"]) == ("Fix failing test", base["verify_command"]), tt
 
     threading.Thread(target=watch, daemon=True).start()
     time.sleep(1.5)
     t0 = time.monotonic()
     with open(LEDGER_PATH, "a") as f:
-        f.write(row(4))
+        f.write(row(4, verify_command="pytest -q tests/test_mod_01.py"))  # a second test file
     # scan() writes the READY state, then the ready event: wait for the event
     while not registry.load()["events"]:
         assert time.monotonic() - t0 < 2, "not READY within 2 s"
@@ -54,10 +55,15 @@ def check():
     reg = registry.load()
     assert [e["kind"] for e in reg["events"]] == ["ready"], reg["events"]
     assert reg["task_types"]["fix-failing-test"]["state"] == "READY"
+    assert reg["task_types"]["fix-failing-test"]["verify_command"] == "pytest -q"  # what every run shares
 
     scan()
     scan()
     assert registry.load() == reg, "replay is not idempotent"
+    registry.update("fix-failing-test", title="Fix a failing test", verify_command="pytest -q tests/")
+    scan()
+    tt = registry.load()["task_types"]["fix-failing-test"]
+    assert (tt["title"], tt["verify_command"]) == ("Fix a failing test", "pytest -q tests/"), "hand-set fields kept"
 
     edges = [
         e["edges"] for e in map(json.loads, open("trace.jsonl")) if e["issue"] == 19
