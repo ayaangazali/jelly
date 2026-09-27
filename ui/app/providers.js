@@ -42,9 +42,9 @@ function providers() {
   const reg = Object.values(data.state.registry.task_types || {});
   const owned = reg.find((t) => t.state === "GRADUATED" && t.model);
   return `<h1>Providers</h1>
-<p class="lede">Every outside service jelly calls, lit when it was really called. Counts come from the last 100 traced calls and the run ledger.</p>
+<p class="lede">Every outside service Jelly calls, lit when it was really called. Counts come from the last 100 traced calls and the run ledger.</p>
 <div class="flow">
-${plain("Your agents", "OpenCode")}${arrow}${plain("jelly router", "")}${arrow}${node("memorable", "Memorable", `${n("memorable")} calls`)}${arrow}
+${plain("Your agents", "OpenCode")}${arrow}${plain("Jelly router", "")}${arrow}${node("memorable", "Memorable", `${n("memorable")} calls`)}${arrow}
 ${node("river", "River · your model", `${f.river.sessions} sessions`)}<span class="arrow">or</span>${node("frontier", f.frontier.name, `${f.frontier.sessions} sessions`)}${arrow}${plain("Tests", "pass or fail decides")}${arrow}${node("gbrain", "GBrain", `${n("gbrain")} calls`)}
 </div>
 ${owned ? `<p class="muted">Your model now: ${String(owned.model).startsWith("river://") ? "Qwen3.5-9B on River" : "Qwen2.5-Coder-0.5B on this machine"}</p>` : ""}
