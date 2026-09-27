@@ -44,15 +44,15 @@ Keep three terminals open in the repo root, each with `. .venv/bin/activate`. If
     ```
     **Expected:** OpenCode reads a file, edits it and says "Fixed.". Each run ends with `sess-… frontier exit 0 · 1/1 passed · 4 turns · $0.05792 · <10s`. After each run the dashboard adds the run within about a second.
 13. Dashboard.
-    **Expected:** a banner says "fix-failing-test has 5 verified runs and can graduate". The row says "Ready to train" with 5 filled bars. Activity says "…has 5 verified runs. Waiting for you to approve the training data."
+    **Expected:** a banner says "Fix failing test has 5 verified runs and can graduate". The row says "Ready to train" with 5 filled bars. Activity says "…has 5 verified runs. Waiting for you to approve the training data."
 14. Click **Review training data**.
-    **Expected:** the page opens with "Send 5 runs to River to train "fix-failing-test"?". Under "One record, exactly as it would be sent" it says `No training data built for fix-failing-test yet. Run: python -m graduate.registrar.dataset fix-failing-test`, and **Approve and train** is greyed out. Run that command in terminal 3.
+    **Expected:** the page opens with "Send 5 runs to River to train "Fix failing test"?". Under "One record, exactly as it would be sent" it says `No training data built for fix-failing-test yet. Run: python -m graduate.registrar.dataset fix-failing-test`, and **Approve and train** is greyed out. Run that command in terminal 3.
     **Expected:** `fix-failing-test: 5 records, … tokens … → data/`. Reload the page: it now shows the token total and one full record, and the button is enabled.
 15. Click **Approve and train**.
-    **Expected:** a toast "Approved. Training started." and the page returns to Overview. The row now says "Training". Activity shows the consent and "Training started on River with 5 runs.".
-16. Stand in for training. The owned trainer (#22) is not on main yet. In terminal 3:
+    **Expected:** a toast "Approved. Training started." and the page returns to Overview. The row now says "Training". Activity shows the consent and "Training started on River with 5 runs.". Without `torch` installed the trainer (#22) stops within a second: Activity adds "Training fix-failing-test failed: ModuleNotFoundError(\"No module named 'torch'\"). The frontier keeps serving it." and the row goes back to "Ready to train".
+16. Stand in for training (a real run needs `torch` and takes minutes). In terminal 3:
     ```bash
-    python -c "from graduate import registry; registry.transition('fix-failing-test', 'GRADUATED', model='river://qa-drill/fix-failing-test')"
+    python -c "from graduate import registry; registry.transition('fix-failing-test', 'TRAINING'); registry.transition('fix-failing-test', 'GRADUATED', model='river://qa-drill/fix-failing-test')"
     ```
     **Expected:** no output. The row says "Graduated" and "Goes to: Your model".
 17. Escalation drill:
@@ -74,7 +74,7 @@ Keep three terminals open in the repo root, each with `. .venv/bin/activate`. If
     "Spent today" counts every call in this directory's `metrics.jsonl`. Here those are stub calls priced as if they were real. Nothing is written, and `bench/` does not appear.
 20. `graduate bench --max-usd 0.10`
     **Expected:** it refuses before running anything: `refused: the estimate crosses the cap…`.
-21. Optional ($0, about 1 minute): `graduate bench --yes`, with terminals 1 and 2 still running.
+21. Optional ($0, about 1 minute), with terminal 1 still running: `OPENAI_BASE_URL=http://127.0.0.1:4199/v1 OPENAI_API_KEY=sk-stub graduate bench --yes`. Each arm starts its own router from this terminal's environment, so it needs the stub's URL and key here too; without a key it refuses.
     **Expected:** in about a minute, a table with one row per arm (frontier, small, owned), output tokens first, then `spent $… of $1.00 · bench/<stamp>/results.json`. On the stub, every arm shows 160 output tokens and 2/2 passing. Small costs less per run than frontier ($0.0217 against $0.0579): it is priced at gpt-5.4-mini's rates. The owned arm shows `river://qa-drill/…`, but the frontier serves its calls until #37 lands. Open http://localhost:4141/#/compare: the same numbers, one column per arm, output tokens as the first row and tests pass as the last.
 
 Stop terminals 1 and 2 with Ctrl-C. Move the state aside: `mkdir -p backups/qa && mv ledger.jsonl metrics.jsonl sessions registry.json data trace.jsonl terminal.log bench backups/qa/`.
@@ -90,7 +90,7 @@ Skip this part while the key returns `429 insufficient_quota`.
 
 ## Known gaps (already filed; do not re-file)
 
-- #75: with no key, a model call returns `502 … Illegal header value b'Bearer '` instead of a one-line fix.
-- #76: task types the watcher creates show the slug as the title, and the consent screen says "checked with ." (empty verify command).
-- #77: the Overview verify commands overflow their rows at 1280x720.
-- Owned serving (#37) and training (#22) are not on main yet. That is why step 16 stands in for training and the "owned" run in step 17 is served by the frontier.
+- #86 (open PR): step 14's title can say "Send 0 runs" while the list below it says 5 passing runs.
+- #87: the `up --demo` Showcase shows "your model" numbers and a 0ms wall time for a task type that is still Learning.
+- #93: with no `RIVER_API_KEY`, Activity says the owned model "failed a call (KeyError)" in step 17.
+- Training (#22) needs `torch`, and serving a `river://` model needs `RIVER_API_KEY`. That is why step 16 stands in for training and the "owned" run in step 17 is served by the frontier.
