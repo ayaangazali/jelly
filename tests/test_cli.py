@@ -104,6 +104,19 @@ def test_init_refuses_a_bad_or_missing_key(models, workdir, monkeypatch):
     assert os.listdir(workdir) == []  # nothing written on failure
 
 
+def test_init_strips_a_pasted_line_break_and_never_echoes_a_malformed_key(models, workdir, monkeypatch):
+    """#97: httpx quotes a bad Authorization header, key and all, in its error; `init` would print it."""
+    calls, _ = models
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-dummy\r")  # sourced from a CRLF env file
+    init("--backend", "none")
+    assert calls == [("https://api.openai.com/v1/models", "Bearer sk-dummy")]
+    assert (workdir / ".env").read_text().startswith("OPENAI_API_KEY=sk-dummy\n")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-QWZX\nPLMK")
+    with pytest.raises(SystemExit) as e:
+        init()
+    assert "QWZX" not in str(e.value.code) and len(calls) == 1
+
+
 def test_init_gitignores_env_in_a_repo(models, workdir):
     subprocess.run(["git", "init", "-q"], check=True)
     init()
