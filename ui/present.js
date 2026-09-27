@@ -91,6 +91,21 @@ function viewShow(a) {
 </div>`;
 }
 
+// Presenter Under the hood (stage D): #53's live diagram, the latest call as a one-line ticker, the agent's last
+// terminal lines large, and the nodes with no real call yet named as not wired.
+function viewStage() {
+  const last = S.trace[S.trace.length - 1];
+  const wired = new Set(S.trace.flatMap((t) => t.nodes));
+  const idle = Object.values(NODE).filter((n) => !wired.has(n.id)).map((n) => n.label);
+  return `<div class="stage-d">
+  <header class="stage-head"><h1>Under the hood</h1>
+    <p class="ticker" data-qa="ticker">${last ? `<time>${clock(last.ts, true)}</time> <b>${esc(last.who)}</b> <span class="call">${esc(last.call)}</span> <span class="res">→ ${esc(last.result)}</span>` : "No calls yet. Run a task with <code>graduate run</code>."}</p></header>
+  <figure class="arch sheet">${archSvg()}</figure>
+  <p class="legend">Solid: your machine · dashed: outside service · indigo: latest call · faded: no real call yet${idle.length ? ` <span class="badge" data-qa="not-wired">Not wired</span> ${esc(idle.join(", "))}` : ""}</p>
+  <pre class="term stage-term">${S.terminal.slice(-2).map((l) => `<span class="${termClass(l)}">${esc(l)}</span>`).join("\n") || `<span class="d">Waiting for a task…</span>`}</pre>
+</div>`;
+}
+
 const root = document.documentElement;
 const stage = () => "#/" + location.hash.slice(2).split("/")[0];
 if (new URLSearchParams(location.search).has("present")) root.classList.add("present");
