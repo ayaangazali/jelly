@@ -1,4 +1,4 @@
-.PHONY: dev ui check test screens record e2e-replay
+.PHONY: dev ui check test screens record e2e-replay e2e
 
 dev:
 	uvicorn graduate.router.app:app --reload --port 4141
@@ -30,3 +30,7 @@ e2e-replay:
 # Backup video of scripts/demo.sh on the presenter dashboard (#31). Offline by default; ARGS= passes demo.sh flags.
 record:
 	python scripts/record.py $(ARGS)
+
+# One live OpenCode session on the cheapest model, caps $0.10 and 20 calls (#59). Skips (exit 0) with no key or no credit.
+e2e:
+	python -m graduate.e2e
