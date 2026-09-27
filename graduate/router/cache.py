@@ -6,9 +6,10 @@ answered from that session's log: $0, milliseconds, no model call. The runner's 
   and only their frontier-served lines. Owned, mixed and cache sessions never are, so a gamed run can't replay.
 - The key is the whole message prefix plus the tools list, so every tool result (file contents, test output) is in
   it, and another harness never gets this one's answer. Paths under OpenCode's working directory and the date in its
-  <env> block and the runner's A2A notes are normalized; a replayed answer's paths are mapped back to the asking session's directory.
-- A session that was served from cache and then failed or was tampered gets its served keys evicted: the ledger names
-  the session, its log the keys. Evicted keys never come back.
+  <env> block, skill locations and the runner's A2A notes are normalized; a replayed answer's paths are mapped back to the asking session's directory.
+- A session that was served from cache and then failed or was tampered gets every answer it was served evicted: the
+  ledger names the session, its log the keys and their source sessions. Another verified session may still answer
+  the same key.
 - In memory only, rebuilt from ledger.jsonl and sessions/ when the ledger's mtime changes. Nothing is written.
 - Fail open: any error, a missing or corrupt file, a sess-anon call (no verify decides it) or a forced-frontier session
   (an escalation rerun) goes on to route.py and the frontier as before.
@@ -36,11 +37,12 @@ from graduate.router import metrics, route, sessionlog
 from graduate.router.river import _chunks
 
 ISSUE = 144
-# Per-run text, matched inside JSON text: OpenCode's date line, and the A2A notes the runner puts before the task
-# (they name the last passing session, so no two runs would share a key).
-_DATE = re.compile(r"(Today's date: )[^\\\"]*")
+# Per-run text, matched inside JSON text: OpenCode's date line, the A2A notes the runner puts before the task (they
+# name the last passing session, so no two runs would share a key), and skill locations (a skill installed in two
+# directories is listed from either one, run to run; seen on a real rerun).
+_DATE = re.compile(r"(Today's date: |<location>)[^\\\"<]*")
 _NOTES = re.compile(r"## Notes from other agents\\n.*?\\n\\n")
-_index = {"mtime": None, "keys": {}, "evicted": set()}
+_index = {"mtime": None, "keys": {}, "evicted": {}}
 
 
 def _roots(request):
@@ -96,44 +98,32 @@ def index():
         mtime = None
     if mtime == _index["mtime"]:
         return _index
-    keys, evicted = {}, {}
-    for row in _jsonl(ledger.LEDGER_PATH):
-        sid = row.get("session_id")
-        lines = [
+    rows = _jsonl(ledger.LEDGER_PATH)
+    logs = {
+        r.get("session_id"): [
             l
-            for l in _jsonl(sessionlog.SESSIONS_DIR / f"{sid}.jsonl")
+            for l in _jsonl(sessionlog.SESSIONS_DIR / f"{r.get('session_id')}.jsonl")
             if isinstance(l, dict) and "request" in l
         ]
-        if eligible(row):
-            for l in lines:
-                if l.get("upstream") == "frontier":
-                    keys.setdefault(
-                        key(l["request"]),
-                        (
-                            l["response"],
-                            _roots(l["request"]),
-                            sid,
-                            l.get("usage") or {},
-                        ),
-                    )
-        elif row.get("exit_code") != 0 or row.get(
-            "tampered"
-        ):  # served from cache, then didn't verify
-            for l in lines:
-                if l.get("upstream") == "cache":
-                    evicted[key(l["request"])] = sid
-    for k in evicted.keys() - _index["evicted"]:
-        trace.emit(
-            "Router → Cache",
-            f"evict {k[:12]}",
-            f"{evicted[k]} failed verify · entry evicted",
-            ISSUE,
-            ["router", "cache"],
-            ["cache"],
-            evicted[k],
-        )
-    _index.update(mtime=mtime, evicted=_index["evicted"] | evicted.keys())
-    _index["keys"] = {k: v for k, v in keys.items() if k not in _index["evicted"]}
+        for r in rows
+    }
+    evicted = {  # (key, source session) of every answer replayed into a session that then didn't verify
+        (key(l["request"]), l.get("model", "").removeprefix("cache:")): r["session_id"]
+        for r in rows
+        if r.get("exit_code") != 0 or r.get("tampered")
+        for l in logs[r.get("session_id")]
+        if l.get("upstream") == "cache"
+    }
+    keys = {}
+    for r in filter(eligible, rows):
+        for l in logs[r["session_id"]]:
+            k = key(l["request"])
+            if l.get("upstream") == "frontier" and (k, r["session_id"]) not in evicted:
+                keys.setdefault(k, (l["response"], _roots(l["request"]), r["session_id"], l.get("usage") or {}))
+    for (k, src), sid in evicted.items() - _index["evicted"].items():
+        trace.emit("Router → Cache", f"evict {k[:12]}", f"{sid} failed verify · {src}'s answer evicted", ISSUE,
+                   ["router", "cache"], ["cache"], sid)
+    _index.update(mtime=mtime, keys=keys, evicted=evicted)
     return _index
 
 

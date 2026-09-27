@@ -14,7 +14,7 @@ SYSTEM = "You are opencode.\n<env>\n  Working directory: {}\n  Today's date: {}\
 
 @pytest.fixture(autouse=True)
 def fresh_index(monkeypatch):
-    monkeypatch.setattr(cache, "_index", {"mtime": None, "keys": {}, "evicted": set()})
+    monkeypatch.setattr(cache, "_index", {"mtime": None, "keys": {}, "evicted": {}})
 
 
 def new_sid():
@@ -143,7 +143,7 @@ def test_corrupt_or_missing_files_fail_open(router, stub, workdir):
 
 def test_a_failed_cache_session_is_evicted_and_escalated(router, stub, workdir, monkeypatch):
     """The runner labels it `cache`, the escalator reruns it on the frontier without counting it against the
-    model, and the router never serves those keys again, even from the verified session that recorded them."""
+    model, and the router never serves that session's answers again."""
     verified(router, body())
     sid = new_sid()
     post(router, sid, body())  # served from cache
@@ -167,4 +167,4 @@ def test_a_failed_cache_session_is_evicted_and_escalated(router, stub, workdir, 
     calls = len(stub.requests)
     post(router, new_sid(), body())
     assert len(stub.requests) == calls + 1
-    assert any(e["result"].endswith("entry evicted") for e in jsonl("trace.jsonl") if e["who"] == "Router → Cache")
+    assert any(e["result"].endswith("answer evicted") for e in jsonl("trace.jsonl") if e["who"] == "Router → Cache")
