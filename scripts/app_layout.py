@@ -12,7 +12,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 WIDTHS = [(1920, 1080), (1280, 720), (836, 900), (390, 844)]
-PAGES = ["/app", "/app/race", "/app/tasks", "/app/agents", "/app/providers", "/app/providers/river", "/app/providers/memorable", "/app/providers/gbrain", "/app/providers/frontier", "/app/providers/superset", "/app/providers/qm", "/app/logs", "/app/overview"]
+PAGES = ["/app", "/app/race", "/app/tasks", "/app/agents", "/app/providers", "/app/providers/river", "/app/providers/memorable", "/app/providers/gbrain", "/app/providers/frontier", "/app/logs", "/app/overview"]
 CONTROLS = ".btn, nav.side a, .tag, .state, .flag, th, .sp b, .kpi span, .kpi b, .race-bar a, .lane .st"
 WRAPPED = """(sel) => [...document.querySelectorAll(sel)].filter((el) => {
   if (!el.checkVisibility()) return false;
