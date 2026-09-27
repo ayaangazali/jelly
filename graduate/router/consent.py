@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from graduate import registry
 from graduate.registrar.train import RiverBackend, backend
+from graduate.watcher import started
 from graduate.router.app import app
 
 APPROVABLE = ("READY", "PROBATION")
@@ -91,7 +92,8 @@ def approve(task_type: str):
     registry.transition(task_type, "TRAINING")
     log = Path("data") / f"{task_type}.train.log"
     with log.open("ab") as out:
-        subprocess.Popen([*TRAIN_CMD, task_type], stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+        p = subprocess.Popen([*TRAIN_CMD, task_type], stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+    registry.update(task_type, trainer={"pid": p.pid, "started": started(p.pid)})  # the watcher spots a silent death (#116)
     registry.add_event("training", task_type, f"Training started on {where} with {len(records)} runs.")
     return JSONResponse({"task_type": task_type, "state": "TRAINING", "records": len(records), "log": str(log)}, 202)
 
