@@ -79,7 +79,7 @@ def test_reused_pid_counts_as_dead(workdir):
     registry.transition(T, "TRAINING")
     # A live pid (this test) with another start time: the trainer died and the OS gave its pid away.
     registry.update(
-        T, trainer={"pid": os.getpid(), "started": "Thu Jan  1 00:00:00 1970"}
+        T, trainer={"pid": os.getpid(), "started": watcher.started(os.getpid()) - 3600}
     )
     watcher.reap()
     assert registry.load()["task_types"][T]["state"] == "READY"
