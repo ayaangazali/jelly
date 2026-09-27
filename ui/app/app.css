@@ -725,3 +725,44 @@ svg.over rect.mine { fill: var(--owned); }
 .test-note { margin: 4px 0 0; font-size: 0.8em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptot { flex-wrap: nowrap; overflow-x: auto; margin-bottom: 12px; }
 .plog td, .plog th { white-space: nowrap; }
+/* Race tab: two terminal windows on a pink stage (the captain's reference). */
+.race.stage { background: #F2A7BF; padding: 18px; border-radius: 14px; gap: 18px; }
+.term { position: relative; background: #3D3437; color: #EDE6E3; border-radius: 12px; padding: 12px 18px 46px; font: 13px/1.6 "JetBrains Mono", monospace; min-width: 0; min-height: 50vh; display: flex; flex-direction: column; }
+.term header { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+.term header i { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; }
+.term header i:nth-child(2) { background: #FEBC2E; }
+.term header i:nth-child(3) { background: #28C840; }
+.term header b { flex: 1; text-align: center; font-size: 1.15em; letter-spacing: 0.04em; margin-right: 50px; }
+.term .cmd { margin: 0; font-weight: 700; }
+.term .dim { color: #A89FA0; margin: 2px 0 8px; }
+.term .tbody { flex: 1; overflow: hidden; }
+.term .tl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.term .tl b { color: #F38BA8; font-weight: 400; }
+.term .tl code { color: #EDE6E3; font-size: 1em; }
+.term footer p { margin: 0; }
+.term .ok { color: #7EE0A1; }
+.term .bad { color: #FF8A80; }
+.term .chip { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); background: #EFE8DC; color: #2B2426; padding: 6px 18px; border-radius: 4px; font-size: 1.05em; white-space: nowrap; border: 1px solid #CFC6B8; }
+@media (max-width: 999px) { .race.stage { grid-template-columns: 1fr; } .term { min-height: 30vh; } }
+/* Graduation card, again: title on its own line, arc = count/N exactly (no spin), stepper at the bottom. */
+.p-ring h2 { position: static !important; align-self: stretch; }
+.p-ring.training .fill, .p-ring .fill { animation: none !important; }
+.p-ring.training .fill { stroke: var(--warn); }
+.ring-mid span { display: block; font-size: 0.7em !important; color: var(--muted); }
+.p-ring .ring-big { display: none; }
+.p-ring .train .bar { display: none; }
+.p-ring.training .train .bar { display: block; visibility: visible; width: 70%; height: 4px; margin: 4px auto; }
+.p-ring.training .train .bar i { width: 30%; transform: none; animation: slidebar 1.4s ease-in-out infinite; }
+@keyframes slidebar { from { transform: translateX(-100%); } to { transform: translateX(330%); } }
+.stepper { list-style: none; display: flex; gap: 6px; padding: 0; margin: 8px 0 0; width: 100%; }
+.stepper li { flex: 1; text-align: center; font-size: 0.72em; padding: 4px 2px; border: 1px solid var(--rule); border-radius: 4px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stepper li.done { color: var(--pass); border-color: #1F5C3B; }
+.stepper li.now { color: var(--ink); border-color: var(--owned); font-weight: 700; }
+.p-ring { justify-content: flex-start !important; }
+.p-ring .ring-state { max-width: 100%; overflow: hidden !important; text-overflow: ellipsis !important; }
+@media (max-height: 800px) and (min-width: 1000px) {
+  .p-ring .ring-what, .p-ring .train { display: none !important; }
+  .ring-wrap { width: 104px !important; margin: 4px 0 !important; }
+  .p-ring .ring-name { margin-top: 2px; }
+  .stepper { margin-top: 6px; }
+}

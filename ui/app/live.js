@@ -23,7 +23,7 @@ const sim = { on: false, last: 0, t: 0, next: 0, dots: [], tokens: 0, cost: 0, r
 function live() {
   const svg = `<svg class="graph" viewBox="10 50 980 320" preserveAspectRatio="xMidYMid meet" aria-label="How a request flows">
 ${Object.entries(EDGES).map(([k, d]) => `<path id="e-${k}" class="edge ${k.startsWith("yours") ? "mine" : ""}" d="${d}"/>`).join("")}
-${node("agent", "Coding agents", "send tasks")}${node("grad", "jelly router", "records · checks", "hub")}
+${node("agent", "Coding agents", "send tasks")}${node("grad", "Jelly router", "records · checks", "hub")}
 ${node("big", "Big model", "pay per token")}${node("yours", "Your model", "trained on your runs", "mine")}${node("tests", "Unit tests", "the task's own tests", "tests")}
 <g id="dots"></g></svg>`;
   return `<div id="live-root" class="live">
@@ -32,8 +32,9 @@ ${node("big", "Big model", "pay per token")}${node("yours", "Your model", "train
 <div class="kpis"><div class="kpi save"><b id="k-saved">$0.00</b><span id="k-saved-l">saved vs big model</span></div>${kpi("k-tokens", "tokens written")}${kpi("k-cost", "spent")}${kpi("k-runs", "tests passed")}${kpi("k-yours", "on your model")}</div><span class="tag src">demo data</span></header>
 <section class="panel p-graph"><h2>How a task flows</h2>${svg}<p class="test-note">A run succeeds only if the task's own unit tests pass (e.g. <code>tests/test_mod_05.py</code>).</p></section>
 <section class="panel p-ring"><h2>Graduation</h2><p class="ring-what" id="ring-what">5 passing runs, then your own model takes over</p><div class="ring-wrap"><svg viewBox="0 0 120 120" class="ring"><circle cx="60" cy="60" r="50" class="track"/><circle id="ring" cx="60" cy="60" r="50" class="fill" pathLength="100"/></svg>
-<div class="ring-mid"><b id="ring-n">0 of 5</b></div></div><p id="ring-sub" class="ring-big">passing runs</p><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
-<div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div></section>
+<div class="ring-mid"><b id="ring-n">0 of 5</b><span id="ring-sub">passing runs</span></div></div><p id="ring-name" class="ring-name"></p><p id="ring-state" class="ring-state">learning on the big model</p>
+<div class="train"><div class="bar"><i id="train-bar"></i></div><p id="train-line"></p></div>
+<ol class="stepper" id="stepper"><li data-s="READY">Ready</li><li data-s="TRAINING">Training</li><li data-s="GRADUATED">Your model live</li></ol></section>
 <section class="panel p-race"><h2>Race</h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
 <section class="panel p-log"><h2>Session log</h2><ol id="log" class="log"></ol></section>
 <section class="panel p-lanes"><h2>Agents · GBrain tips</h2><div id="lanes" class="lanes"></div></section>
@@ -263,6 +264,7 @@ function facts() {
   const verified = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from).length;
   set("sp-memorable-role", `classifies each task by recalling past procedures · ${verified} learned from verified runs`);
   const g = Object.values(reg).find((t) => t.state === "GRADUATED" && t.model);
+  if (g && String(g.model).startsWith("river://")) set("sp-river-role", `trains and serves your model · Qwen3.5-9B LoRA trained on ${g.trained_on_runs || "your"} real runs`);
   if (!g || !sim.S.real) return set("yours-line", "");
   const base = String(g.model).startsWith("river://") ? "Qwen3.5-9B, trained on River" : "Qwen2.5-Coder-0.5B, trained on this machine";
   set("yours-line", `Your model: ${base} from ${g.trained_on_runs || "its"} real runs · now serving ${tot.owned_runs || 0} run${tot.owned_runs === 1 ? "" : "s"} · saved ${money(tot.saved_usd || 0)}`);
@@ -317,16 +319,18 @@ function realRing() {
   const v = t.verified_runs || 0, runs = `${v} real run${v === 1 ? "" : "s"}`;
   document.getElementById("ring").style.strokeDashoffset = 100 - (Math.min(v, n) / n) * 100;
   const grad = t.state === "GRADUATED", tot = s.totals || {};
-  set("ring-n", grad ? "✓" : `${Math.min(v, n)} of ${n}`); set("ring-sub", grad ? "Graduated" : "passing runs");
+  set("ring-n", grad ? "✓" : `${Math.min(v, n)} of ${n}`); set("ring-sub", grad ? "graduated" : "passing runs");
+  const order = ["READY", "TRAINING", "GRADUATED"], at = order.indexOf(t.state);
+  document.querySelectorAll("#stepper li").forEach((li, i) => { li.classList.toggle("done", at > i); li.classList.toggle("now", at === i); });
   set("ring-name", `“${t.title || slug}”`);
   const said = { LEARNING: "learning on the big model", READY: "ready · training your model", TRAINING: `training your model on these ${runs}`,
-    GRADUATED: tot.owned_runs ? `trained on ${t.trained_on_runs || v} runs · serving ${tot.owned_runs} · saved $${(tot.saved_usd || 0).toFixed(2)}` : `trained on ${t.trained_on_runs || v} runs · waiting for its first run`,
+    GRADUATED: tot.owned_runs ? `serving ${tot.owned_runs} runs · saved $${(tot.saved_usd || 0).toFixed(2)}` : "waiting for its first run",
     PROBATION: "back on the big model after failures" };
   set("ring-state", said[t.state] || t.state);
   const wrap = document.querySelector(".p-ring");
   wrap.classList.toggle("training", t.state === "TRAINING"); wrap.classList.toggle("ready", t.state === "READY"); wrap.classList.toggle("graduated", t.state === "GRADUATED");
   const curve = (data.replay && data.replay.loss && data.replay.loss[slug]) || null, c = curve && curve.steps;
-  const river = String(t.model || "").startsWith("river://");
+  const river = String(t.model || "").startsWith("river://") || (!t.model && s.config.backend === "river");
   const where = river ? "LoRA on Qwen3.5-9B · on River" : "LoRA on Qwen2.5-Coder-0.5B · on this machine";
   const run = c && c.length ? ` · ${c.length} steps · loss ${c[0].loss.toFixed(3)} → ${c[c.length - 1].loss.toFixed(3)} · ${Math.round(c[c.length - 1].secs || 0)} s`
     : river ? RIVER_RUN : "";

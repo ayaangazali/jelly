@@ -63,7 +63,7 @@ function home() {
   const events = [...(s.registry.events || [])].sort((a, b) => (b.ts || "").localeCompare(a.ts || "")).slice(0, 12);
   const agents = (data.swarm && data.swarm.agents) || [];
   return `<h1>Your agents, getting cheaper</h1>
-<p class="lede">jelly sits between your coding agent and the frontier model. It watches which kinds of task your agents repeat, and once a task type has ${N()} test-verified runs, it trains a small model you own on them and routes that task to it. Every run is still verified; a failure goes back to the frontier.</p>
+<p class="lede">Jelly sits between your coding agent and the frontier model. It watches which kinds of task your agents repeat, and once a task type has ${N()} test-verified runs, it trains a small model you own on them and routes that task to it. Every run is still verified; a failure goes back to the frontier.</p>
 <div class="cards">
   <div class="card"><b>${tt.length}</b><span>task types seen</span></div>
   <div class="card"><b>${verified}</b><span>verified runs</span></div>
@@ -172,8 +172,8 @@ function describe(m) {
 }
 
 function startRace(p) {
-  // A static comparison: the clock starts past both runs' ends, so each pane shows its finished run.
-  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.frontier), pane(p.owned)], rescue: p.rescue, base: 1e12, since: performance.now() });
+  // Streams once at recorded pace when the tab opens or a task is picked; no loop. Your model left, big model right.
+  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.owned), pane(p.frontier)], rescue: p.rescue, base: 0, since: performance.now() });
 }
 
 const elapsed = () => race.base + (performance.now() - race.since) * race.speed;
@@ -181,19 +181,17 @@ function setSpeed(x) { race.base = elapsed(); race.since = performance.now(); ra
 
 const secsOf = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
-// A race pane: the recorded run replayed, a caption under each counter.
+// A race pane: a terminal window streaming the recorded run's calls at their recorded pace, then its cost and time.
 function paneHTML(p, t, side) {
-  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t);
-  const c = done ? { out: r.output_tokens, turns: r.turns, cost: r.cost_usd, ms: r.wall_secs * 1000 }
-    : { out: shown.reduce((a, s) => a + s.out, 0), turns: shown.length, cost: shown.reduce((a, s) => a + s.cost, 0), ms: t };
-  const end = !done ? `<p class="verify muted">working…</p>` : r.exit_code === 0 ? `<p class="verify pass">✓ ${esc(testFile(r))} passed</p>`
-    : `<p class="verify fail">✗ Tests failed${race.rescue && side === "owned" ? `: re-run on the big model, which ${race.rescue.exit_code === 0 ? "passed" : "failed too"}` : ""}</p>`;
-  return `<header><b>${side === "owned" ? "Your model" : "Big model"}</b> <code class="muted">${esc(r.model.split("/").pop())}</code><p class="muted">${data.sample ? "sample data" : "recorded run"}</p></header>
-<div class="ctr"><div class="big"><b>${num(c.out)}</b><span>tokens written: the text you pay for</span></div>
-<div><b>${c.turns}</b><span>times it asked the model</span></div><div><b>${money(c.cost)}</b><span>cost of the task</span></div>
-<div><b>${secsOf(c.ms)}</b><span>time until the tests ran</span></div></div>
-<ol class="turns">${shown.map((s, i) => `<li><span class="muted">${i + 1}</span><span>${s.what}</span></li>`).join("")}${p.logged ? "" : `<li><span></span><span class="muted">No step-by-step record for this run: its totals appear when its time is up.</span></li>`}</ol>
-${end}`;
+  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t), mine = side === "owned";
+  const river = String(r.model || "").startsWith("river://");
+  const model = mine ? (river ? "Qwen3.5-9B · River" : "your model") : String(r.model || "big model").split("/").pop();
+  const status = mine ? `Sending request to your model${river ? " on River" : ""}...` : `Sending request to ${esc(model)}. Waiting for first token...`;
+  return `<header><i></i><i></i><i></i><b>${mine ? "YOUR MODEL" : "BIG MODEL"}</b></header>
+<p class="cmd">$ graduate race ask ${mine ? "owned" : "frontier"}</p><p class="dim">${status}</p>
+<div class="tbody">${shown.map((s) => `<div class="tl">${s.what}</div>`).join("")}${p.logged ? "" : `<div class="tl dim">no step-by-step record kept for this run</div>`}</div>
+<footer>${done ? `<p>cost ${money(r.cost_usd || 0)}</p><p>completed in ${r.wall_secs}s · <span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></p>` : `<p class="dim">running… ${secsOf(t)}</p>`}</footer>
+<span class="chip">${esc(model)}</span>`;
 }
 
 function verdictHTML([f, o]) {
@@ -212,10 +210,10 @@ function tick() {
   if (!box || !race.panes) return;
   const t = elapsed();
   race.panes.forEach((p, i) => {
-    const el = box.children[i], html = paneHTML(p, t, i ? "owned" : "frontier");
-    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; el.querySelector(".turns").scrollTop = 1e6; }
+    const el = box.children[i], html = paneHTML(p, t, i ? "frontier" : "owned");
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; const tb = el.querySelector(".tbody, .turns"); if (tb) tb.scrollTop = 1e6; }
   });
-  const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML(race.panes) : "";
+  const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML([race.panes[1], race.panes[0]]) : "";
   if (v.dataset.html !== html) { v.innerHTML = html; v.dataset.html = html; }
 }
 setInterval(tick, 100);
@@ -247,7 +245,7 @@ function compare() {
 <div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(pairLabel(x))}</option>`).join("")}</select>
 
 <a href="/ui/index.html#/compare">Benchmark table →</a></div>
-<div id="race" class="race"><section class="pane frontier"></section><section class="pane owned"></section></div><div id="verdict"></div>
+<div id="race" class="race stage"><section class="term owned"></section><section class="term frontier"></section></div><div id="verdict"></div>
 <p class="muted prompt-line">Task prompt: ${esc(o.prompt)}</p>`;
 }
 
