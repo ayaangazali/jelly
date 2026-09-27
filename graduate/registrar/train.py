@@ -156,14 +156,13 @@ class LocalBackend:
                 out.append((full[:MAX_LEN], labels[:MAX_LEN]))
         return out
 
-    def train(self, chats, name, log, steps=None, lr=2e-4):
+    def train(self, chats, name, log, steps):
         torch = self._torch()
         from peft import LoraConfig, get_peft_model
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         tok = AutoTokenizer.from_pretrained(BASE_MODEL)
         examples = self._examples(tok, chats)
-        steps = steps or max(15, 3 * len(examples))
         model = get_peft_model(
             AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32),
             LoraConfig(
@@ -196,7 +195,7 @@ class LocalBackend:
             ["train"],
         )
         params = [p for p in model.parameters() if p.requires_grad]
-        opt = torch.optim.AdamW(params, lr=lr)
+        opt = torch.optim.AdamW(params, lr=2e-4)
         inner = model.get_base_model()
         inner.gradient_checkpointing_enable(
             gradient_checkpointing_kwargs={"use_reentrant": False}
@@ -289,20 +288,19 @@ class RiverBackend:
 
         return river_client.Client(api_key=os.environ["RIVER_API_KEY"])
 
-    def train(self, chats, name, log, steps=None, lr=2e-4):
+    def train(self, chats, name, log, steps):
         from river_client import LoraConfig
 
         from graduate.registrar import dataset
 
         rend = dataset.renderer()
         wires = [dataset.wire(rend, c)[0] for c in chats]
-        steps = steps or max(15, 3 * len(wires))
         with self._client().session() as session:
             model = session.create_model(self.BASE, lora=LoraConfig(rank=32))
             for step in range(1, steps + 1):
                 fwd, _ = model.train_step(
                     data=[wires[(step - 1) % len(wires)]],
-                    lr=lr,
+                    lr=2e-4,
                     loss_fn="cross_entropy",
                 )
                 log({"step": step, "loss": fwd.metrics.get("loss")})
@@ -404,7 +402,7 @@ def run(task_type, steps=None, use_checkpoint=None):
                 loss_log.flush()
                 print(json.dumps(row), flush=True)
 
-            model = backend().train(chats, f"{task_type}-v{version}", log, steps)
+            model = backend().train(chats, f"{task_type}-v{version}", log, steps or max(15, 3 * len(chats)))
             runs = len(chats)
         secs = round(time.monotonic() - t0, 1)
         trace.emit(
