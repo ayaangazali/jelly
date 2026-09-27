@@ -11,7 +11,7 @@ def test_app_page_and_its_assets_are_served(router, workdir):
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
     assert router("GET", "/app/explore/compare").text == page.text  # clean paths: the page routes itself
     assets = re.findall(r'(?:href|src)="(/ui/app/[^"]+)"', page.text)
-    assert sorted(assets) == ["/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js"]
+    assert {"/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js", "/ui/app/providers.js", "/ui/app/pricing.js"} <= set(assets)
     for a in assets:
         assert router("GET", a).status_code == 200, a
 
@@ -52,3 +52,31 @@ def test_race_pairs_each_owned_run_with_a_first_try_frontier_run_of_the_same_pro
 
 def test_race_with_no_ledger_has_no_pairs(router, workdir):
     assert router("GET", "/api/race").json()["pairs"] == []
+
+
+def test_replay_gives_each_run_its_tool_steps_and_each_task_type_its_newest_loss_curve(router, workdir):
+    (workdir / "ledger.jsonl").write_text(json.dumps(_row("sess-o1", "owned")) + "\n" + json.dumps(_row("sess-x", "frontier")) + "\n")
+    (workdir / "sessions").mkdir()
+    edit = {"function": {"name": "edit", "arguments": json.dumps({"file_path": "calc/mod_05.py\nmore"})}}
+    calls = [{"response": {"tool_calls": [edit]}}, {"response": {"content": "Fixed."}}]
+    (workdir / "sessions/sess-o1.jsonl").write_text("".join(json.dumps(c) + "\n" for c in calls))
+    (workdir / "data/checkpoints").mkdir(parents=True)
+    (workdir / "data/checkpoints/fix-failing-test-v3.loss.jsonl").write_text('{"step": 1, "loss": 2.35, "secs": 21.2}\n')
+
+    got = router("GET", "/api/replay").json()
+    assert [r["steps"] for r in got["runs"]] == [["edit calc/mod_05.py"], []]
+    assert got["loss"] == {"fix-failing-test": {"name": "fix-failing-test-v3", "steps": [{"step": 1, "loss": 2.35, "secs": 21.2}]}}
+
+
+def test_provider_calls_cover_the_whole_trace_not_the_last_100(router, workdir):
+    memorable = {"who": "Runner → Memorable", "call": "memorable ingest t.json", "result": "procedures/x"}
+    noise = {"who": "Router → Metrics", "call": "append metrics.jsonl", "result": "ok"}
+    (workdir / "trace.jsonl").write_text(json.dumps(memorable) + "\n" + "".join(json.dumps(noise) + "\n" for _ in range(150)))
+    assert router("GET", "/api/provider-calls").json() == [memorable]
+
+
+def test_pricing_lists_every_call_newest_first_with_the_prices(router, workdir):
+    calls = [{"ts": f"2026-09-27T22:0{i}:00Z", "upstream": "frontier", "model": "gpt-5.5", "cost_usd": 0.01 * i} for i in range(3)]
+    (workdir / "metrics.jsonl").write_text("".join(json.dumps(c) + "\n" for c in calls))
+    got = router("GET", "/api/pricing").json()
+    assert got["calls"] == calls[::-1] and set(got["prices"]) >= {"frontier", "owned"}

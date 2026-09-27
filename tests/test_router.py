@@ -66,6 +66,17 @@ def test_max_completion_tokens_kept(router, stub, sid, extra):
     assert sent["max_completion_tokens"] == 50 and "max_tokens" not in sent
 
 
+def test_extra_body_merged_over_request(router, stub, sid, monkeypatch):
+    """Fast mode: OPENAI_EXTRA_BODY overrides OpenCode's reasoning_effort, which GPT-5.x rejects beside tools."""
+    monkeypatch.setenv(
+        "OPENAI_EXTRA_BODY", '{"service_tier":"priority","reasoning_effort":"none"}'
+    )
+    assert post(router, sid, reasoning_effort="medium").status_code == 200
+    sent = stub.requests[-1][1]
+    assert sent["service_tier"] == "priority" and sent["reasoning_effort"] == "none"
+    assert sent["messages"] == MESSAGES
+
+
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("status", [400, 429, 500, 503])
 def test_upstream_errors_unchanged_and_unlogged(
@@ -158,7 +169,8 @@ def test_title_call_first_still_classified_by_registered_session(router, stub, s
     )
     # No hint: the registered prompt is classified, not the title request.
     other = "sess-" + uuid.uuid4().hex[:12]
-    router("POST", "/api/sessions", json={"session_id": other, "prompt": task})
+    reg = router("POST", "/api/sessions", json={"session_id": other, "prompt": task})
+    assert reg.json()["task_type"].startswith("the-test")  # the runner's GBrain page name, before any model call
     router(
         "POST",
         "/v1/chat/completions",
@@ -293,3 +305,39 @@ def test_truncated_metrics_line_is_skipped_and_the_next_record_survives(workdir)
     metrics._sessions.clear()
     metrics._load()
     assert metrics.get_session("sess-later")["turns"] == 1
+
+
+def test_bad_extra_body_still_reaches_the_frontier(router, stub, sid, monkeypatch):
+    monkeypatch.setenv("OPENAI_EXTRA_BODY", "not json")
+    assert post(router, sid).status_code == 200
+    monkeypatch.setenv("OPENAI_EXTRA_BODY", "[1]")
+    assert post(router, sid).status_code == 200
+    assert len(stub.requests) == 2
+
+
+def test_a_route_that_raises_hands_the_call_to_the_frontier(router, stub, sid, monkeypatch):
+    from graduate.router import app
+
+    def broken(session_id, request):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "memorable output")
+
+    monkeypatch.setattr(app, "_routes", [broken, *app._routes])
+    assert post(router, sid).status_code == 200
+    assert len(stub.requests) == 1
+
+
+def test_frontier_calls_are_priced_as_the_model_the_router_sends(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    got = subprocess.run(
+        [sys.executable, "-c", "from graduate.router import metrics; print(metrics.PRICES['frontier'])"],
+        cwd=tmp_path,
+        env={**os.environ, "OPENAI_MODEL": "gpt-5-mini", "PYTHONPATH": str(root)},
+        capture_output=True,
+        text=True,
+    )
+    assert got.stdout.strip() == str({"model": "gpt-5-mini", "input": 0.25, "cached_input": 0.025, "output": 2.0}), got.stderr

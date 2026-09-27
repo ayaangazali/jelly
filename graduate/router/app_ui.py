@@ -6,6 +6,8 @@ the same prompt (a first-try run before an escalation rerun), each with its sess
 plus the frontier rerun that rescued the owned run if it failed. Newest owned run first. `big_model` is the host the
 router sends frontier calls to, so the story can say when that is a stand-in rather than OpenAI."""
 
+import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -49,3 +51,48 @@ def race():
             }
         )
     return {"pairs": pairs, "big_model": urlparse(upstream.BASE_URL).netloc}  # api.openai.com, or a stand-in
+
+
+def _steps(log):
+    """`name first-arg` per tool call in a session log, the lines the showcase streams."""
+    out = []
+    for call in log or []:
+        for t in (call.get("response") or {}).get("tool_calls") or []:
+            try:
+                arg = next(iter(json.loads(t["function"]["arguments"]).values()), "")
+            except (ValueError, AttributeError, StopIteration):
+                arg = ""
+            out.append(f"{t['function']['name']} {str(arg).splitlines()[0] if arg else ''}"[:90])
+    return out[:12]
+
+
+@app.get("/api/replay")
+def replay():
+    """The showcase's real data: every ledger run with its tool-call steps, and each task type's newest loss curve
+    (data/<task_type>.loss.jsonl, or a checkpoint's under data/checkpoints/)."""
+    runs = [{**r, "steps": _steps(_log(r.get("session_id")))} for r in state.jsonl("ledger.jsonl", 2000)]
+    loss = {}
+    curves = sorted(Path("data").glob("**/*.loss.jsonl"), key=lambda p: p.stat().st_mtime) if Path("data").is_dir() else []
+    for p in curves:
+        name = p.name.removesuffix(".loss.jsonl")
+        loss[re.sub(r"-v\d+$", "", name)] = {"name": name, "steps": state.jsonl(p, 1000)}
+    return {"runs": runs, "loss": loss}
+
+
+PROVIDER = re.compile(r"Memorable|GBrain|River|OpenAI|Anthropic|Superset")
+
+
+@app.get("/api/provider-calls")
+def provider_calls():
+    """Every traced call to an outside provider, over the whole trace (up to its last 20,000 events), oldest first."""
+    from graduate import trace
+
+    return [e for e in state.jsonl(trace.TRACE_PATH, 20_000) if PROVIDER.search(str(e.get("who", "")))]
+
+
+@app.get("/api/pricing")
+def pricing():
+    """Every model call in metrics.jsonl, newest first, with the per-1M prices it was costed at (prices.json)."""
+    from graduate.router import metrics
+
+    return {"calls": state.jsonl("metrics.jsonl", 20_000)[::-1], "prices": metrics.PRICES}
