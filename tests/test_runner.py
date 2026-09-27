@@ -1,5 +1,6 @@
 """`graduate run` verify path with a fake agent in a scratch git repo. No router: the runner fails open."""
 
+import json
 import os
 import re
 import subprocess
@@ -187,3 +188,46 @@ def test_main_says_what_to_fix_before_launching_anything(repo, workdir, monkeypa
     monkeypatch.setattr(runner, "OPENCODE", str(workdir / "nope"))
     assert "opencode.ai/install" in main(task)
     assert not (workdir / "ledger.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    "upstreams, routed_to, counted",
+    [
+        (["owned", "frontier", "frontier"], "mixed", 0),
+        (["frontier", "frontier"], "frontier", 1),
+        (["owned", "owned"], "owned", 0),
+    ],
+)
+def test_only_an_all_frontier_session_is_a_verified_frontier_run(repo, workdir, monkeypatch, upstreams, routed_to, counted):
+    """#133: a session with an owned call is never frontier baseline or training data, however it ends."""
+    from graduate import registry, watcher
+    from graduate.registrar import dataset
+
+    call = example("fixtures/session.example.jsonl")
+
+    def router(method, path, **kw):
+        if not path.endswith("/log"):
+            return {"task_type": "fix-failing-test"}
+        sid = path.split("/")[3]
+        log = [{**call, "session_id": sid, "upstream": u, "model": f"{u}-model"} for u in upstreams]
+        (workdir / "sessions").mkdir(exist_ok=True)
+        (workdir / f"sessions/{sid}.jsonl").write_text("".join(json.dumps(c) + "\n" for c in log))
+        return log
+
+    monkeypatch.setattr(runner, "_router", router)
+    monkeypatch.setattr(registry, "GRADUATE_N", 1)
+    monkeypatch.setattr(dataset, "renderer", lambda tokenizer=None: None)
+    monkeypatch.setattr(dataset, "wire", lambda rend, chat: ({"input_ids": []}, False))
+    agent = workdir / "agent"
+    agent.write_text(AGENT.format(FIX))
+    agent.chmod(0o755)
+    monkeypatch.setattr(runner, "OPENCODE", str(agent))
+
+    row = runner.run("Fix calc.", VERIFY, str(repo), timeout=10)
+    watcher.scan()
+    tt = registry.load()["task_types"]["fix-failing-test"]
+    built = dataset.build("fix-failing-test", tokenizer=dataset._CharTokenizer())
+
+    got = (row["exit_code"], row["routed_to"], tt["verified_runs"], tt["state"], built["records"], built["skipped"])
+    assert got == (0, routed_to, counted, "READY" if counted else "LEARNING", counted, 0)
+    assert row["model"] == f"{upstreams[-1]}-model"

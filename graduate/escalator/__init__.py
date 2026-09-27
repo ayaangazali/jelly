@@ -91,7 +91,7 @@ def escalate(row, pre):
         if row["forced_failure"]
         else f"failed its tests (exit {row['exit_code']})"
     )
-    cached = row["routed_to"] == "cache"
+    cached = row.get("routed_to") == "cache"
 
     diff = Path("sessions") / f"{sid}.diff"
     diff.parent.mkdir(exist_ok=True)
@@ -172,6 +172,6 @@ def escalate(row, pre):
         ),
     )
     print(
-        f"{sid} {row['routed_to']}_then_frontier → {rerun['session_id']} exit {rerun['exit_code']}"
+        f"{sid} {row.get('routed_to', 'owned')}_then_frontier → {rerun['session_id']} exit {rerun['exit_code']}"
     )
     return rerun
