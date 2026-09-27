@@ -1,0 +1,5 @@
+.env
+backups/
+metrics.jsonl
+__pycache__/
+.DS_Store
