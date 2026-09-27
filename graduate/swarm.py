@@ -84,7 +84,7 @@ def _agent(a, record, work, timeout):
         print(f"{a['agent']}: {e!r}", file=sys.stderr)
         row = {"exit_code": 1, "turns": 0}
     ids = {a["session_id"], row.get("session_id")}  # an escalation reruns under a new id
-    edges = [edge for e in trace.recent() if e["session_id"] in ids for edge in e["edges"]]
+    edges = {edge for e in trace.recent() if e["session_id"] in ids for edge in e["edges"]}  # a2a edges: the A2A lane
     a.update(
         status="passed" if row["exit_code"] == 0 else "failed",
         exit_code=row["exit_code"],
