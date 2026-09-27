@@ -806,3 +806,14 @@ svg.notes-svg { width: 100%; height: auto; max-height: 60vh; }
 details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
 .notes-svg .nnode.hub rect { width: 230px; } svg.notes-svg { max-height: 66vh; }
 .notes-svg > text { font-size: 11px; paint-order: stroke; stroke: var(--sheet); stroke-width: 3px; }
+.runs { display: grid; gap: 6px; }
+.run { border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
+.run summary { display: grid; grid-template-columns: 2em minmax(0, 1.4fr) 1fr 1fr 1fr; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: center; }
+.run summary code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.turn { padding: 6px 12px; border-top: 1px solid var(--rule); font-size: 0.85em; overflow-wrap: anywhere; white-space: pre-wrap; }
+.turn b { display: block; color: var(--muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; }
+.turn.user { border-left: 3px solid var(--owned); } .turn.assistant { border-left: 3px solid var(--pass); } .turn.tool { border-left: 3px solid var(--rule); color: var(--muted); }
+.turn.sys { color: var(--muted); white-space: normal; }
+.turn.sys b { display: inline; }
+.states-line { margin: -0.6em 0 1em; }
+.ttypes td.tname small { white-space: normal; }

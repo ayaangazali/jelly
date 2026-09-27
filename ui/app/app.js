@@ -99,13 +99,16 @@ function tasks() {
   const approvable = (t) => ["READY", "PROBATION"].includes(t.state) && !data.readOnly;
   const off = data.readOnly ? ` title="${READ_ONLY}"` : "";
   return `<h1>Task types</h1>
+<p class="lede">A task type is one kind of job your agents repeat, like fixing a failing test. Memorable sorts every run into a type. After ${N()} passing runs of a type, Jelly trains your own model on them, and from then on that type goes to your model; everything else stays on the big model.</p>
+<p class="muted states-line">Learning (k of ${N()}) → Ready → Training → Graduated</p>
 <div class="scroll"><table class="ttypes"><thead><tr><th>Task type</th><th>State</th><th>Progress</th><th>Consent</th><th>Big model per run</th><th>Your model per run</th><th></th></tr></thead><tbody>
 ${tt.map(([id, t]) => {
     const n = Math.min(t.verified_runs || 0, N());
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
     const per = (x) => (x ? `${Math.round(x.turns * 10) / 10} turns · ${money(x.cost_usd)}` : `<span class="muted">–</span>`);
-    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b></td>
+    const unmatched = (t.verified_runs || 0) + (t.failed_runs || 0) <= 1 && t.state === "LEARNING" && !/^[a-z]+(-[a-z]+){1,2}$/.test(id);
+    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${unmatched ? `<br><small class="muted">1 run Memorable could not match to a known type, so it stays on the big model.</small>` : ""}</td>
 <td>${stateTag(t.state)}</td>
 <td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
@@ -123,7 +126,23 @@ function reviewPanel(r) {
   if (r.msg) return `<p class="msg${r.bad ? " err" : ""}">${esc(r.msg)}</p>`;
   return `<div class="review">${r.error ? `<p class="msg err">${esc(r.error)}</p>` : ""}
 <p>${r.records ?? 0} runs${r.tokens != null ? `, ${num(r.tokens)} tokens` : ""}. Trains on: ${esc(r.destination || r.where || "n/a")}.</p>
-${r.sample ? `<pre>${esc(JSON.stringify(r.sample, null, 1).slice(0, 1500))}</pre>` : ""}</div>`;
+${runsView(r.runs || (r.sample ? [r.sample] : []), r.records)}</div>`;
+}
+
+// One row per training run (session, task, turns, tokens); a row opens that run as a conversation. Nothing is clipped.
+function runsView(runs, total) {
+  if (!runs.length) return "";
+  const text = (c) => (Array.isArray(c) ? c.map((x) => x.text || "").join("") : String(c ?? ""));
+  const turn = (m) => {
+    if (m.role === "system") return `<div class="turn sys"><b>system prompt</b> · ${text(m.content).length.toLocaleString()} chars</div>`;
+    const calls = (m.tool_calls || []).map((t) => `<code>${esc(t.function.name)}(${esc(String(t.function.arguments).slice(0, 400))})</code>`).join("<br>");
+    return `<div class="turn ${m.role}"><b>${m.role === "tool" ? "tool result" : m.role}</b><div>${esc(text(m.content))}${calls ? `<br>${calls}` : ""}</div></div>`;
+  };
+  return `${total && runs.length < total ? `<p class="muted">Showing ${runs.length} of ${total} runs.</p>` : ""}<div class="runs">${runs.map((rec, i) => {
+    const md = rec.metadata || {}, msgs = rec.messages || [], chars = msgs.reduce((a, m) => a + text(m.content).length, 0);
+    const task = (String(md.verify_command || "").match(/test_mod_(\d+)/) || [])[1];
+    return `<details class="run"><summary><span>${i + 1}</span><code>${esc((md.session_id || "run").slice(0, 17))}</code><span>${task ? `task ${task}` : esc(md.task_type || "")}</span><span>${md.turns ?? msgs.filter((m) => m.role === "assistant").length} turns</span><span>~${num(chars / 4)} tokens</span></summary>${msgs.map(turn).join("")}</details>`;
+  }).join("")}</div>`;
 }
 
 // The public link is view-only: every POST/DELETE answers 405. Remember that and disable Approve/Revoke.
@@ -137,6 +156,7 @@ async function act(kind, t) {
   render();
   const method = { review: "GET", approve: "POST", revoke: "DELETE" }[kind];
   const r = await get(`/api/consent/${encodeURIComponent(t)}`, { method });
+  if (kind === "review" && !r.error) { const d = await get(`/api/training-data/${encodeURIComponent(t)}`); if (Array.isArray(d.runs) && d.runs.length) r.runs = d.runs; }
   if (r.status === 405) { data.readOnly = true; localStorage.setItem("graduate-read-only", "1"); }
   if (kind === "review") data.reviews[t] = r;
   else data.reviews[t] = r.status === 405 ? { msg: READ_ONLY } : r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };

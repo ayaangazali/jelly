@@ -101,3 +101,13 @@ def pricing():
     from graduate.router import metrics
 
     return {"calls": state.jsonl("metrics.jsonl", 20_000)[::-1], "prices": metrics.PRICES}
+
+
+@app.get("/api/training-data/{task_type}")
+def training_data(task_type: str):
+    """Every training record built for a task type (data/<task_type>.chat.jsonl), for the Review data drawer."""
+    from graduate.router import consent
+
+    if not re.fullmatch(r"[\w-]+", task_type):
+        return {"runs": []}
+    return {"runs": consent._records(task_type) or []}
