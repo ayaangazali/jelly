@@ -1,5 +1,64 @@
 # Results (#31)
 
+## Real runs (Claude Haiku 4.5 as the big model)
+
+**Real, 2026-09-27 22:08–22:46Z.** OpenAI had no credit, so the big model is **Claude Haiku 4.5** (`claude-haiku-4-5`), called through Anthropic's OpenAI-compatible Chat Completions endpoint (`OPENAI_BASE_URL=https://api.anthropic.com/v1`). The router needed no code change. Prices: `fixtures/prices.claude.json`, Anthropic list $1 per 1M input tokens, $5 per 1M output. Every session is a real OpenCode run through the router, verified by the task's own pytest command. Nothing in this section comes from the stub.
+
+**Caching is off on this path.** Anthropic's compatible endpoint reports no cached tokens (`cached_input_tokens` 0 on every call), so every input token is billed at the full rate. The frontier cost below is higher than a cached baseline would be. Output tokens and turns don't depend on caching.
+
+**The big model on broken states 01–08** (`scripts/corpus.sh`, capped at 100 calls / USD 2.00): 8 of 8 verified.
+
+| State | Session | Turns | Tool calls | Input tokens | Output tokens | Cost | Wall (s) | Verify |
+|---|---|---|---|---|---|---|---|---|
+| 01 | `sess-e778387f1cb0` | 8 | 7 | 196,807 | 763 | $0.2006 | 19.7 | exit 0 |
+| 02 | `sess-4679b2b91a3e` | 7 | 7 | 170,786 | 774 | $0.1747 | 19.1 | exit 0 |
+| 03 | `sess-485741aec4da` | 7 | 6 | 168,374 | 650 | $0.1716 | 17.2 | exit 0 |
+| 04 | `sess-58bc4c439302` | 7 | 7 | 170,017 | 763 | $0.1738 | 17.1 | exit 0 |
+| 05 | `sess-046f6bb2c3b9` | 6 | 6 | 140,867 | 651 | $0.1441 | 14.9 | exit 0 |
+| 06 | `sess-dd2e683296e0` | 7 | 6 | 168,375 | 644 | $0.1716 | 18.2 | exit 0 |
+| 07 | `sess-037de8e19457` | 7 | 6 | 168,994 | 734 | $0.1727 | 18.7 | exit 0 |
+| 08 | `sess-f61f363e6a5c` | 8 | 6 | 196,142 | 703 | $0.1997 | 21.7 | exit 0 |
+
+Mean per session: 7.1 turns, 6.4 tool calls, 710 output tokens, $0.176, 18.3 s.
+
+**The owned model, retrained on those 8 real sessions.** Qwen2.5-Coder-0.5B with LoRA, trained on this machine's CPU: 24 steps, loss 2.07 → 0.12, 1171.5 s, peak 4.6 GB (checkpoint `fix-failing-test-claude-v1`). It was then evaluated through the same router and runner, served locally at $0. A failed owned session escalates, and the escalator reruns it on Claude.
+
+| State | Kind | Owned session | What the owned model did | Turns | Output tokens | Wall (s) | Verify | Frontier rerun |
+|---|---|---|---|---|---|---|---|---|
+| 07 | repeat (in training) | `sess-f805428cb504` | `"aeio"` → `"aeiou"`, the right fix | 6 | 326 | 125.7 | **exit 0** | none needed |
+| 09 | held out | `sess-9b43f23d9bda` | two `edit` calls missing `newString`, both rejected | 7 | 357 | 252.5 | exit 1 | `sess-f503244eee3e`, exit 0, 6 turns, $0.1441 |
+| 10 | held out | `sess-78d154d1ef86` | removed the `10 *` instead of making it `100 *` | 6 | 315 | 234.0 | exit 1 | `sess-bd968b5c0688`, exit 0, 5 turns, $0.1151 |
+
+**The owned model still fails both held-out states.** It passes the one repeat, 07, which is in its training data. That pass shows it learned the agent loop and the tool calls; it doesn't show that it generalizes. Both held-out failures escalated, and Claude fixed them, so the user got a passing result every time.
+
+`python scripts/compare.py ledger.jsonl --prices fixtures/prices.claude.json` on the real ledger (13 rows), verbatim:
+
+```
+fix-failing-test
+  frontier: n 8, mean turns 7.12, mean tool calls 6.38, mean cost $0.176096, pass rate 8/8 (100%)
+    passed, in the means: sess-e778387f1cb0, sess-4679b2b91a3e, sess-485741aec4da, sess-58bc4c439302, sess-046f6bb2c3b9, sess-dd2e683296e0, sess-037de8e19457, sess-f61f363e6a5c
+    failed, pass rate only: none
+  owned: n 1, mean turns 6.00, mean tool calls 5.00, mean cost $0.002938 (River list), pass rate 1/3 (33%)
+    passed, in the means: sess-f805428cb504
+    failed, pass rate only: sess-9b43f23d9bda, sess-78d154d1ef86
+  owned, local: mean cost $0 marginal; training wall time 1171.5 s (registry.json 2026-09-27T22:33:42Z: "fix-failing-test graduated: fix-failing-test-v1, trained on 8 runs in 1171.5 s.")
+  escalation reruns, in neither arm: sess-f503244eee3e, sess-bd968b5c0688
+  fewer turns: yes (owned 6.00 vs frontier 7.12); lower cost: River list yes ($0.002938 vs $0.176096), local yes ($0 marginal)
+```
+
+**How to read the last line.** The owned mean is one passing session, and it's a repeat. On that same state, 07, Claude took 7 turns, 734 output tokens, $0.1727 and 18.7 s. The owned model took 6 turns, 326 output tokens, $0 marginal and 125.7 s on CPU: fewer turns and fewer output tokens, but about 7× slower. On the held-out states the owned attempt added about 4 minutes before the frontier rerun and saved nothing. **No savings ratio is claimed.** One repeat pass out of three owned sessions doesn't support one.
+
+**Spend.** $2.36 of the $3 cap, over 85 upstream calls:
+- step 1 on state 01: $0.171 (7 calls)
+- the corpus: $1.409 (57 calls)
+- the two escalation reruns: $0.259 (11 calls)
+- two probes of under 15 tokens each
+- **$0.519 (8 calls) from another lane's session that used this router's port by mistake** (`sess-7ac196e7ba36`, not in this ledger)
+
+The ledger, sessions, metrics and registry are in `/home/ubuntu/jelly-corpus/claude-live/` on the build host, with the corpus, checkpoint and eval logs beside it.
+
+## Offline rehearsal (stub frontier)
+
 **Final, 2026-09-27, offline.** Measured on main `9e47e5d` (CI green), without OpenAI credit: the key answers `429 insufficient_quota` (last checked 18:01Z). So in every session below, the frontier is `scripts/stub-upstream.py`, a scripted stand-in with made-up token counts, and zero OpenAI calls were made. The owned model is real: the `fix-failing-test-v3` LoRA checkpoint (Qwen2.5-Coder-0.5B), served on this machine's CPU ([`docs/pretrained-model.md`](pretrained-model.md)).
 
 ## Headline: verification and escalation work end to end

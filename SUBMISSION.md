@@ -22,10 +22,10 @@ Own Your Intelligence Hackathon (YC, 2026-09-27). The submission is the recordin
 
 ## Numbers (from [`docs/results.md`](docs/results.md))
 
-- **Your model on a repeat: passes.** Broken state 07 is one of the 8 states the owned model trained on. After graduation it routes to the owned model, which fixes it: verified, exit 0, zero frontier calls. That is a repeat of a trained task, not a held-out result.
-- **Your model on a new state: fails, and the safety path catches it (headline).** On broken state 09, which it never saw, the owned session fails verification (exit 1). The escalator reruns it on the frontier, which passes (exit 0), and the failure is kept as a negative example. The user gets a passing result. The owned model also fails held-out 10.
-- **Savings: n/a.** With no OpenAI credit, the owned model learned from 8 scripted stub sessions, and the frontier side of every comparison is the stub. So there is no real baseline, and we claim no savings ratio.
-- **Frontier numbers are stub numbers.** The OpenAI key answers `429 insufficient_quota`, so every frontier session ran against `scripts/stub-upstream.py`, with zero OpenAI calls. The pitch targets output tokens, because prompt caching can't cut them. We have no real measurement of that today.
+- **The big model is real: Claude Haiku 4.5**, via Anthropic's OpenAI-compatible Chat Completions API (OpenAI had no credit). On broken states 01–08 it passed 8 of 8 real OpenCode sessions through the router: mean 7.1 turns, 710 output tokens, $0.176 and 18.3 s a session. That endpoint reports no cached tokens, so this baseline pays full price for input.
+- **Your model, retrained on those 8 real sessions (local CPU, Qwen2.5-Coder-0.5B LoRA, 1171 s): passes the repeat, fails both held-out states.** On repeat 07 it passes on its own: exit 0, 6 turns, 326 output tokens, $0 marginal, 126 s. Claude took 7 turns, 734 output tokens, $0.173 and 19 s on the same state. On held-out 09 and 10 it fails verification (exit 1). The escalator reruns both on Claude, and both pass, so the user gets a passing result every time. The River-trained model (Qwen3.5-9B) is reported separately in [`docs/results.md`](docs/results.md#river-the-owned-model-trained-and-served-on-river-qwen35-9b).
+- **Savings: not claimed.** One passing repeat out of three owned sessions doesn't support a ratio. The owned model used fewer output tokens on that repeat, and it was about 7× slower on CPU.
+- **Spend:** $2.36 of a $3 cap, over 85 calls to Claude, from the ledger and the router's metrics.
 
 ## Sponsors, and exactly how each is used
 
@@ -66,8 +66,8 @@ This one command, about 25 minutes:
 
 ## Honest limits
 
-- **No savings claimed.** The owned model passes one repeat of a trained task (07), fails two others (06, 08) and fails the held-out states (09, 10). The frontier side is a stub, so no ratio means anything. What the demo shows working is graduation, verification and escalation.
-- **No real frontier numbers.** There was no OpenAI credit, so every frontier session in the results and the recording is the stub.
+- **No savings claimed.** On real Claude Haiku 4.5 sessions, the locally retrained owned model passes one repeat of a trained task (07) and fails both held-out states (09, 10). What works end to end is graduation, verification and escalation.
+- **The recording is not all real.** The offline rehearsal video uses the stub frontier. The real Claude numbers are in [`docs/results.md`](docs/results.md#real-runs-claude-haiku-45-as-the-big-model).
 - **The owned model is a local stand-in for River.** Qwen2.5-Coder-0.5B with LoRA, trained on this machine's CPU (~10 min) because the River account has no credits.
 - **No model is trained during the demo.** The demo graduates on a checkpoint trained beforehand (`--use-checkpoint`) and says so on screen. Approve still starts a real training job, which the demo stops.
 - **One task type, one small repo, 5 verified runs.** How many runs a task type needs is an open question. Every session is verified, so a wrong guess costs latency, not correctness.
