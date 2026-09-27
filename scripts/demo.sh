@@ -118,9 +118,7 @@ if [ -n "$checkpoint" ]; then
  say "4/6 GRADUATED on checkpoint $checkpoint, trained BEFORE the demo, not by the job that just started"
  # The job consent started would train for ~10 min at ~5 GB beside the served model: stop it (a child of this
  # demo's router, so no other checkout's trainer or agent can match).
- for p in $(pgrep -P "$router" -f "graduate\.registrar\.train $T" || true); do
-  kill -9 "$p" && echo "stopped the live training job (pid $p)"
- done
+ pkill -9 -P "$router" -f "graduate\.registrar\.train $T" && echo "stopped the live training job"
  graduate train "$T" --use-checkpoint "$checkpoint" # records trained_on_runs from the checkpoint (#22)
 else
  say "4/6 waiting for the live training job to graduate $T"
