@@ -188,14 +188,14 @@ def stage_train():
     chosen = [rows[n] for n in mem["selected"]]
     client = river()
     base, names = base_model(client)
-    rend = get_renderer(base)
+    rend = get_renderer(base, thinking=False)
     data = [rend.build_training_example(messages(r["prompt"], r["answer"]), train_on=TrainOnWhat.LAST_ASSISTANT).to_dict() for r in chosen]
-    steps = int(os.environ.get("POC_STEPS", str(3 * len(data))))
+    steps = int(os.environ.get("POC_STEPS", str(2 * len(data))))
     log, t0 = [], time.time()
     with client.session() as session:
         model = session.create_model(base, lora=LoraConfig(rank=16))
         for step in range(1, steps + 1):
-            fwd, _ = model.train_step(data=[data[(step - 1) % len(data)]], lr=1e-4, loss_fn="cross_entropy")
+            fwd, _ = model.train_step(data=[data[(step - 1) % len(data)]], lr=float(os.environ.get("POC_LR", "5e-5")), loss_fn="cross_entropy")
             log.append({"step": step, "loss": fwd.metrics.get("loss"), "secs": round(time.time() - t0, 1)})
             print(log[-1])
         ckpt = model.save_weights(f"poc-draft-{int(t0)}", mode="inference")
@@ -206,8 +206,9 @@ def stage_train():
 
 def draft(client, base, prompt, checkpoint=None):
     m = messages(prompt)
-    r = (client.chat_complete_from_checkpoint(m, checkpoint_path=checkpoint, base_model=base, max_tokens=600) if checkpoint
-         else client.chat_complete(m, base_model=base, max_tokens=600))
+    kw = {"max_tokens": 800, "temperature": 0, "chat_template_kwargs": {"enable_thinking": False}}
+    r = (client.chat_complete_from_checkpoint(m, checkpoint_path=checkpoint, base_model=base, **kw) if checkpoint
+         else client.chat_complete(m, base_model=base, **kw))
     if r.status_code >= 400:
         return "", {}, f"River {r.status_code}: {r.response_json[:200]}"
     body = json.loads(r.response_json)
@@ -222,10 +223,10 @@ def stage_eval():
         for arm, ckpt in (("base", None), ("lora", tr["checkpoint"])):
             text, usage, err = draft(client, tr["base_model"], r["prompt"], ckpt)
             exit_code, summary = verify(code_of(text), r["tests"]) if not err else (1, err)
-            results.append({"name": r["name"], "split": r["split"], "arm": arm, "accepted": exit_code == 0, "verify": summary,
+            results.append({"name": r["name"], "split": r["split"], "arm": arm, "accepted": exit_code == 0, "verify": summary, "draft": text,
                             "draft_out_tokens": usage.get("completion_tokens"), "frontier_out_tokens": r["usage"].get("completion_tokens"),
                             "frontier_cost_usd": r["cost_usd"]})
-            print(f"{r['split']:8} {r['name']:18} {arm:4} {'ACCEPT' if exit_code == 0 else 'reject'} · {summary[:70]}")
+            print(f"{r['split']:8} {r['name']:18} {arm:4} {'ACCEPT' if exit_code == 0 else 'reject'} · {usage.get('completion_tokens')} tok · {summary[:60]}")
     save("eval.jsonl", results)
     for split in ("train", "heldout"):
         for arm in ("base", "lora"):
