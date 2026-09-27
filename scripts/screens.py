@@ -4,7 +4,7 @@ Serves the repo root on a free port, opens ui/index.html?state=<fixture>&bench=f
 docs/screens/<fixture>-<view>-<size>.png. Fails on console errors, failed requests, horizontal overflow, a view
 cut off at the bottom, text under innerHeight/45 (16px at 720p, the r2 roadmap's floor), on the presenter showcase
 a wrong 5-of-5 count or owned numbers for a type that isn't graduated, on any view a missing sample-data label,
-and on presenter Under the hood a ticker without the latest trace event.
+on presenter Under the hood a ticker without the latest trace event, and on #/swarm a missing lane or newest A2A note.
 Offline; needs `pip install playwright && playwright install chromium`.
 """
 
@@ -24,6 +24,7 @@ SIZES = [(1920, 1080), (1280, 720)]
 # (name, hash, query, what must sit fully on screen)
 VIEWS = [("show", "#/show", "", ".show"), ("show-present", "#/show", "&present", "#app"),
          ("compare", "#/compare", "", ".cmp"), ("compare-present", "#/compare", "&present", "#app"),
+         ("swarm", "#/swarm", "", ".swarm"), ("swarm-present", "#/swarm", "&present", "#app"),
          ("overview-present", "#/", "&present", "#app"), ("system-present", "#/system", "&present", "#app")]
 
 # [overflow-x (page or a box its content spills out of), cut off at the bottom, smallest text px and its text]; SVG text is measured on screen, not in user units.
@@ -61,8 +62,8 @@ def main():
             state = json.loads((ROOT / "fixtures" / f"{fx}.json").read_text())
             for w, h in SIZES:
                 for view, hash_, flag, fold in VIEWS:
-                    if "compare" in view and fx != FIXTURES[0]:
-                        continue  # the bench file, not /state, feeds compare
+                    if ("compare" in view or "swarm" in view) and fx != FIXTURES[0]:
+                        continue  # the bench and swarm files, not /state, feed these
                     name = f"{fx.removeprefix('state.')}-{view}-{w}x{h}"
                     page = browser.new_page(viewport={"width": w, "height": h})
                     errors = []
@@ -70,7 +71,7 @@ def main():
                     page.on("pageerror", lambda e: errors.append(str(e)))
                     page.on("requestfailed", lambda r: errors.append(f"failed {r.url}"))
                     page.on("response", lambda r: r.status >= 400 and errors.append(f"{r.status} {r.url}"))
-                    page.goto(f"{base}?state=/fixtures/{fx}.json&bench=/fixtures/bench.example.json{flag}{hash_}")
+                    page.goto(f"{base}?state=/fixtures/{fx}.json&bench=/fixtures/bench.example.json&swarm=/fixtures/swarm.example.json{flag}{hash_}")
                     page.wait_for_selector("#app > :not(.lede)")  # rendered past "Loading…"
                     page.evaluate("document.fonts.ready")
                     page.wait_for_timeout(600)  # let the stamp animation settle
@@ -85,6 +86,10 @@ def main():
                         problems += [f"verified {page.inner_text('[data-qa=verified]')} != {want}"] * (page.inner_text("[data-qa=verified]") != want)
                         problems += ["owned numbers for a type that isn't graduated"] * (k != "GRADUATED" and page.query_selector("[data-qa=out-change]") is not None)
                     problems += ["fixture numbers without the sample-data label"] * (not page.evaluate("document.documentElement.classList.contains('sample')"))
+                    if "swarm" in view:
+                        run = json.loads((ROOT / "fixtures/swarm.example.json").read_text())
+                        problems += ["not one lane per agent"] * (page.locator("[data-qa^=lane-]").count() != len(run["agents"]))
+                        problems += ["A2A feed lacks the newest note"] * (run["a2a"][-1]["result"] not in page.inner_text("[data-qa=a2a]"))
                     if view == "system-present":
                         who = state["trace"][-1]["who"]
                         problems += [f"ticker lacks the latest call {who!r}"] * (who not in page.inner_text("[data-qa=ticker]"))

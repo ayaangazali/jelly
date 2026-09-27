@@ -25,5 +25,5 @@ testpaths = ["tests"]  # demo-repo/tests fail on purpose
 include = ["graduate*", "ui", "fixtures"]
 
 [tool.setuptools.package-data]
-ui = ["*", "fonts/*"]
+ui = ["*", "fonts/*", "app/*"]
 fixtures = ["*.json", "*.jsonl"]

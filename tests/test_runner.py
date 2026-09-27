@@ -50,7 +50,7 @@ def test_run_verifies_and_appends_one_ledger_row(
     agent.chmod(0o755)
     monkeypatch.setattr(runner, "OPENCODE", str(agent))
     ingested = []
-    monkeypatch.setattr(runner.memorable, "ingest", lambda *a: ingested.append(a) or "procedures/abc-fix-calc")
+    monkeypatch.setattr(runner.memorable, "ingest", lambda *a, **k: ingested.append(a) or "procedures/abc-fix-calc")
 
     row = runner.run("Fix calc.", VERIFY, str(repo), timeout=1)
 
@@ -85,6 +85,16 @@ def test_run_verifies_and_appends_one_ledger_row(
         "Runner → Test suite",
         "Runner → Ledger",
     ]
+
+
+def test_a_session_with_no_answered_call_keeps_the_runners_task_type(repo, workdir, monkeypatch):
+    agent = workdir / "agent"
+    agent.write_text(AGENT.format("exit 1"))
+    agent.chmod(0o755)
+    monkeypatch.setattr(runner, "OPENCODE", str(agent))
+    monkeypatch.setattr(runner, "_session_totals", lambda sid: {"session_id": sid, "task_type": "unknown", "turns": 0})
+    row = runner.run("Fix calc.", VERIFY, str(repo), timeout=5, task_type="fix-failing-test")
+    assert (row["task_type"], jsonl("ledger.jsonl")[0]["task_type"]) == ("fix-failing-test", "fix-failing-test")
 
 
 FIX = "perl -pi -e 's/a - b/a + b/' calc.py"
