@@ -1,0 +1,9 @@
+# QA timer run (#63): see qa-run.sh and docs/QA.md, "QA timer".
+[Unit]
+Description=jelly QA: make test, e2e-replay, demo.sh --offline and make e2e on the latest main
+
+[Service]
+Type=oneshot
+ExecStart=%h/jelly-qa-clone/scripts/qa-timer/qa-run.sh
+Environment=QA_KEY_FILE=%h/super.env
+TimeoutStartSec=1h

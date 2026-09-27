@@ -84,18 +84,15 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         ["launch"],
         session_id,
     )
+    # OpenCode takes its project dir from $PWD, not the process cwd.
+    env = {**os.environ, "GRADUATE_SESSION": session_id, "PWD": os.path.abspath(repo)}
+    env.pop("OPENAI_API_KEY", None)  # only the router holds it, as in demo.sh (#97)
     proc = subprocess.Popen(
         [OPENCODE, "run", prompt],
         cwd=repo,
         text=True,
         start_new_session=True,
-        # OpenCode takes its project dir from $PWD, not the process cwd.
-        env={
-            **os.environ,
-            "OPENAI_API_KEY": "",  # only the router holds it (#97)
-            "GRADUATE_SESSION": session_id,
-            "PWD": os.path.abspath(repo),
-        },
+        env=env,
         stdin=subprocess.DEVNULL,  # `opencode run` reads a piped stdin into the prompt and waits for EOF
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

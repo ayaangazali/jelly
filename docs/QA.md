@@ -81,12 +81,26 @@ Stop terminals 1 and 2 with Ctrl-C. Move the state aside: `mkdir -p backups/qa &
 
 ## E. With OpenAI credit only (5 min, at most $0.10)
 
-Skip this part while the key returns `429 insufficient_quota`.
+Skip this part while the key returns `429 insufficient_quota`. `make e2e` tells you which: it prints its estimate, then either `skipped: no key`, `skipped: no credit` (after one call of 1 output token), or runs one OpenCode session on broken state 01 on gpt-5.4-mini under hard caps of $0.10 and 20 calls (`E2E_CAP_USD`, `E2E_CAP_CALLS`) and ends with `e2e sess-… exit 0 · N calls · $… of $0.10`.
 
 22. `graduate init`
     **Expected:** `python … ok`, `opencode …`, `key ok: GET https://api.openai.com/v1/models -> 200`, then `.env written (mode 600)`, prices.json, registry.json and the opencode.json provider. The models check is free, so "key ok" does not prove the key has credit.
 23. `graduate up`. Then, in a second terminal: `scripts/reset-demo.sh 01 && graduate run --task-file demo-repo/tasks/01.json --repo demo-repo`
     **Expected:** `sess-… frontier exit 0 · 1/1 passed`, with a cost of a few cents. The dashboard shows the run with real token counts. With no credit you get OpenCode's 429 error and `exit 1`.
+
+## QA timer: every check, every 2 hours (#63)
+
+`scripts/qa-timer/qa-run.sh` resets a dedicated clone to the latest main, then runs `make test`, `make e2e-replay`, `scripts/demo.sh --offline --auto-approve` (on :4541) and `make e2e`. Each run logs to `qa-runs/<stamp>.log` in the clone, and `qa-runs/latest.txt` holds one line: time, sha, pass or fail per check. A check that newly fails opens one issue, "QA timer: <check> failing on main at <sha>", with its log tail and no key; while it keeps failing, no new issue. It needs `gh auth login`, OpenCode and `jq`.
+
+```bash
+git clone https://github.com/ayaangazali/jelly ~/jelly-qa-clone && cd ~/jelly-qa-clone
+python3 -m venv .venv && .venv/bin/pip install -e '.[test,train]'
+mkdir -p ~/.config/systemd/user && cp scripts/qa-timer/jelly-qa.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now jelly-qa.timer
+systemctl --user start jelly-qa.service && cat qa-runs/latest.txt   # one run now, about 5 minutes
+```
+
+`make e2e` reads the key from the file in the service's `QA_KEY_FILE` line (default `~/super.env`; edit it to yours) and nothing else from that file. `loginctl enable-linger $USER` keeps the timer running while you are logged out.
 
 ## Known gaps (already filed; do not re-file)
 
