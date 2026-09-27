@@ -57,7 +57,7 @@ def test_both_sides_start_together_and_every_event_is_tagged(router, stub, river
 
     stub.handle = timed  # the MockTransport holds the bound method; re-point it
     chat_api.upstream.client._transport.handler = timed
-    r = router("POST", "/api/chat-compare", json={"prompt": "Why does 1 + 1 fail?"})
+    r = router("POST", "/api/chat-compare", json={"preset": "broken-09"})
     assert r.status_code == 200 and r.headers["content-type"].startswith(
         "text/event-stream"
     )
@@ -94,14 +94,14 @@ def test_both_sides_start_together_and_every_event_is_tagged(router, stub, river
     )
 
 
-def test_caps_refuse_long_prompts_and_a_spent_budget(router, stub, river):
-    r = router("POST", "/api/chat-compare", json={"prompt": "x" * 2001})
-    assert r.status_code == 400 and "2,000" in r.json()["error"]
+def test_caps_refuse_free_prompts_and_a_spent_budget(router, stub, river):
+    r = router("POST", "/api/chat-compare", json={"prompt": "say anything"})
+    assert r.status_code == 400 and "free prompts are off" in r.json()["error"]
     chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 200, "cost_usd": 0.1}))
-    r = router("POST", "/api/chat-compare", json={"prompt": "hi"})
+    r = router("POST", "/api/chat-compare", json={"preset": "broken-09"})
     assert r.status_code == 429 and "200 requests" in r.json()["error"]
     chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 3, "cost_usd": 4.999}))
-    r = router("POST", "/api/chat-compare", json={"prompt": "hi"})
+    r = router("POST", "/api/chat-compare", json={"preset": "broken-09"})
     assert r.status_code == 429 and "$5 budget" in r.json()["error"]
     assert not stub.requests and not river.calls  # a refusal spends nothing
 
@@ -118,7 +118,7 @@ def test_errors_never_echo_a_key(router, stub, river, monkeypatch):
         raise RuntimeError("auth failed for rk-secret-river-key-123")
 
     monkeypatch.setattr(train.RiverBackend, "_client", leak)
-    r = router("POST", "/api/chat-compare", json={"prompt": "hi"})
+    r = router("POST", "/api/chat-compare", json={"preset": "broken-09"})
     errors = {e["side"]: e["message"] for e in events(r) if e.get("type") == "error"}
     assert errors["big"] == "OpenAI answered HTTP 401"
     assert (
@@ -141,3 +141,11 @@ def test_your_model_is_the_newest_graduated_river_checkpoint(workdir, monkeypatc
     assert chat_api.small_model() == "river://new/sampler_weights/b"
     monkeypatch.setenv("CHAT_OWNED_MODEL", "river://pinned/x")
     assert chat_api.small_model() == "river://pinned/x"
+
+
+def test_the_preset_is_broken_state_09_with_its_real_failing_pytest(router):
+    p = router("GET", "/api/chat-preset").json()
+    src = next(f["text"] for f in p["files"] if f["path"] == "calc/mod_09.py")
+    assert 'return " ".join(text.split())' in src and p["pytest"]["exit_code"] == 1
+    assert "1 failed" in p["pytest"]["output"] and len(p["prompt"]) <= chat_api.MAX_PROMPT
+    assert src in p["prompt"] and p["pytest"]["output"] in p["prompt"]

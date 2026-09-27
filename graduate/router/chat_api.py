@@ -1,5 +1,6 @@
-"""POST /api/chat-compare (captain's Chat page, /app/chat): one prompt, sent to the big model and your own model at the
-same instant, streamed back as one SSE stream.
+"""POST /api/chat-compare {"preset": "broken-09"} (captain's Chat page, /app/chat): one fixed task environment (a demo broken
+state: source, test, real failing pytest output; GET /api/chat-preset), sent to the big model and your own model at the
+same instant, streamed back as one SSE stream. No free prompts: the public link can only run a preset.
 
 Every event is `data: {"side": "big"|"small", "type": ...}`:
 - `start`: that side's call is launched; `t_ms` is milliseconds since the request arrived (both ~0).
@@ -9,7 +10,7 @@ Every event is `data: {"side": "big"|"small", "type": ...}`:
 - `error`: `message`, never a key or a raw upstream body.
 Then one `{"type": "end"}`.
 
-Public-internet safety: prompt <= 2,000 chars, <= 400 output tokens per side, and chat-budget.json caps the total
+Public-internet safety: presets only (the prompt is built here, <= 2,000 chars), <= 400 output tokens per side, and chat-budget.json caps the total
 at $5 and 200 requests; past either, a plain refusal. Each call goes through app.call_hooks, so metrics.jsonl (and
 the pricing logs) get it like any routed call.
 """
@@ -57,6 +58,56 @@ WORST = metrics.cost(
     {"input_tokens": MAX_PROMPT, "cached_input_tokens": 0, "output_tokens": MAX_OUT},
     "owned",
 )
+
+ROOT = Path(__file__).resolve().parents[2]
+# Fixed task environments (the public link cannot send its own prompt): demo broken state 09, planted the way
+# scripts/reset-demo.sh plants it, with the real failing pytest output from a scratch copy.
+PRESETS = {
+    "broken-09": {
+        "title": "Demo broken state 09 (held out: never in training)",
+        "source": "calc/mod_09.py",
+        "test": "tests/test_mod_09.py",
+        "plant": ("reversed(text.split())", "text.split()"),
+        "instruction": "The test tests/test_mod_09.py is failing. Fix the code so it passes.",
+    }
+}
+_env = {}
+
+
+def preset(pid):
+    """`{id, title, instruction, files: [{path, text}], pytest: {command, output, exit_code}, prompt}`, built once."""
+    if pid in _env:
+        return _env[pid]
+    import shutil
+    import subprocess
+    import sys
+    import tempfile
+
+    p = PRESETS[pid]
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp) / "demo-repo"
+        shutil.copytree(ROOT / "demo-repo", repo, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+        src = repo / p["source"]
+        src.write_text(src.read_text(encoding="utf-8").replace(*p["plant"]), encoding="utf-8")
+        cmd = ["pytest", "-q", "-p", "no:cacheprovider", p["test"]]
+        run = subprocess.run([sys.executable, "-m", *cmd], cwd=repo, capture_output=True, text=True, timeout=60)
+        files = [{"path": f, "text": (repo / f).read_text(encoding="utf-8")} for f in (p["source"], p["test"])]
+    out = (run.stdout + run.stderr).strip()
+    listing = "\n\n".join(f"{f['path']}:\n```python\n{f['text']}```" for f in files)
+    prompt = (
+        f"{p['instruction']}\n\n{listing}\n\n$ {' '.join(cmd[:2] + cmd[4:])}\n```\n{out}\n```\n\n"
+        f"Reply with the fixed {p['source']} in one python code block, then one line on what was wrong."
+    )
+    _env[pid] = {
+        "id": pid,
+        "title": p["title"],
+        "instruction": p["instruction"],
+        "files": files,
+        "pytest": {"command": " ".join(cmd[:2] + cmd[4:]), "output": out, "exit_code": run.returncode},
+        "prompt": prompt,
+    }
+    return _env[pid]
+
 
 router = APIRouter()
 _lock = threading.Lock()
@@ -255,19 +306,22 @@ async def _small(prompt, sid, put, model):
     await put(done)
 
 
+@router.get("/api/chat-preset")
+def chat_preset():
+    return preset("broken-09")
+
+
 @router.post("/api/chat-compare")
 async def chat_compare(req: Request):
     t0 = time.monotonic()
     try:
-        prompt = (await req.json()).get("prompt")
+        pid = (await req.json()).get("preset")
     except Exception:
-        prompt = None
-    if not isinstance(prompt, str) or not prompt.strip():
-        return JSONResponse({"error": 'Send {"prompt": "..."}.'}, 400)
-    if len(prompt) > MAX_PROMPT:
-        return JSONResponse(
-            {"error": f"Keep the prompt under {MAX_PROMPT:,} characters."}, 400
-        )
+        pid = None
+    if pid not in PRESETS:
+        return JSONResponse({"error": f"Send {{\"preset\": \"{next(iter(PRESETS))}\"}}; free prompts are off on the public link."}, 400)
+    prompt = preset(pid)["prompt"]
+    t0 = time.monotonic()  # the environment is built (once); both calls launch from here
     if refusal := _reserve():
         return JSONResponse({"error": refusal}, 429)
     sid = f"chat-{uuid.uuid4().hex[:12]}"
