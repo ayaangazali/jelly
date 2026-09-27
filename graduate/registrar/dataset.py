@@ -34,17 +34,16 @@ def chat_record(row, negative=False):
     path = SESSIONS_DIR / f"{row['session_id']}.jsonl"
     last = json.loads(path.read_text(encoding="utf-8").strip().splitlines()[-1])
     reply = {k: v for k, v in last["response"].items() if k != "finish_reason"}
-    tools = [t["function"] for t in last["request"].get("tools") or []]
     meta = {k: row[k] for k in META} | ({"negative": True} if negative else {})
     return {
         "messages": last["request"]["messages"] + [reply],
         "tools": [
             {
-                "name": f["name"],
-                "description": f.get("description", ""),
-                "parameters": f.get("parameters", {}),
+                "name": t["function"]["name"],
+                "description": t["function"].get("description", ""),
+                "parameters": t["function"].get("parameters", {}),
             }
-            for f in tools
+            for t in last["request"].get("tools") or []
         ],
         "metadata": meta,
     }
@@ -123,7 +122,9 @@ class _CharTokenizer:
     def encode(self, text, add_special_tokens=False):
         return [ord(c) for c in text]
 
-    def convert_tokens_to_ids(self, token):
+    def convert_tokens_to_ids(
+        self, token
+    ):  # Qwen35VLRenderer looks up its vision token ids at init
         return 0
 
 
