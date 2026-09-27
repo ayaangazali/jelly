@@ -29,7 +29,7 @@ GRADUATE sits between a coding agent and its model. It records every agent sessi
 | 1:45–2:15 | Registry, watcher, Memorable-based classifier | #18 #19 #20 #36 |
 | 2:15–3:00 | Submit a real River training run live, in the background | #22 |
 | 3:00–3:30 | Escalation on failure, River serving adapter | #23 #37 |
-| 3:30–4:15 | Live dashboard and consent screen | #24 #25 |
+| 3:30–4:15 | Live dashboard, consent screen, and the live Under the hood view (real call trace, agent terminal, files on disk) | #24 #25 #39 |
 | 4:15–4:35 | Scripted demo, real numbers, backup recording | #31 |
 | 4:35–4:50 | Exactly one stretch goal | #26–#30 |
 | 4:50–5:00 | Freeze and submit | #33 |
@@ -42,6 +42,8 @@ GRADUATE sits between a coding agent and its model. It records every agent sessi
 2. The same task on the owned model in fewer turns, with the tests still passing.
 3. Cost per task against a frontier baseline with prompt caching on.
 4. A deliberate failure caught by the tests, re-run on the frontier model, and saved as a negative example.
+
+**What judges can see with their own eyes:** a real agent editing real code in the terminal panel, real test exit codes, River's training loss dropping step by step, a real checkpoint path, OpenAI's own usage numbers, and the diagram lighting up from real calls (#39).
 
 **Out:**
 - Codex support.
@@ -119,6 +121,8 @@ The pack was written from marketing pages. The four reports in `docs/research/` 
  WATCHER  ledger → verified count per task type → registry READY
  REGISTRAR  consent → dataset (tokenized, masked) → River SFT loop → checkpoint → registry GRADUATED
  DASHBOARD  /state → mock-up design, live
+ UNDER THE HOOD  every component calls trace.emit(...) → /state.trace → the diagram lights up from real calls,
+                 the runner streams OpenCode's output → /state.terminal → the live terminal panel
 ```
 
 ## Open questions for River (ask tonight on Discord, again at lunch)
