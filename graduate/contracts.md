@@ -49,7 +49,7 @@ One row per session, written by the runner (#34) after the verify command exits.
 | `exit_code` | int | Exit code of `verify_command`. `124` means the agent timed out. A verify that exits 0 is recorded as `1` when the row is `tampered`, or when the command runs `pytest` and its summary does not show at least one test with all of them passed |
 | `tests_passed` | int or null | Parsed from the pytest summary line |
 | `tests_total` | int or null | Parsed from the pytest summary line |
-| `routed_to` | `"frontier"` or `"owned"` | Which upstream served this session |
+| `routed_to` | `"frontier"`, `"owned"` or `"mixed"` | Which upstream served this session. `"mixed"`: an owned call and a frontier call in one session (#133); it counts as neither a verified frontier run nor training data |
 | `model` | string | Frontier model id, or the River checkpoint path / deployment model |
 | `turns` | int | Model calls in this session (from the router's session aggregate) |
 | `tool_calls` | int | Tool calls the model made across the session |
