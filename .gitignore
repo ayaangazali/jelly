@@ -12,3 +12,4 @@ trace.jsonl
 terminal.log
 data/
 bench/
+registry.lock

@@ -25,3 +25,23 @@ jobs:
       - run: make check
         if: matrix.python == '3.12'
       - run: make test
+
+  # $0 end to end (#65): real OpenCode + demo-repo pytest against the stub upstream, beside the test matrix.
+  e2e-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .[test]
+      - run: curl -fsSL https://opencode.ai/install | bash -s -- --version 1.18.32 --no-modify-path
+      - run: make e2e-replay
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-replay
+          path: |
+            backups/
+            terminal.log
