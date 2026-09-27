@@ -11,7 +11,7 @@ def test_app_page_and_its_assets_are_served(router, workdir):
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
     assert router("GET", "/app/explore/compare").text == page.text  # clean paths: the page routes itself
     assets = re.findall(r'(?:href|src)="(/ui/app/[^"]+)"', page.text)
-    assert sorted(assets) == ["/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js"]
+    assert sorted(assets) == ["/ui/app/app.css", "/ui/app/app.js", "/ui/app/live.js", "/ui/app/providers.js"]
     for a in assets:
         assert router("GET", a).status_code == 200, a
 
