@@ -43,7 +43,7 @@ def bench_env(workdir, monkeypatch):
     monkeypatch.setenv(
         "OPENCODE_CONFIG_CONTENT", "{}"
     )  # restored after bench points it at its router
-    monkeypatch.setattr(runner, "ROUTER", runner.ROUTER)
+    monkeypatch.setattr(runner, "ROUTER", runner.ROUTER)  # bench.main repoints it; monkeypatch undoes that
     agent = workdir / "agent"
     agent.write_text(AGENT)
     agent.chmod(0o755)
