@@ -32,13 +32,6 @@ TASK = "01"
 http = httpx.Client(timeout=30)
 
 
-def over(calls):
-    costs = [bench.cost(m, m["upstream"]) for m in calls]
-    return (
-        len(costs) + 2 > CAP_CALLS or sum(costs) + 2 * max(costs, default=0) > CAP_USD
-    )
-
-
 def main():
     print(
         f"plan   1 session, demo broken state {TASK}, {MODEL} via {upstream.BASE_URL}"
@@ -78,14 +71,13 @@ def main():
     with open("router.log", "w") as log:
         router, url = bench.start_router(MODEL, log)
     env = {
-        k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"
-    }  # only the router holds the key
-    env |= {
+        **os.environ,
         "GRADUATE_ROUTER": url,
         "OPENCODE_CONFIG_CONTENT": json.dumps(
             {"provider": {"graduate": {"options": {"baseURL": url + "/v1"}}}}
         ),
     }
+    del env["OPENAI_API_KEY"]  # only the router holds the key
     cmd = [
         "graduate",
         "run",
@@ -98,7 +90,12 @@ def main():
     capped = False
     try:
         while run.poll() is None:
-            if not capped and over(bench.metrics()):
+            costs = [bench.cost(m, m["upstream"]) for m in bench.metrics()]
+            # stop while the call in flight and one more like the priciest still fit under both caps
+            if not capped and (
+                len(costs) + 2 > CAP_CALLS
+                or sum(costs) + 2 * max(costs, default=0) > CAP_USD
+            ):
                 capped = True
                 router.terminate()
                 ps = subprocess.run(
