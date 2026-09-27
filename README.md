@@ -34,6 +34,50 @@ Harvey did this manually over six months and reported cost per query dropping ~9
 
 ---
 
+## Quickstart
+
+The repo is private: these installs work for collaborators with GitHub access only.
+
+**See it in 30 seconds, no key:**
+
+```bash
+uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo
+# open http://localhost:4141/ (the dashboard on fixture data); Ctrl-C stops
+```
+
+**Run it for real** (Python 3.11+, [OpenCode](https://opencode.ai): `curl -fsSL https://opencode.ai/install | bash`):
+
+```bash
+git clone https://github.com/ayaangazali/jelly && cd jelly   # the demo repo and its tasks live here
+python3 -m venv .venv && . .venv/bin/activate
+pip install -e '.[test]'                                     # or: pip install git+https://github.com/ayaangazali/jelly
+graduate init          # checks Python + OpenCode, asks for OPENAI_API_KEY (hidden), validates it with the free GET /v1/models
+graduate up            # router + watcher on :4141, dashboard at http://localhost:4141/; leave it running
+```
+
+In a second terminal, from the same directory, run one task:
+
+```bash
+. .venv/bin/activate
+scripts/reset-demo.sh 01                                     # plant a failing test in demo-repo/
+graduate run --task-file demo-repo/tasks/01.json --repo demo-repo
+```
+
+OpenCode fixes the test through the router, the verify command runs, and a ledger row lands on the dashboard.
+
+`graduate init` writes, in the current directory: `.env` (mode 600, added to `.gitignore` in a git repo: `OPENAI_API_KEY`, `GRADUATE_OWNED_BACKEND`), `prices.json`, an empty `registry.json` and the `graduate` provider in `opencode.json`. Rerunning it is safe: it keeps other `.env` lines, other providers and an existing registry. CI: `OPENAI_API_KEY=… graduate init --no-input [--backend river|local|none]`. The owned backend defaults to `river` if `RIVER_API_KEY` is set (environment or `.env`), else `local` if `transformers` and `torch` import, else `none`.
+
+**What still works when something is missing:**
+
+| Missing | What happens |
+|---|---|
+| OpenAI key | `graduate up --demo` only: the dashboard on fixture data |
+| River key | Training runs locally (`local`), or nothing graduates (`none`); everything routes to the frontier meanwhile |
+| OpenCode | Dashboard and router still work; `graduate run` needs it |
+| Memorable | The classifier names the task type from the normalized prompt instead (#45) |
+
+---
+
 ## Start here
 
 **Building it?** → [`graduate-spec.md`](02-project/graduate-spec.md) → [`architecture.md`](02-project/architecture.md) → [`hour-by-hour.md`](03-build/hour-by-hour.md)

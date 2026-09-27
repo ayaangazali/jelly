@@ -128,6 +128,7 @@ def escalate(row, pre):
         repo,
         force_frontier=True,
         escalated_from=sid,
+        task_type=task_type,
     )
     ok = rerun["exit_code"] == 0
     registry.add_event(
