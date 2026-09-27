@@ -20,6 +20,18 @@ cd mock-up && python3 -m http.server 8765   # then visit http://localhost:8765
 6. **Setup** shows the one setting each tool needs. It's honest about Codex: that isn't supported yet.
 7. **Reset** starts over.
 
+## Under the hood (the second view)
+
+Open **Under the hood** in the top nav, then press **Play the demo story** again after a Reset.
+
+- **Architecture diagram.** Every part and every labelled arrow. Solid boxes run on your machine; dashed boxes are outside services (OpenAI, River, Memorable), so data leaves your machine there. Parts light up in indigo as each call happens.
+- **Click any box** to see what it does, the exact calls it makes, the files it writes, what data leaves your machine, open risks, and the GitHub issue that builds it.
+- **Every call, newest first.** The exact command or API call, who makes it, the result, and the issue number. The full story runs through about 50 calls.
+- **Terminal.** The agent reading the failing test, editing one line, and the tests going red to green; then River training steps with the loss.
+- **Files on disk.** `registry.json`, `ledger.jsonl` and the session log changing as the story runs.
+
+Nothing on this page is built yet. It shows the planned calls, named from each sponsor's docs. #39 makes it live from real trace events.
+
 ## What to react to
 
 Tell me what you like and don't like on any of these. Every answer changes what gets built.
@@ -30,6 +42,7 @@ Tell me what you like and don't like on any of these. Every answer changes what 
 - **The task page.** Is the lifecycle strip clear? Are the frontier-versus-your-model bars convincing enough for judges?
 - **The consent screen.** Right level of detail, or too much?
 - **The activity log.** Is its wording clear to someone who has never seen the product?
+- **Under the hood.** Does it make the background obvious enough to show judges? Is anything in the diagram or the call log unclear?
 - **Anything missing** you expected to see, such as a cost chart over time, a per-harness view, or River training loss.
 
 ## What's real versus mocked
@@ -41,4 +54,4 @@ Tell me what you like and don't like on any of these. Every answer changes what 
 | Mock-up controls bar | Removed. The real demo is driven by `scripts/demo.sh` (#31) |
 | Model ids like `river://run-4c1e/sampler_weights/…` | Real River checkpoint paths, in the format River uses |
 
-The live dashboard (#15, #24) starts from this file.
+The live dashboard (#15, #24) and the live Under the hood view (#39) start from this file.

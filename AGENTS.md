@@ -39,7 +39,7 @@ These decisions come from [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md), whic
 | Task-type classifier | `memorable recall --single` → procedure slug, with an exact normalized-prompt hash as fallback |
 | Verification | Per **session**, in the runner, after the agent exits. Never per model call |
 | Registry | `registry.json` on disk. No database |
-| Dashboard | One `ui/index.html` built from `mock-up/index.html`. No framework, no build step |
+| Dashboard | One `ui/index.html` built from `mock-up/index.html`, both views: the dashboard and Under the hood. No framework, no build step |
 | Graduation bar | N = 5 verified runs, configurable |
 | Frontier baseline | Prompt caching **on**. Any other comparison is dishonest |
 
@@ -49,6 +49,7 @@ These decisions come from [`docs/PROJECT-BRIEF.md`](docs/PROJECT-BRIEF.md), whic
 - **Code freeze at 4:50pm PT.** Only the submission issue gets touched after that.
 - **Fail open.** Every error path ends at "the frontier model handles it."
 - **Never trust the small model.** The verify command runs on every graduated call.
+- **Trace every external call.** Any component that launches a process, calls a service or changes state calls `graduate.trace.emit(who, call, result, issue, nodes, edges)` using the diagram ids in `mock-up/index.html`. That's what makes the live Under the hood view (#39) real.
 - **Honesty:** don't claim RL training in 4 hours, "lossless", or Harvey's or Memorable's numbers as ours. See [`03-build/risks.md`](03-build/risks.md) §8.
 
 ## Labels
