@@ -10,6 +10,7 @@ command in the repo, and appends one ledger row (contracts §2).
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -28,6 +29,7 @@ from graduate.reward import parse_pytest_summary
 ROUTER = os.environ.get("GRADUATE_ROUTER", "http://localhost:4141")
 OPENCODE = os.environ.get("OPENCODE_BIN", str(Path.home() / ".opencode/bin/opencode"))
 ISSUE = 34
+GUARDED = {"conftest.py", "pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"}
 
 
 def _now():
@@ -50,6 +52,21 @@ def _session_totals(session_id):
     if calls:
         out["upstream"], out["model"] = calls[-1]["upstream"], calls[-1]["model"]
     return out
+
+
+def _tampered(repo, start_commit):
+    def git(*args):
+        out = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True).stdout
+        return [p for p in out.split("\0") if p]
+
+    paths = git("diff", "-z", "--name-only", "--no-renames", "--relative", start_commit) + git(
+        "ls-files", "-z", "--others", "--exclude-standard"
+    )
+    return any(
+        "tests" in Path(p).parts[:-1] or Path(p).name in GUARDED or Path(p).name.startswith("test_")
+        for p in paths
+        if "__pycache__" not in Path(p).parts
+    )
 
 
 def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=None, task_type=None):
@@ -114,7 +131,8 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
     # Always verify, even after a crash or timeout, and only inside the task repo.
     v = subprocess.run(verify, shell=True, cwd=repo, capture_output=True, text=True)
     passed, total = parse_pytest_summary(v.stdout)
-    exit_code = 124 if timed_out else v.returncode
+    tampered = _tampered(repo, start_commit) or bool(re.search(r"\d+ (skipped|xfailed)", v.stdout))
+    exit_code = 124 if timed_out else 1 if tampered and v.returncode == 0 else v.returncode
     for line in (v.stdout + v.stderr).splitlines():
         trace.terminal(f"[{session_id}] {line}")
     trace.emit(
@@ -153,6 +171,7 @@ def run(prompt, verify, repo, force_frontier=False, timeout=600, escalated_from=
         "ended_at": _now(),
         "escalated_from": escalated_from,
         "forced_failure": False,
+        "tampered": tampered,
     }
     if routed_to == "frontier" and exit_code == 0:
         row["procedure_slug"] = memorable.ingest(session_id, row["task_type"], verify, exit_code)

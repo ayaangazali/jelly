@@ -237,7 +237,8 @@
       "started_at": "2026-09-27T21:10:00Z",
       "ended_at": "2026-09-27T21:12:00Z",
       "escalated_from": null,
-      "forced_failure": false
+      "forced_failure": false,
+      "tampered": false
     },
     {
       "session_id": "sess-8b30c11e2d7a",
@@ -262,7 +263,8 @@
       "started_at": "2026-09-27T21:20:00Z",
       "ended_at": "2026-09-27T21:20:00Z",
       "escalated_from": null,
-      "forced_failure": false
+      "forced_failure": false,
+      "tampered": false
     },
     {
       "session_id": "sess-a91e7f0c55b2",
@@ -287,7 +289,8 @@
       "started_at": "2026-09-27T21:30:00Z",
       "ended_at": "2026-09-27T21:30:00Z",
       "escalated_from": null,
-      "forced_failure": false
+      "forced_failure": false,
+      "tampered": false
     },
     {
       "session_id": "sess-c5f2d8e41a06",
@@ -312,7 +315,8 @@
       "started_at": "2026-09-27T21:31:00Z",
       "ended_at": "2026-09-27T21:33:00Z",
       "escalated_from": "sess-a91e7f0c55b2",
-      "forced_failure": false
+      "forced_failure": false,
+      "tampered": false
     }
   ],
   "trace": [
