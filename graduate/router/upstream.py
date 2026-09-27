@@ -3,7 +3,7 @@
 The frontier is any OpenAI-compatible Chat Completions endpoint:
 - `OPENAI_API_KEY`: the server-side key. Read from the environment, else from `.env` in the cwd.
 - `OPENAI_BASE_URL`: default `https://api.openai.com/v1`. Point it at a stub to test offline.
-- The model id is `frontier.model` in `prices.json` (else `fixtures/prices.example.json`), contracts §9.
+- The model id is `OPENAI_MODEL`, else `frontier.model` in `prices.json` (else `fixtures/prices.example.json`), contracts §9.
 """
 
 import json
@@ -25,7 +25,10 @@ _prices = (
     if Path("prices.json").exists()
     else Path(__file__).parents[2] / "fixtures/prices.example.json"
 )
-MODEL = json.loads(_prices.read_text())["frontier"]["model"]
+MODEL = (
+    os.environ.get("OPENAI_MODEL")
+    or json.loads(_prices.read_text())["frontier"]["model"]
+)
 
 # One shared client; agents can think for minutes, so the read timeout is long.
 client = httpx.AsyncClient(timeout=httpx.Timeout(30.0, read=600.0))
