@@ -123,3 +123,11 @@ def test_title_call_first_still_classified_by_registered_session(router, stub, s
     router("POST", "/v1/chat/completions", headers={"Authorization": f"Bearer {other}"},
            json={"model": "graduate", "messages": title})
     assert router("GET", f"/api/sessions/{other}").json()["task_type"].startswith("the-test")
+
+
+def test_no_key_says_how_to_fix_it(router, stub, sid, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY")
+    for stream in (False, True):
+        r = post(router, sid, stream=stream)
+        assert r.status_code == 401 and "graduate init" in r.json()["error"]["message"]
+    assert stub.requests == []  # nothing left the machine
