@@ -71,7 +71,9 @@ def register_session(body: dict):
     if not session_id.startswith("sess-"):
         return {"ok": False, "error": "session_id must start with sess-"}
     _registered[session_id] = {k: body.get(k) for k in ("prompt", "repo", "verify", "force_frontier", "task_type")}
-    return {"ok": True}
+    # Classify now (cached per session), so a runner without a hint learns the task type for its GBrain page (#142).
+    task_type = classify(session_id, body["prompt"], hint=body.get("task_type"))[0] if body.get("prompt") else None
+    return {"ok": True, "task_type": task_type}
 
 
 def task_type_of(session_id):

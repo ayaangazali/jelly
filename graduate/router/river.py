@@ -118,7 +118,7 @@ async def stream_completion(request, session):
     )
     sse = "".join(f"data: {json.dumps(c)}\n\n" for c in sent) + "data: [DONE]\n\n"
     return StreamingResponse(
-        iter([sse]),
+        iter([sse.encode()]),
         media_type="text/event-stream",
         background=BackgroundTask(call_hooks, sid, request, chunks, ms, "owned", model),
     )

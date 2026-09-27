@@ -11,5 +11,11 @@
     "cached_input": 0.066,
     "output": 0.82,
     "training": 1.0
+  },
+  "reference": {
+    "model": "claude-sonnet-5",
+    "input": 2.0,
+    "cached_input": 0.2,
+    "output": 10.0
   }
 }

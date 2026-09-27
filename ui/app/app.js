@@ -2,7 +2,7 @@
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const time = (ts) => esc((ts || "").slice(11, 19));
-const money = (v) => `$${Number(v).toFixed(v < 1 ? 4 : 2)}`;
+const money = (v) => `$${Number(v).toFixed(v < 1 ? 3 : 2)}`;
 const num = (v) => Math.round(v).toLocaleString();
 const data = { state: null, swarm: null, reviews: {} };
 
@@ -10,7 +10,7 @@ async function get(url, init) {
   try {
     const r = await fetch(url, { cache: "no-store", ...init });
     const body = await r.json().catch(() => ({ error: `${url} answered ${r.status}.` }));
-    return r.ok ? body : { error: body.error || `${url} answered ${r.status}.`, ...body };
+    return r.ok ? body : { error: body.error || `${url} answered ${r.status}.`, ...body, status: r.status };
   } catch {
     return { error: `${url} isn't reachable.` };
   }
@@ -32,10 +32,17 @@ function render() {
 async function poll() {
   const s = await get("/state");
   const up = !s.error;
-  $("#live").innerHTML = `<span class="dot${up ? " on" : ""}"></span> ${up ? "live · updates every 3s" : "router unreachable"}`;
+  $("#live").textContent = up ? "" : "router unreachable";
   if (up) data.state = s;
-  if (["overview", "agents", "live"].includes(page())) data.swarm = await get("/api/swarm");
+  if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
+  if (page() === "pricing") data.pricing = await get("/api/pricing");
+  if (page() === "providers" && !data.replay) data.replay = await get("/api/replay");
+  if (page() === "providers") { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
+  if (page() === "live" && !data.replay) {
+    data.replay = await get("/api/replay");
+    if (sim.S && (data.replay.runs || []).length && !data.sample) startLive(); // real runs arrived: replay them
+  }
   render();
 }
 
@@ -57,7 +64,7 @@ function home() {
   const events = [...(s.registry.events || [])].sort((a, b) => (b.ts || "").localeCompare(a.ts || "")).slice(0, 12);
   const agents = (data.swarm && data.swarm.agents) || [];
   return `<h1>Your agents, getting cheaper</h1>
-<p class="lede">GRADUATE sits between your coding agent and the frontier model. It watches which kinds of task your agents repeat, and once a task type has ${N()} test-verified runs, it trains a small model you own on them and routes that task to it. Every run is still verified; a failure goes back to the frontier.</p>
+<p class="lede">Jelly sits between your coding agent and the frontier model. It watches which kinds of task your agents repeat, and once a task type has ${N()} test-verified runs, it trains a small model you own on them and routes that task to it. Every run is still verified; a failure goes back to the frontier.</p>
 <div class="cards">
   <div class="card"><b>${tt.length}</b><span>task types seen</span></div>
   <div class="card"><b>${verified}</b><span>verified runs</span></div>
@@ -78,11 +85,10 @@ function agents() {
   const flags = (a) => `${a.a2a_read ? `<span class="flag">read a note</span>` : ""}${a.a2a_write ? `<span class="flag">left a note</span>` : ""}`;
   const notes = [...(w.a2a || [])].reverse();
   return `<h1>Agents</h1>
-<p class="lede">Parallel agents from <code>graduate swarm</code>, one per task in its own copy of the demo repo. Agents on the same task type share what worked through agent-to-agent notes.</p>
 ${w.error ? empty(esc(w.error)) : `<p class="muted"><code>${esc(w.swarm_id)}</code> · started ${esc((w.started || "").replace("T", " ").slice(0, 19))}Z · launcher ${esc(w.launcher)}</p>`}
-${list.length ? `<table><thead><tr><th>Agent</th><th>Task</th><th>Task type</th><th>Status</th><th class="num">Exit</th><th class="num">Turns</th><th>Notes</th><th>Session</th></tr></thead><tbody>
+${list.length ? `<div class="scroll"><table><thead><tr><th>Agent</th><th>Task</th><th>Task type</th><th>Status</th><th class="num">Exit</th><th class="num">Turns</th><th>Notes</th><th>Session</th></tr></thead><tbody>
 ${list.map((a) => `<tr><td><b>${esc(a.agent)}</b></td><td>${esc(a.task)}</td><td>${a.task_type ? `<code>${esc(a.task_type)}</code>` : `<span class="muted">not yet</span>`}</td><td>${stateTag(a.status)}</td><td class="num">${a.exit_code ?? "–"}</td><td class="num">${a.turns ?? "–"}</td><td>${flags(a)}</td><td><code class="muted">${esc((a.session_id || "–").slice(0, 13))}</code></td></tr>`).join("")}
-</tbody></table>` : ""}
+</tbody></table></div>` : ""}
 <h2>Agent-to-agent notes</h2>
 ${notes.length ? `<ul class="feed">${notes.map((e) => `<li><time>${time(e.ts)}</time><span><b>${(e.edges || []).includes("a2a-write") ? "wrote" : "read"}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No notes read or written yet.")}`;
 }
@@ -90,25 +96,26 @@ ${notes.length ? `<ul class="feed">${notes.map((e) => `<li><time>${time(e.ts)}</
 function tasks() {
   const tt = types();
   if (!tt.length) return `<h1>Task types</h1>${empty("No task types yet: they appear after the first classified run.")}`;
-  const approvable = (t) => ["READY", "PROBATION"].includes(t.state);
+  const approvable = (t) => ["READY", "PROBATION"].includes(t.state) && !data.readOnly;
+  const off = data.readOnly ? ` title="${READ_ONLY}"` : "";
   return `<h1>Task types</h1>
-<p class="lede">Each kind of task your agents repeat. At ${N()} verified runs it is ready to train; nothing trains until you approve its data.</p>
-<table><thead><tr><th>Task type</th><th>State</th><th>Progress to graduation</th><th>Consent</th><th>Turns / cost per run</th><th>Actions</th></tr></thead><tbody>
+<div class="scroll"><table class="ttypes"><thead><tr><th>Task type</th><th>State</th><th>Progress</th><th>Consent</th><th>Big model per run</th><th>Your model per run</th><th></th></tr></thead><tbody>
 ${tt.map(([id, t]) => {
     const n = Math.min(t.verified_runs || 0, N());
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
-    return `<tr><td><b>${esc(t.title || id)}</b><br><code class="muted">${esc(id)}</code></td>
+    const per = (x) => (x ? `${Math.round(x.turns * 10) / 10} turns · ${money(x.cost_usd)}` : `<span class="muted">–</span>`);
+    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b></td>
 <td>${stateTag(t.state)}</td>
-<td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} of ${N()} verified${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
+<td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
-<td>${base ? `frontier ${base.turns} · ${money(base.cost_usd)}` : `<span class="muted">n/a</span>`}${cur ? `<br><b style="color:var(--owned)">yours ${cur.turns} · ${money(cur.cost_usd)}</b>` : ""}</td>
-<td><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
-<button class="btn owned" data-act="approve" data-t="${esc(id)}" ${approvable(t) ? "" : "disabled"}>Approve</button>
-<button class="btn" data-act="revoke" data-t="${esc(id)}" ${approvable(t) && t.consent ? "" : "disabled"}>Revoke</button>
-${r ? reviewPanel(r) : ""}</td></tr>`;
+<td>${per(base)}</td><td style="color:var(--owned)">${per(cur)}</td>
+<td class="actions"><button class="btn" data-act="review" data-t="${esc(id)}">Review data</button>
+${t.state === "READY" && !data.readOnly ? `<button class="btn owned" data-act="approve" data-t="${esc(id)}">Approve</button>` : ""}</td></tr>`;
   }).join("")}
-</tbody></table>`;
+</tbody></table></div>
+${data.readOnly ? `<p class="msg muted">${READ_ONLY}</p>` : ""}
+${data.drawer ? `<aside class="drawer" aria-label="Training data"><button class="btn close" data-act="close">Close</button><h2>${esc(data.drawer)}</h2>${reviewPanel(data.reviews[data.drawer])}</aside>` : ""}`;
 }
 
 function reviewPanel(r) {
@@ -119,14 +126,20 @@ function reviewPanel(r) {
 ${r.sample ? `<pre>${esc(JSON.stringify(r.sample, null, 1).slice(0, 1500))}</pre>` : ""}</div>`;
 }
 
+// The public link is view-only: every POST/DELETE answers 405. Remember that and disable Approve/Revoke.
+const READ_ONLY = "View-only public demo: approving starts real training, so it is disabled here.";
+data.readOnly = localStorage.getItem("graduate-read-only") === "1";
+
 async function act(kind, t) {
+  if (kind === "close") { data.drawer = null; return render(); }
   if (kind === "approve" && !confirm(`Train ${t} on its verified runs? This starts training now.`)) return;
-  data.reviews[t] = { loading: true };
+  data.drawer = t; data.reviews[t] = { loading: true };
   render();
   const method = { review: "GET", approve: "POST", revoke: "DELETE" }[kind];
   const r = await get(`/api/consent/${encodeURIComponent(t)}`, { method });
+  if (r.status === 405) { data.readOnly = true; localStorage.setItem("graduate-read-only", "1"); }
   if (kind === "review") data.reviews[t] = r;
-  else data.reviews[t] = r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };
+  else data.reviews[t] = r.status === 405 ? { msg: READ_ONLY } : r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };
   await poll();
 }
 
@@ -160,7 +173,8 @@ function describe(m) {
 }
 
 function startRace(p) {
-  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.frontier), pane(p.owned)], rescue: p.rescue, base: 0, since: performance.now() });
+  // Streams once at recorded pace when the tab opens or a task is picked; no loop. Your model left, big model right.
+  Object.assign(race, { key: p.owned.row.session_id, panes: [pane(p.owned), pane(p.frontier)], rescue: p.rescue, base: 0, since: performance.now() });
 }
 
 const elapsed = () => race.base + (performance.now() - race.since) * race.speed;
@@ -168,26 +182,25 @@ function setSpeed(x) { race.base = elapsed(); race.since = performance.now(); ra
 
 const secsOf = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
-// A race pane: the recorded run replayed, a caption under each counter.
+// A race pane: a terminal window streaming the recorded run's calls at their recorded pace, then its cost and time.
 function paneHTML(p, t, side) {
-  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t);
-  const c = done ? { out: r.output_tokens, turns: r.turns, cost: r.cost_usd, ms: r.wall_secs * 1000 }
-    : { out: shown.reduce((a, s) => a + s.out, 0), turns: shown.length, cost: shown.reduce((a, s) => a + s.cost, 0), ms: t };
-  const end = !done ? `<p class="verify muted">working…</p>` : r.exit_code === 0 ? `<p class="verify pass">✓ Tests passed</p>`
-    : `<p class="verify fail">✗ Tests failed${race.rescue && side === "owned" ? `: re-run on the big model, which ${race.rescue.exit_code === 0 ? "passed" : "failed too"}` : ""}</p>`;
-  return `<header><b>${side === "owned" ? "Your model" : "Big model"}</b> <code class="muted">${esc(r.model.split("/").pop())}</code><p class="muted">${data.sample ? "sample data" : "recorded run"}, replayed at the speed it ran</p></header>
-<div class="ctr"><div class="big"><b>${num(c.out)}</b><span>tokens written: the text you pay for</span></div>
-<div><b>${c.turns}</b><span>times it asked the model</span></div><div><b>${money(c.cost)}</b><span>cost of the task</span></div>
-<div><b>${secsOf(c.ms)}</b><span>time until the tests ran</span></div></div>
-<ol class="turns">${shown.map((s, i) => `<li><span class="muted">${i + 1}</span><span>${s.what}</span></li>`).join("")}${p.logged ? "" : `<li><span></span><span class="muted">No step-by-step record for this run: its totals appear when its time is up.</span></li>`}</ol>
-${end}`;
+  const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t), mine = side === "owned";
+  const river = String(r.model || "").startsWith("river://");
+  const model = mine ? (river ? "Qwen3.5-9B · River" : "your model") : String(r.model || "big model").split("/").pop();
+  const status = mine ? `Sending request to your model${river ? " on River" : ""}...` : `Sending request to ${esc(model)}. Waiting for first token...`;
+  return `<header><i></i><i></i><i></i><b>${mine ? "YOUR MODEL" : "BIG MODEL"}</b></header>
+<p class="cmd">$ graduate race ask ${mine ? "owned" : "frontier"}</p><p class="dim">${status}</p>
+<div class="tbody">${shown.map((s) => `<div class="tl">${s.what}</div>`).join("")}${p.logged ? "" : `<div class="tl dim">no step-by-step record kept for this run</div>`}</div>
+<footer>${done ? `<p>cost ${money(r.cost_usd || 0)}</p><p>completed in ${r.wall_secs}s · <span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></p>` : `<p class="dim">running… ${secsOf(t)}</p>`}</footer>
+<span class="chip">${esc(model)}</span>`;
 }
 
 function verdictHTML([f, o]) {
   const F = f.row, O = o.row;
   if (O.exit_code !== 0) return `<p class="diff fail">Your model got this one wrong. The tests caught it${race.rescue ? " and it was re-run on the big model" : ""}. No win to claim here.</p>`;
   if (F.exit_code !== 0) return `<p class="diff">The big model failed this one; your model fixed it.</p>`;
-  const fewer = O.output_tokens < F.output_tokens ? `wrote ${(F.output_tokens / (O.output_tokens || 1)).toFixed(0)}× less text` : `wrote ${O.output_tokens > F.output_tokens ? "more" : "the same amount of"} text`;
+  const x = F.output_tokens / (O.output_tokens || 1);
+  const fewer = x >= 1.5 ? `wrote ${x.toFixed(0)}× less text` : x > 1 / 1.5 ? "wrote about as much text" : "wrote more text";
   const caveat = data.sample ? " (sample data)" : bigIsReal() ? "" : " The big model here is a stand-in, not OpenAI, so there is no real saving to claim yet.";
   return `<p class="diff">Both fixed it. Your model ${fewer} and cost ${money(O.cost_usd)} instead of ${money(F.cost_usd)}.${caveat}</p>`;
 }
@@ -198,13 +211,21 @@ function tick() {
   if (!box || !race.panes) return;
   const t = elapsed();
   race.panes.forEach((p, i) => {
-    const el = box.children[i], html = paneHTML(p, t, i ? "owned" : "frontier");
-    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; el.querySelector(".turns").scrollTop = 1e6; }
+    const el = box.children[i], html = paneHTML(p, t, i ? "frontier" : "owned");
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; const tb = el.querySelector(".tbody, .turns"); if (tb) tb.scrollTop = 1e6; }
   });
-  const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML(race.panes) : "";
+  const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML([race.panes[1], race.panes[0]]) : "";
   if (v.dataset.html !== html) { v.innerHTML = html; v.dataset.html = html; }
 }
 setInterval(tick, 100);
+
+// "Task 05 · fix failing test · your model passed": the demo task's number, its kind, and how your model did.
+function pairLabel(x) {
+  const o = x.owned.row, nn = (String(o.prompt).match(/test_mod_(\d+)/) || [])[1];
+  const kind = ((data.state.registry.task_types || {})[o.task_type] || {}).title || o.task_type || "task";
+  const how = o.exit_code === 0 ? "your model passed" : x.rescue ? "handed to big model" : "your model failed";
+  return `${nn ? `Task ${nn}` : "Task"} · ${kind.toLowerCase()} · ${how}`;
+}
 
 // The pair on screen: the one picked, else the newest where your model passed, else the newest.
 function currentPair(ps) {
@@ -221,25 +242,26 @@ function compare() {
   const key = (x) => x.owned.row.session_id;
   const p = currentPair(ps), o = p.owned.row;
   return `<h1>Same task, side by side</h1>
-<p class="lede">${esc(o.prompt)} <span class="muted">· ${esc(o.task_type)} · big model on the left, your model on the right, replayed at the speed they ran.</span></p>
-<div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(x.owned.row.prompt.slice(0, 60))} · ${esc(x.owned.row.started_at.slice(11, 16))} · yours ${x.owned.row.exit_code === 0 ? "passed" : "failed"}</option>`).join("")}</select>
-<button class="btn" data-race="replay">Replay</button>${[1, 4, 16].map((x) => `<button class="btn" data-race="${x}">${x}×</button>`).join("")}
+
+<div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(pairLabel(x))}</option>`).join("")}</select>
+
 <a href="/ui/index.html#/compare">Benchmark table →</a></div>
-<div id="race" class="race"><section class="pane frontier"></section><section class="pane owned"></section></div><div id="verdict"></div>`;
+<div id="race" class="race stage"><section class="term owned"></section><section class="term frontier"></section></div><div id="verdict"></div>
+<p class="muted prompt-line">Task prompt: ${esc(o.prompt)}</p>`;
 }
 
 function activity() {
   const s = data.state;
   const trace = [...(s.trace || [])].reverse().slice(0, 40);
   return `<h1>Activity</h1>
-<p class="lede">Every external call GRADUATE makes, newest first. The full architecture diagram, lit up live, is <a href="/ui/index.html#/system">Under the hood</a> on the classic dashboard.</p>
+
 <div class="cols">
 <section><h2>Call trace</h2>${trace.length ? `<ul class="feed">${trace.map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No calls traced yet.")}</section>
 <section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.slice(-60).join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing };
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 
