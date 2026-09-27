@@ -1,5 +1,6 @@
 """A2A notes (#142): a verified run leaves a note for its task type, the next run on it gets the note, failures don't."""
 
+import json
 import subprocess
 
 from conftest import jsonl
@@ -82,3 +83,18 @@ def test_gbrain_backend_when_the_cli_works(workdir, monkeypatch):
         ("gbrain put a2a-fix-calc --force", "appended, 1 procedures · GBrain"),
         ("gbrain get a2a-fix-calc", "read 1 procedures · GBrain"),
     ]
+
+
+def test_agents_get_gbrain_mcp_and_its_skills(workdir, monkeypatch):
+    monkeypatch.setenv("GBRAIN_BIN", "false")  # any CLI on PATH
+    monkeypatch.setattr(a2a, "SKILLS", workdir / "skills")
+    (workdir / "skills/query").mkdir(parents=True)
+    (workdir / "skills/query/SKILL.md").write_text("# Query Skill")
+    cfg = json.loads(a2a.opencode_config("fix-calc", "sess-a", '{"provider": {"graduate": {}}}'))
+    assert cfg["provider"] == {"graduate": {}}  # the router config stays
+    assert cfg["mcp"] == {"gbrain": {"type": "local", "command": ["false", "serve"], "enabled": True}}
+    rules, skill = cfg["instructions"]
+    assert skill == str(workdir / "skills/query/SKILL.md")
+    assert "`gbrain_get_page` with slug `a2a-fix-calc`" in open(rules).read() and "`a2a-fix-calc/sess-a`" in open(rules).read()
+    monkeypatch.setenv("GBRAIN_BIN", str(workdir / "no-such-gbrain"))
+    assert a2a.opencode_config("fix-calc", "sess-a") is None

@@ -7,8 +7,11 @@ and working, otherwise a shared file `a2a/<task_type>.md` in the working directo
 fails a run.
 """
 
+import json
 import os
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from graduate import trace
@@ -17,6 +20,15 @@ ISSUE = 142
 KEEP = 10
 FILE_LABEL = "shared notes file (GBrain not installed)"
 HEAD = "### "
+SKILLS = Path(os.environ.get("GBRAIN_SKILLS", Path.home() / ".local/share/gbrain/skills"))
+AGENT_RULES = """# GBrain memory (GRADUATE #142)
+You are connected to GBrain, the team's shared brain, over MCP (tools named `gbrain_*`). Its own skills
+brain-ops and query are in your instructions. Use GBrain yourself:
+1. Before editing, call `gbrain_get_page` with slug `{page}` (procedures other agents verified on this task type)
+   and `gbrain_search` for the failing function; reuse a procedure that matches.
+2. After the verify command passes, call `gbrain_put_page` with slug `{page}/{session}` and content: the files
+   you changed, the fix in one line, and the verify command. Write only that page.
+"""
 
 
 def _gbrain(*args, text=None):
@@ -113,6 +125,20 @@ def record(task_type, row, repo, before, after):
         put(task_type, procedure(row, files, line), row["session_id"])
     except Exception as e:
         print(f"a2a record skipped: {e!r}")
+
+
+def opencode_config(task_type, session_id, base=None):
+    """OPENCODE_CONFIG_CONTENT that gives the agent GBrain's MCP server and memory skills, or None without the CLI."""
+    gbrain = os.environ.get("GBRAIN_BIN", "gbrain")
+    if not shutil.which(gbrain):
+        return None
+    rules = Path(tempfile.gettempdir(), f"graduate-a2a-{session_id}.md")
+    rules.write_text(AGENT_RULES.format(page=_names(task_type)[0], session=session_id), encoding="utf-8")
+    cfg = json.loads(base or "{}")
+    cfg["mcp"] = {**cfg.get("mcp", {}), "gbrain": {"type": "local", "command": [gbrain, "serve"], "enabled": True}}
+    skills = [str(f) for f in (SKILLS / "brain-ops/SKILL.md", SKILLS / "query/SKILL.md") if f.is_file()]
+    cfg["instructions"] = [*cfg.get("instructions", []), str(rules), *skills]
+    return json.dumps(cfg)
 
 
 def get(task_type, session_id=None):
