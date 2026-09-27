@@ -1,10 +1,11 @@
 """make record (#31): a 1920x1080 mp4 of scripts/demo.sh driving the presenter dashboard, for a backup video.
 
-    python scripts/record.py [demo.sh flags]     default: --offline --auto-approve --use-checkpoint <rehearsal ckpt>
+    python scripts/record.py [demo.sh flags]     default: --offline --auto-approve --use-checkpoint <v3 local checkpoint>
 
 Starts demo.sh on a free port, opens /?present#/system in headless Chromium (Playwright's screencast), cuts to the
 showcase when the task type graduates and with the final state at the end, then ffmpeg -> docs/recordings/<label>.mp4 (over 20 MB goes to
-~/jelly-corpus/recordings/). An --offline run is labelled on screen "offline rehearsal, stub model" in every frame.
+~/jelly-corpus/recordings/). An --offline run is labelled "offline rehearsal, stub frontier" in every frame, plus a real-time note when a
+local checkpoint serves your model (~45 s a session on CPU).
 """
 
 import json
@@ -23,11 +24,13 @@ from playwright.sync_api import sync_playwright
 from graduate.router.state import build_state
 
 ROOT = Path(__file__).resolve().parents[1]
-ARGS = sys.argv[1:] or ["--offline", "--auto-approve", "--use-checkpoint", "river://offline-rehearsal/fix-failing-test-v1"]
-LABEL = "offline rehearsal, stub model" if "--offline" in ARGS else "live run"
+ARGS = sys.argv[1:] or ["--offline", "--auto-approve", "--use-checkpoint", "/home/ubuntu/jelly-corpus/checkpoints/fix-failing-test-v3"]
+# Offline: the frontier is scripts/stub-upstream.py, but a local --use-checkpoint model really runs, in real time.
+LABEL = ("offline rehearsal, stub frontier" if "--offline" in ARGS else "live run") + (
+    "\nyour model: local CPU, real time, ~45 s a run" if any(a.startswith("/") for a in ARGS) else "")
 BANNER = """addEventListener("DOMContentLoaded", () => { const b = document.createElement("div"); b.textContent = %s;
   b.style.cssText = "position:fixed;right:2vw;bottom:2vh;z-index:99;padding:.4em .9em;border:2px solid #F0B955;border-radius:6px;"
-    + "color:#F0B955;background:#0B0F17;font:700 2.6vh Archivo,sans-serif;letter-spacing:.04em;text-transform:uppercase";
+    + "color:#F0B955;background:#0B0F17;font:700 2.6vh Archivo,sans-serif;letter-spacing:.04em;white-space:pre-line;text-align:right";
   document.body.append(b); });""" % json.dumps(LABEL)
 
 
@@ -69,7 +72,7 @@ def main():
         time.sleep(8)
         ctx.close()
         browser.close()
-    out = ROOT / "docs/recordings" / (LABEL.split(",")[0].replace(" ", "-") + ".mp4")
+    out = ROOT / "docs/recordings" / (LABEL.split("\n")[0].split(",")[0].replace(" ", "-") + ".mp4")
     out.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(next(videos.glob("*.webm"))), "-c:v", "libx264",
                     "-preset", "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)], check=True)

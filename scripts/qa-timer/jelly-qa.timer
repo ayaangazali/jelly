@@ -1,0 +1,9 @@
+[Unit]
+Description=jelly QA every 2 hours (#63)
+
+[Timer]
+OnCalendar=0/2:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
