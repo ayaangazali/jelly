@@ -37,6 +37,7 @@ async function poll() {
   if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "pricing") data.pricing = await get("/api/pricing");
+  if (page() === "providers" && !data.replay) data.replay = await get("/api/replay");
   if (page() === "providers") { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
   if (page() === "live" && !data.replay) {
     data.replay = await get("/api/replay");
