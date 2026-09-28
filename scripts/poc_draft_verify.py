@@ -279,7 +279,38 @@ def stage_local():
                   f" · frontier $ avoided {round(sum(x['frontier_cost_usd'] for x in acc), 6)}")
 
 
+def stage_demo():
+    tr = load("train.jsonl")[0]
+    rows = {r["name"]: r for r in load("frontier.jsonl")}
+    task = os.environ.get("POC_DEMO_TASK", "charge_fee")
+    client, bar = river(), "=" * 72
+    names = tr["examples"] if task == "all" else [task]
+    table = []
+    for name in names:
+        f = rows[name]
+        text, usage, err = draft(client, tr["base_model"], f["prompt"], tr["checkpoint"])
+        ok = not err and verify(code_of(text), f["tests"])[0] == 0
+        table.append((name, f, usage, ok))
+        if task != "all":
+            print(f"{bar}\nTASK\n{bar}\n{f['prompt']}\n")
+            print(f"{bar}\nFRONTIER PATH  {f['model']}, full SDK docs in the prompt (recorded, not re-run)\n{bar}")
+            print(f"prompt tokens  {f['usage']['prompt_tokens']}\noutput tokens  {f['usage']['completion_tokens']}\ncost           ${f['cost_usd']}")
+            print(f"tests          {'PASS' if f['exit_code'] == 0 else 'FAIL'}\n")
+            print(f"{bar}\nOWNED PATH  {tr['base_model']} + LoRA on River, short prompt, no docs (LIVE)\n{bar}")
+            print(f"checkpoint     {tr['checkpoint']}\nprompt tokens  {usage.get('prompt_tokens')}\noutput tokens  {usage.get('completion_tokens')}")
+            print(f"drafted code:\n{err or code_of(text).rstrip()}\n")
+            print(f"pytest         {'ACCEPT -> frontier call skipped' if ok else 'REJECT -> falls back to the frontier answer'}\n{bar}")
+    if task == "all":
+        print(f"{'task':20} {'owned':7} {'river in/out':>13} {'frontier in/out':>16} {'frontier $':>11}")
+        for name, f, usage, ok in table:
+            print(f"{name:20} {'ACCEPT' if ok else 'REJECT':7} {usage.get('prompt_tokens')!s:>6}/{usage.get('completion_tokens')!s:<6} "
+                  f"{f['usage']['prompt_tokens']:>8}/{f['usage']['completion_tokens']:<7} {f['cost_usd']:>11}")
+    acc = [(f, u) for _, f, u, ok in table if ok]
+    print(f"SAVED  {len(acc)}/{len(table)} frontier calls skipped · {sum(f['usage']['prompt_tokens'] for f, _ in acc)} frontier prompt tokens"
+          f" + {sum(f['usage']['completion_tokens'] for f, _ in acc)} output tokens not spent · ${round(sum(f['cost_usd'] for f, _ in acc), 6)} not spent on the frontier")
+
+
 if __name__ == "__main__":
-    stages = {"frontier": stage_frontier, "memorable": stage_memorable, "train": stage_train, "eval": stage_eval, "local": stage_local}
+    stages = {"frontier": stage_frontier, "memorable": stage_memorable, "train": stage_train, "eval": stage_eval, "local": stage_local, "demo": stage_demo}
     for s in (list(stages) if sys.argv[1:] == ["all"] else sys.argv[1:]):
         stages[s]()
