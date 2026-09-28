@@ -112,6 +112,18 @@ def test_bench_runs_each_arm_on_its_own_model(bench_env, workdir):
     assert status.stdout == ""
 
 
+def test_owned_arm_takes_the_graduated_route(bench_env, workdir):
+    model = "river://run-qa/sampler_weights/fix-failing-test-v1"
+    tt = {"state": "GRADUATED", "model": model, "serving": "checkpoint", "deployment": None}
+    (workdir / "registry.json").write_text(json.dumps({"task_types": {"fix-failing-test": tt}, "events": []}))
+    bench_env("--tasks", "01", "--arms", "owned", "--yes")
+
+    owned = json.loads((workdir / "bench/latest/results.json").read_text())["arms"]["owned"]
+    assert (owned["model"], owned["runs"], owned["passed"]) == (model, 1, 1)
+    # The router chose the owned route for the demo task's type (served by the frontier until #37 lands).
+    assert any(e["result"] == "GRADUATED → route to your River model" for e in jsonl("trace.jsonl"))
+
+
 def test_bench_stops_at_the_cap(bench_env, workdir):
     # A past ledger row sets the estimate at $0.01 a run; each stub run really costs ~$0.0145.
     past = {
