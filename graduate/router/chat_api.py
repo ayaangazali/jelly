@@ -185,7 +185,16 @@ def _safe(text):
     return re.sub(r"(sk-|rk-|Bearer\s+)[\w\-]{6,}", "[key]", text)[:200]
 
 
-def _done(side, sid, request, response, usage, start, role, model):
+# The settings each side is called with; the thinking level shown in the app is read from these same dicts.
+CHAT_BIG = {"reasoning_effort": "none"}  # else hidden reasoning can spend all 400 tokens; OPENAI_EXTRA_BODY still wins
+RIVER_TEMPLATE = train.CHAT_TEMPLATE  # the same template the owned model is served with
+
+
+def _thinking_river(kwargs):
+    return "on" if kwargs.get("enable_thinking") else "off"
+
+
+def _done(side, sid, request, response, usage, start, role, model, thinking=None):
     ms = round((time.monotonic() - start) * 1000)
     call_hooks(sid, request, response, ms, role, model)
     tokens = {
@@ -205,6 +214,7 @@ def _done(side, sid, request, response, usage, start, role, model):
         "output_tokens": tokens["output_tokens"],
         "cost_usd": usd,
         "wall_ms": ms,
+        "thinking": thinking,
     }
 
 
@@ -215,7 +225,7 @@ async def _big(prompt, sid, put):
         "stream": True,
         "stream_options": {"include_usage": True},
         "max_completion_tokens": MAX_OUT,
-        "reasoning_effort": "none",  # else hidden reasoning can spend all 400 tokens; OPENAI_EXTRA_BODY still wins
+        **CHAT_BIG,
     }
     start = time.monotonic()
     chunks = []
@@ -256,7 +266,7 @@ async def _big(prompt, sid, put):
             }
         )
     usage = next((c["usage"] for c in reversed(chunks) if c.get("usage")), None) or {}
-    done = _done("big", sid, request, chunks, usage, start, "frontier", BIG_MODEL)
+    done = _done("big", sid, request, chunks, usage, start, "frontier", BIG_MODEL, upstream.thinking(request))
     trace.emit(
         "Router → OpenAI",
         "chat-compare",
@@ -278,7 +288,7 @@ def _river(prompt, model):
         base_model=rb.BASE,
         max_tokens=MAX_OUT,
         temperature=0,
-        chat_template_kwargs={"enable_thinking": False},  # a chat answer, not 400 tokens of "Thinking Process"
+        chat_template_kwargs=RIVER_TEMPLATE,  # thinking off: a chat answer, not 400 tokens of "Thinking Process"
     )
     if r.status_code >= 400:
         raise RuntimeError(f"River answered HTTP {r.status_code}")
@@ -329,7 +339,7 @@ async def _small(prompt, sid, put, model):
         ],
         "usage": usage,
     }
-    done = _done("small", sid, request, body, usage, start, "owned", model)
+    done = _done("small", sid, request, body, usage, start, "owned", model, _thinking_river(RIVER_TEMPLATE))
     trace.emit(
         "Router → River",
         "chat-compare",
@@ -340,6 +350,16 @@ async def _small(prompt, sid, put, model):
         sid,
     )
     await put(done)
+
+
+@router.get("/api/thinking")
+def thinking_levels():
+    """The thinking level each model runs with, from the same settings the calls send: the chat's big-model request,
+    the agent runs' frontier requests (OPENAI_EXTRA_BODY alone) and your model on River."""
+    return {
+        "chat": {"big": upstream.thinking(CHAT_BIG), "small": _thinking_river(RIVER_TEMPLATE)},
+        "agent": {"big": upstream.thinking({}), "small": _thinking_river(RIVER_TEMPLATE)},
+    }
 
 
 @router.get("/api/chat-preset")

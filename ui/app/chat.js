@@ -55,6 +55,8 @@ function chat() {
 }
 
 const chatName = (m, id) => (id === "small" ? "Qwen3.5-9B · River" : `${String(m || "gpt-5.5")} · OpenAI`);
+// Thinking level: from the side's done event (the settings that call used), else the router's /api/thinking.
+const thinkOf = (s, id) => (s && s.done && s.done.thinking) || (data.thinking && data.thinking.chat && data.thinking.chat[id]);
 
 // Markdown, the small safe subset: ```code``` blocks (syntax-coloured), `inline code`, paragraphs and line breaks.
 function md(text) {
@@ -82,7 +84,8 @@ function paintChat() {
     const s = chatRun.sides[id], el = document.getElementById(`chat-${id}`);
     const f = (k) => el.querySelector(`[data-f="${k}"]`), put = (k, h) => swap(f(k), h);
     put("title", esc(chatRun.own ? "session · your question" : `session · ${(data.preset && data.preset.title) || "fix the failing test"}`));
-    put("model", esc(chatName(s && s.model, id)));
+    const th = thinkOf(s, id);
+    put("model", esc(chatName(s && s.model, id) + (th ? ` · thinking: ${th}` : "")));
     put("user", userTurn());
     const tile = (k, v) => { if (f(k).textContent !== v) f(k).textContent = v; };
     if (!s) { put("out", ""); put("status", "press enter to send to both"); tile("tokens", "–"); tile("cost", "–"); tile("time", "–"); continue; }

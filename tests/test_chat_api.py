@@ -210,3 +210,12 @@ def test_end_to_end_the_stream_reports_the_real_pytest_result_per_side(router, s
     assert v["big"]["exit_code"] == 0 and "1 passed" in v["big"]["summary"]
     assert v["small"]["exit_code"] == 1 and "1 failed" in v["small"]["summary"]
     assert ev[-1] == {"type": "end"} and all(ev.index(v[s]) > next(i for i, e in enumerate(ev) if e.get("side") == s and e["type"] == "done") for s in v)
+
+
+def test_thinking_level_comes_from_the_settings_the_calls_send(router, stub, river, monkeypatch):
+    monkeypatch.delenv("OPENAI_EXTRA_BODY", raising=False)
+    done = {e["side"]: e for e in events(router("POST", "/api/chat-compare", json={"preset": "broken-09"})) if e.get("type") == "done"}
+    assert done["big"]["thinking"] == "none" and done["small"]["thinking"] == "off"
+    assert stub.requests[-1][1]["reasoning_effort"] == "none" and river.calls[-1][2]["chat_template_kwargs"] == {"enable_thinking": False}
+    monkeypatch.setenv("OPENAI_EXTRA_BODY", '{"service_tier": "priority", "reasoning_effort": "low"}')
+    assert router("GET", "/api/thinking").json() == {"chat": {"big": "low (fast)", "small": "off"}, "agent": {"big": "low (fast)", "small": "off"}}

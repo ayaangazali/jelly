@@ -55,6 +55,7 @@ async function poll() {
   if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "chat", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "pricing") data.pricing = await get("/api/pricing");
+  if (["race", "chat", "providers"].includes(page()) && !data.thinking) { const t = await get("/api/thinking"); data.thinking = t.error ? { chat: {}, agent: {} } : t; }
   if (page() === "bench" && !data.bench) data.bench = await get("/bench/latest/results.json");
   if (page() === "providers" && !data.replay) data.replay = await get("/api/replay");
   if (["providers", "under-the-hood"].includes(page())) { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
@@ -230,7 +231,7 @@ function paneHTML(p, t, side) {
 <p class="cmd">$ graduate race ask ${mine ? "owned" : "frontier"}</p><p class="dim">${status}</p>
 <div class="tbody">${shown.map((s) => `<div class="tl">${s.what}</div>`).join("")}${p.logged ? "" : `<div class="tl dim">no step-by-step record kept for this run</div>`}</div>
 <footer>${done ? `<p>cost ${money(r.cost_usd || 0)}</p><p>completed in ${r.wall_secs}s · <span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></p>` : `<p class="dim">running… ${secsOf(t)}</p>`}</footer>
-<span class="chip">${esc(model)}</span>`;
+<span class="chip">${esc(model)}${(() => { const th = data.thinking && data.thinking.agent && data.thinking.agent[mine ? "small" : "big"]; return th ? ` · thinking: ${esc(th)}` : ""; })()}</span>`;
 }
 
 function verdictHTML([f, o]) {
