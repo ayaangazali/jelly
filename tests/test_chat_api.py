@@ -99,7 +99,7 @@ def test_caps_refuse_long_or_empty_prompts_and_a_spent_budget_in_plain_words(rou
     assert r.status_code == 400 and r.json()["error"] == "Keep it under 2,000 characters."
     r = router("POST", "/api/chat-compare", json={"prompt": "   "})
     assert r.status_code == 400 and "{" not in r.json()["error"]
-    chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 200, "cost_usd": 0.1}))
+    chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 1000, "cost_usd": 0.1}))
     r = router("POST", "/api/chat-compare", json={"prompt": "say anything"})
     assert r.status_code == 429 and r.json()["error"] == "Demo budget reached, try again later."
     chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 3, "cost_usd": 4.999}))
@@ -222,3 +222,10 @@ def test_thinking_level_comes_from_the_settings_the_calls_send(router, stub, riv
     assert stub.requests[-1][1]["reasoning_effort"] == "none" and river.calls[-1][2]["chat_template_kwargs"] == {"enable_thinking": False}
     monkeypatch.setenv("OPENAI_EXTRA_BODY", '{"service_tier": "priority", "reasoning_effort": "low"}')
     assert router("GET", "/api/thinking").json() == {"chat": {"big": "low (fast)", "small": "off"}, "agent": {"big": "low (fast)", "small": "off"}}
+
+
+def test_the_request_cap_is_1000_so_the_5_dollar_total_is_the_real_limit(router, stub, river):
+    chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 999, "cost_usd": 0.1}))
+    assert router("POST", "/api/chat-compare", json={"prompt": "say anything"}).status_code == 200
+    assert json.loads(chat_api.BUDGET_PATH.read_text())["requests"] == 1000
+    assert router("POST", "/api/chat-compare", json={"prompt": "again"}).status_code == 429

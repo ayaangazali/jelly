@@ -11,7 +11,7 @@ Every event is `data: {"side": "big"|"small", "type": ...}`:
 Then one `{"type": "end"}`.
 
 Public-internet safety: presets only (the prompt is built here, <= 2,000 chars), <= 400 output tokens per side, and chat-budget.json caps the total
-at $5 and 200 requests; past either, a plain refusal. Each call goes through app.call_hooks, so metrics.jsonl (and
+at $5 and 1,000 requests; past either, a plain refusal. Each call goes through app.call_hooks, so metrics.jsonl (and
 the pricing logs) get it like any routed call.
 """
 
@@ -35,7 +35,7 @@ from graduate.router.app import app, call_hooks
 MAX_PROMPT = 2000
 MAX_OUT = 400
 MAX_USD = 5.0
-MAX_REQUESTS = 200
+MAX_REQUESTS = 1000  # a shared demo; the $5 total (MAX_USD) is the real limit
 BUDGET_PATH = Path("chat-budget.json")
 BIG_MODEL = os.environ.get("CHAT_BIG_MODEL", "gpt-5.5")
 OLD_SMALL = "river://9a2699b3-ce6f-4182-9da8-824a68de9c84/sampler_weights/fix-failing-test-v1"

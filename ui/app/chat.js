@@ -157,8 +157,10 @@ async function sendChat(own) {
 
 // Every refusal in plain words, never raw JSON: the server's own sentence, or what the status means.
 async function refusal(r) {
-  const b = await r.json().catch(() => null);
-  if (r.status === 429) return b && /budget/i.test(b.error || "") ? "Demo budget reached, try again later." : "Too many requests from you, try again in a few minutes.";
+  const raw = await r.text().catch(() => ""), b = (() => { try { return JSON.parse(raw); } catch { return null; } })();
+  // A 429 says in its own words why (the router's budget, or the public proxy: busy, or too many from you).
+  const said = (b && typeof b.error === "string" ? b.error : b && typeof b.message === "string" ? b.message : raw).trim();
+  if (r.status === 429) return said && !/[{}<]/.test(said) && said.length < 200 ? said : "Too many requests, try again in a few seconds.";
   if (b && typeof b.error === "string" && !/[{}]/.test(b.error)) return b.error;
   return "The chat couldn't answer right now. Try again in a moment.";
 }
