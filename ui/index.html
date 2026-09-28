@@ -591,8 +591,8 @@ function termClass(l) {
 
 function viewSystem() {
   const files = {
-    registry: JSON.stringify(S.registry.task_types, null, 2),
-    ledger: S.ledger.slice(-8).map((r) => JSON.stringify(r)).join("\n") || "No ledger rows yet.",
+    registry: S.files["registry.json"] || "No registry.json yet.",
+    ledger: S.files["ledger.jsonl"] || "No ledger rows yet.",
     session: S.session_log.map((r) => JSON.stringify(r)).join("\n") || "No calls logged yet.",
   };
   return `<h1>Under the hood</h1>
