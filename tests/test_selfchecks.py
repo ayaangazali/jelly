@@ -1,5 +1,6 @@
 """The modules' own `python -m` self-checks, run as tests so CI and `pytest -q` cover them without copying them."""
 
+import os
 import subprocess
 import sys
 from importlib.util import find_spec
@@ -33,5 +34,17 @@ def test_self_check(module, tmp_path):
         capture_output=True,
         text=True,
         timeout=60,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_metrics_self_check_ignores_the_operators_model(tmp_path):
+    r = subprocess.run(
+        [sys.executable, "-m", "graduate.router.metrics"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={**os.environ, "OPENAI_MODEL": "gpt-5-mini"},
     )
     assert r.returncode == 0, r.stdout + r.stderr
