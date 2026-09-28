@@ -3,3 +3,11 @@ backups/
 metrics.jsonl
 __pycache__/
 .DS_Store
+.venv/
+*.egg-info/
+sessions/
+ledger.jsonl
+registry.json
+trace.jsonl
+terminal.log
+data/
