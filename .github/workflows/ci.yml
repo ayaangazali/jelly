@@ -1,0 +1,27 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Namespace runners: switch to namespace-profile-default once the Namespace app is on the repo.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # river-client (the [train] extra) needs Python 3.12 (#51), and make check's dataset self-check (#21) needs it.
+      - run: pip install -e .${{ matrix.python == '3.12' && '[train]' || '' }}
+      - run: make check
+        if: matrix.python == '3.12'
+      - run: pip install pytest && pytest -q
+        if: hashFiles('tests/**') != ''
