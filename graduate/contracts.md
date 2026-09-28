@@ -194,7 +194,7 @@ This is exactly what `model.train_step(data=[wire, ...], lr=..., loss_fn="cross_
 
 ### 6c. Negative record — `data/<task_type>.neg.jsonl`
 
-The 6a shape for a failed owned session, with `metadata.exit_code != 0` and `metadata.negative = true`. Not trained on by SFT. Kept for retraining and RL.
+The 6a shape for a failed owned session, with `metadata.exit_code != 0` and `metadata.negative = true`. Not trained on by SFT, including on a retrain. Kept on disk for RL.
 
 Examples: `fixtures/sft-chat.example.json`, `fixtures/sft-wire.example.json`.
 
