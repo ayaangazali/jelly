@@ -50,20 +50,30 @@ def handle(msg):
     raise NotImplementedError(method)
 
 
+def reply(id, **out):
+    print(json.dumps({"jsonrpc": "2.0", "id": id, **out}), flush=True)
+
+
 def main():
     for line in sys.stdin:
         if not line.strip():
             continue
-        msg = json.loads(line)
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            reply(None, error={"code": -32700, "message": "parse error"})
+            continue
+        if not isinstance(msg, dict):
+            reply(None, error={"code": -32600, "message": "invalid request"})
+            continue
         if "id" not in msg:
             continue
         try:
-            out = {"result": handle(msg)}
+            reply(msg["id"], result=handle(msg))
         except NotImplementedError as e:
-            out = {"error": {"code": -32601, "message": f"method not found: {e}"}}
+            reply(msg["id"], error={"code": -32601, "message": f"method not found: {e}"})
         except Exception as e:
-            out = {"error": {"code": -32603, "message": str(e)}}
-        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], **out}), flush=True)
+            reply(msg["id"], error={"code": -32603, "message": str(e)})
 
 
 if __name__ == "__main__":
