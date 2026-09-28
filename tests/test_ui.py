@@ -31,6 +31,11 @@ def test_results_freezes_the_dashboard_state(workdir, capsys):
     assert "?state=/" in capsys.readouterr().out
 
 
+def test_compare_before_any_bench_is_not_a_server_error(router, workdir):
+    r = router("GET", "/bench/latest/results.json")
+    assert r.status_code == 200 and "bench/latest" in r.json()["error"]
+
+
 def test_router_serves_the_latest_bench_for_compare(router, workdir):
     run = workdir / "bench" / "bench-1"
     run.mkdir(parents=True)

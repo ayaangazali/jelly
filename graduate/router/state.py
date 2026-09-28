@@ -95,9 +95,16 @@ def dashboard():
     return PlainTextResponse("ui/index.html isn't on this branch yet (#15). /state is live.", 404)
 
 
+@router.get("/bench/latest/results.json", response_model=None)
+def bench_results():
+    path = Path("bench/latest/results.json")
+    if path.is_file():
+        return FileResponse(path, media_type="application/json")
+    return {"error": "nothing in bench/latest/ in this directory yet."}
+
+
 app.include_router(router)
 app.mount("/ui", StaticFiles(directory=UI.parent), name="ui")  # ui/projector.css, present.js, fonts/ (#55)
-app.mount("/bench", StaticFiles(directory="bench", check_dir=False), name="bench")  # bench/latest/results.json for #/compare (#61)
 
 
 if __name__ == "__main__":
