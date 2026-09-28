@@ -199,16 +199,32 @@ function pane({ row, log }) {
     cost: (row.cost_usd || 0) * tokens(c.usage || {}) / all, what: describe(c.response || {}),
   }));
   const end = Math.max(row.wall_secs * 1000 || 0, steps.length ? steps[steps.length - 1].at : 0);
-  return { row, steps, end, logged: calls.length > 0 };
+  // The thinking level THIS recorded run was sent with, if its own session log shows one; else nothing (never the
+  // chat's or today's setting).
+  const q = (calls.find((c) => c.request && (c.request.reasoning_effort || c.request.chat_template_kwargs)) || {}).request || {};
+  const thinking = q.reasoning_effort || (q.chat_template_kwargs ? (q.chat_template_kwargs.enable_thinking ? "on" : "off") : null);
+  return { row, steps, end, logged: calls.length > 0, thinking };
 }
 
+// One recorded model call, readable: tool calls as `name  short argument` (objects summarised, never "[object Object]"),
+// hidden reasoning folded into one collapsed "thinking" line, the rest as text.
 function describe(m) {
+  const short = (v) => {
+    if (v == null) return "";
+    if (Array.isArray(v)) return `${v.length} item${v.length === 1 ? "" : "s"}`;
+    if (typeof v === "object") return Object.keys(v).slice(0, 3).join(", ");
+    return String(v).split("\n")[0].replace(/\/\S*\/(\S+\/\S+)/g, "…/$1").slice(0, 80);
+  };
   if (m.tool_calls && m.tool_calls.length) return m.tool_calls.map((t) => {
-    let args = t.function.arguments;
-    try { args = Object.values(JSON.parse(args)).map(String)[0] || ""; } catch {}
-    return `<b>${esc(t.function.name)}</b> <code>${esc(String(args).split("\n")[0].replace(/^\/\S*\/(\S+\/\S+)/, "…/$1").slice(0, 70))}</code>`;
+    let args = t.function.arguments, first = "";
+    try { const a = typeof args === "string" ? JSON.parse(args) : args; first = short(Object.values(a || {})[0]); } catch { first = short(args); }
+    return `<b>${esc(t.function.name)}</b> <code>${esc(first)}</code>`;
   }).join("<br>");
-  return m.content ? esc(m.content.slice(0, 160)) : `<span class="muted">(empty reply)</span>`;
+  let text = String(m.content || "");
+  const think = text.match(/^\s*(?:<think>([\s\S]*?)(?:<\/think>|$)|Thinking Process:([\s\S]*?)(?=\n\s*\n(?!\s*\d+\.)|$))/);
+  if (think) text = text.slice(think[0].length).trim();
+  const fold = think ? `<details><summary class="muted">thinking</summary><span class="muted">${esc((think[1] || think[2] || "").trim().slice(0, 1200))}</span></details>` : "";
+  return fold + (text ? esc(text.slice(0, 400)) : think ? "" : `<span class="muted">(empty reply)</span>`);
 }
 
 function startRace(p) {
@@ -222,16 +238,20 @@ function setSpeed(x) { race.base = elapsed(); race.since = performance.now(); ra
 const secsOf = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
 // A race pane: a terminal window streaming the recorded run's calls at their recorded pace, then its cost and time.
+// A recorded race pane in the same Jelly/OpenCode look as the live chat: header (model and, if the run's own log
+// shows it, thinking level), the run's calls, the test result, three stat tiles.
 function paneHTML(p, t, side) {
   const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t), mine = side === "owned";
   const river = String(r.model || "").startsWith("river://");
-  const model = mine ? (river ? "Qwen3.5-9B · River" : "your model") : String(r.model || "big model").split("/").pop();
-  const status = mine ? `Sending request to your model${river ? " on River" : ""}...` : `Sending request to ${esc(model)}. Waiting for first token...`;
-  return `<header><i></i><i></i><i></i><b>${mine ? "YOUR MODEL" : "BIG MODEL"}</b></header>
-<p class="cmd">$ graduate race ask ${mine ? "owned" : "frontier"}</p><p class="dim">${status}</p>
-<div class="tbody">${shown.map((s) => `<div class="tl">${s.what}</div>`).join("")}${p.logged ? "" : `<div class="tl dim">no step-by-step record kept for this run</div>`}</div>
-<footer>${done ? `<p>cost ${money(r.cost_usd || 0)}</p><p>completed in ${r.wall_secs}s · <span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></p>` : `<p class="dim">running… ${secsOf(t)}</p>`}</footer>
-<span class="chip">${esc(model)}${(() => { const th = data.thinking && data.thinking.agent && data.thinking.agent[mine ? "small" : "big"]; return th ? ` · thinking: ${esc(th)}` : ""; })()}</span>`;
+  const m = String(r.model || "big model").split("/").pop();
+  const model = mine ? (river ? "Qwen3.5-9B · River" : "your model") : `${m} · ${/claude/i.test(m) ? "Anthropic" : /gpt|^o\d/i.test(m) ? "OpenAI" : "big model"}`;
+  const tile = (v, l, k) => `<div data-t="${k}"><b>${v}</b><span>${l}</span></div>`;
+  const res = !done ? `<p class="oc-dim">running… ${secsOf(t)}</p>` : r.exit_code === 0 ? `<p class="oc-ok">✓ pytest ${esc(testFile(r))}: passed</p>`
+    : `<p class="oc-bad">✗ pytest ${esc(testFile(r))}: failed${race.rescue && mine ? " · re-run on the big model" : ""}</p>`;
+  return `<header><b>recorded run · ${esc(pairLabel({ owned: { row: r } }).split(" · ").slice(0, 2).join(" · "))}</b><span>${esc(model)}${p.thinking ? ` · thinking: ${esc(p.thinking)}` : ""}</span></header>
+<div class="oc-body"><div class="oc-asst">${shown.map((s) => `<p>${s.what}</p>`).join("")}${p.logged ? "" : `<p class="oc-dim">no step-by-step record kept for this run</p>`}</div></div>
+<div class="oc-result">${res}</div>
+<footer class="oc-tiles">${tile(done ? num(r.output_tokens || 0) : "–", "output tokens", "tokens")}${tile(done ? money(r.cost_usd || 0) : "–", "cost", "cost")}${tile(done ? `${r.wall_secs}s` : "–", "time to complete", "time")}</footer>`;
 }
 
 function verdictHTML([f, o]) {
@@ -251,7 +271,7 @@ function tick() {
   const t = elapsed();
   race.panes.forEach((p, i) => {
     const el = box.children[i], html = paneHTML(p, t, i ? "frontier" : "owned");
-    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; const tb = el.querySelector(".tbody, .turns"); if (tb) tb.scrollTop = 1e6; }
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; const tb = el.querySelector(".oc-body"); if (tb) tb.scrollTop = 1e6; }
   });
   const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML([race.panes[1], race.panes[0]]) : "";
   if (v.dataset.html !== html) { v.innerHTML = html; v.dataset.html = html; }
@@ -285,7 +305,7 @@ function compare() {
 <div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(pairLabel(x))}</option>`).join("")}</select>
 
 <a href="/app/bench">Benchmark table →</a></div>
-<div id="race" class="race stage"><section class="term owned"></section><section class="term frontier"></section></div><div id="verdict"></div>
+<div id="race" class="oc-panes rec"><section class="oc-pane small"></section><section class="oc-pane big"></section></div><div id="verdict"></div>
 <p class="muted prompt-line">${p.match === "task_type" ? `Same task type, different task. Yours: ${esc(o.prompt)} · Big model: ${esc(p.frontier.row.prompt)}` : `Task prompt: ${esc(o.prompt)}`}</p>`;
 }
 

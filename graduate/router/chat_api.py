@@ -390,8 +390,9 @@ async def chat_compare(req: Request):
     small = small_model()
     q = asyncio.Queue()
     # Both calls are scheduled before either runs, so they leave together.
+    think = {"big": upstream.thinking(CHAT_BIG), "small": _thinking_river(RIVER_TEMPLATE)}  # the dicts the calls send
     for side, model in (("big", BIG_MODEL), ("small", small)):
-        q.put_nowait({"side": side, "type": "start", "t_ms": round((time.monotonic() - t0) * 1000), "model": model})
+        q.put_nowait({"side": side, "type": "start", "t_ms": round((time.monotonic() - t0) * 1000), "model": model, "thinking": think[side]})
     async def side(name, call):
         """Run one side; for a preset, then test its answer and stream a `verify` event for that side."""
         text = []

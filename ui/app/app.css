@@ -840,3 +840,5 @@ pre.term { max-height: 360px; overflow-y: auto; }
 @media (max-width: 999px) { .barrow { grid-template-columns: minmax(0, 1fr) 6em 5em 1.2em; } }
 .feed li { grid-template-columns: 7.5em 1fr; } .p-log .log li { grid-template-columns: 7.5em 9.5em minmax(0, 1fr) 6em 7.5em; }
 .why-tasks { margin: 0 0 12px; } .why-tasks p { margin: 0 0 6px; }
+#race.oc-panes { font-family: "JetBrains Mono", ui-monospace, monospace; }
+#race .oc-asst p { margin: 0 0 6px; }

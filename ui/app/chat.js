@@ -56,7 +56,7 @@ function chat() {
 
 const chatName = (m, id) => (id === "small" ? "Qwen3.5-9B · River" : `${String(m || "gpt-5.5")} · OpenAI`);
 // Thinking level: from the side's done event (the settings that call used), else the router's /api/thinking.
-const thinkOf = (s, id) => (s && s.done && s.done.thinking) || (data.thinking && data.thinking.chat && data.thinking.chat[id]);
+const thinkOf = (s, id) => (s && ((s.done && s.done.thinking) || s.thinking)) || (data.thinking && data.thinking.chat && data.thinking.chat[id]);
 
 // Markdown, the small safe subset: ```code``` blocks (syntax-coloured), `inline code`, paragraphs and line breaks.
 function md(text) {
@@ -92,7 +92,8 @@ function paintChat() {
     const secs = ((s.done ? s.done.wall_ms : performance.now() - s.t0) / 1000).toFixed(2);
     const body = el.querySelector(".oc-body"), atEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
     const changed = put("out", md(s.text) + (!s.done && !s.error && s.text ? `<span class="oc-cursor">&nbsp;</span>` : ""));
-    if (changed && atEnd && !s.done) body.scrollTop = body.scrollHeight;
+    if (changed && (atEnd || (s.done && !s.shownEnd))) body.scrollTop = body.scrollHeight; // a finished answer shows its end once
+    if (s.done) s.shownEnd = true;
     const v = s.verify, result = !v ? (s.done && !chatRun.own ? `<p class="oc-dim">applying the fix · running pytest…</p>` : "")
       : v.exit_code === 0 ? `<p class="oc-ok">✓ after the fix · pytest: ${esc(v.summary)}</p>`
       : v.exit_code == null ? `<p class="oc-dim">${esc(v.summary)}</p>` : `<p class="oc-bad">✗ still failing after the fix · ${esc(v.summary)}</p>`;
@@ -137,7 +138,7 @@ async function sendChat(own) {
         if (!line.startsWith("data:")) continue;
         const e = JSON.parse(line.slice(5)), s = chatRun.sides[e.side];
         if (!s) continue;
-        if (e.type === "start") s.model = e.model;
+        if (e.type === "start") { s.model = e.model; s.thinking = e.thinking; }
         else if (e.type === "delta") { s.text += e.text; s.pieces += 1; }
         else if (e.type === "done") s.done = e;
         else if (e.type === "verify") s.verify = e;

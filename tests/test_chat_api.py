@@ -214,7 +214,10 @@ def test_end_to_end_the_stream_reports_the_real_pytest_result_per_side(router, s
 
 def test_thinking_level_comes_from_the_settings_the_calls_send(router, stub, river, monkeypatch):
     monkeypatch.delenv("OPENAI_EXTRA_BODY", raising=False)
-    done = {e["side"]: e for e in events(router("POST", "/api/chat-compare", json={"preset": "broken-09"})) if e.get("type") == "done"}
+    ev = events(router("POST", "/api/chat-compare", json={"preset": "broken-09"}))
+    done = {e["side"]: e for e in ev if e.get("type") == "done"}
+    start = {e["side"]: e for e in ev if e.get("type") == "start"}
+    assert start["big"]["thinking"] == "none" and start["small"]["thinking"] == "off"
     assert done["big"]["thinking"] == "none" and done["small"]["thinking"] == "off"
     assert stub.requests[-1][1]["reasoning_effort"] == "none" and river.calls[-1][2]["chat_template_kwargs"] == {"enable_thinking": False}
     monkeypatch.setenv("OPENAI_EXTRA_BODY", '{"service_tier": "priority", "reasoning_effort": "low"}')
