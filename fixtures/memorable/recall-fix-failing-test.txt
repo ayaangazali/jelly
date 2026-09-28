@@ -1,0 +1,2 @@
+0.662  procedures/31e89c7a-add-test-mod-05-py-passing-case  [lexical,semantic]
+0.603  procedures/60a82d56-fix-scale-function-in-calc-mod-07-py  [lexical,semantic]

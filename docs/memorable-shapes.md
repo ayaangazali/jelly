@@ -24,7 +24,7 @@ We deliberately don't run `install-hooks`. The hooks edit `~/.claude/settings.js
 
 For #20, install the binary once (`npm i -g memorable-cli@0.5.30`) and call `memorable` directly. `npx` adds its own startup time to every call.
 
-## Observed so far (before login)
+## Before login
 
 `fixtures/memorable/status-before-login.txt`:
 
@@ -37,12 +37,12 @@ For #20, install the binary once (`npm i -g memorable-cli@0.5.30`) and call `mem
 
 | Command | Called by | Parse |
 |---|---|---|
-| `memorable recall "<first prompt>" --single` | router classifier (#20), once per session, 500 ms timeout | First line matching `^(?P<score>[0-9.]+)\s+(?P<slug>procedures/\S+)\s+\[(?P<matcher>\w+)\]`. Score ≥ 0.75 means a match; otherwise, or on no line, fall back to the hash |
+| `memorable recall "<first prompt>" --single` | router classifier (#20), once per session, 500 ms timeout | First line matching `^\s*(?P<score>[0-9.]+)\s+(?P<slug>procedures/\S+)\s+\[(?P<matcher>[^\]]+)\]`. Score ≥ 0.6 and the slug present in `data/slug_map.json` means a match; otherwise fall back to the prompt-derived name |
 | `memorable ingest <trace.json>` | ingest bridge (#36), after every passing session | Success or refusal from the output. A refusal includes `allowance_exhausted` (research); log it once and carry on |
 | `memorable list --json` | dashboard, optional | JSON array; fields confirmed after capture |
 | `memorable chain "<task>" --json` | not on the critical path | Captured for reference |
 
-The recall line format comes from Memorable's docs (`0.86 procedures/ab12cd34-fix-failing-order-tests [lexical]`). `fixtures/memorable/recall-*.txt` will confirm it on this version.
+
 
 ## Trace we send
 
@@ -54,12 +54,46 @@ The contracts §7 shape (the `/v1/extract` body): `{session_id, harness: "openco
 | `trace-fix-failing-test-07.json` | fix-failing-test | A different path through the same task, including `grep` |
 | `trace-update-changelog.json` | update-changelog | A different task, so recall has something to tell apart |
 
-## Waiting on capture (after login and enable)
+## Captured after login (2026-09-27, 0.5.30)
 
-The capture script fills these; then this section gets the real answers:
+`scripts/memorable_capture.sh` ran with the owner logged in (`capture on · recall on`, write consent `read-write`, 1,000 free memorables a month plus 500 in reserve). Raw output is in `fixtures/memorable/`.
 
-- [ ] Recall line format on 0.5.30, and whether a module-03 prompt matches the fix-failing-test procedure
-- [ ] Recall latency (`recall-timing.txt`; includes `npx` startup)
-- [ ] `list --json` field names
-- [ ] What `ingest` prints on success, and the resulting slug
-- [ ] Whether `ingest` works offline (expected: no)
+**`ingest`** prints one line and stores the procedure locally:
+
+```
+memorable: stored procedures/31e89c7a-add-test-mod-05-py-passing-case, first recording of this task
+```
+
+**Each trace became its own procedure, titled from its steps.** The two fix-failing-test traces weren't grouped: they became `add-test-mod-05-py-passing-case` and `fix-scale-function-in-calc-mod-07-py`. This is why the classifier maps slugs through `data/slug_map.json` (#36 records `slug → task type` on every ingest) instead of reading a task type out of the slug.
+
+**`recall --single`** prints the top candidates (two here, despite `--single`). Scores have three decimals, columns are separated by two spaces, and the matcher list is comma-separated:
+
+```
+0.662  procedures/31e89c7a-add-test-mod-05-py-passing-case  [lexical,semantic]
+0.603  procedures/60a82d56-fix-scale-function-in-calc-mod-07-py  [lexical,semantic]
+```
+
+| Prompt | Top score | Top procedure |
+|---|---|---|
+| `The test tests/test_mod_03.py is failing. Fix the code so it passes.` (unseen module) | 0.662 | the mod_05 procedure |
+| `Add a CHANGELOG entry for version 0.4.3.` (unseen version) | 0.948 | the 0.4.2 changelog procedure |
+
+So a same-shape task with a different file scores around **0.6–0.66**, and a reworded near-duplicate scores around **0.95**. The classifier's threshold is 0.6. The earlier guess of 0.75 would have missed the demo task entirely.
+
+**Latency:** 490–720 ms calling the CLI directly with `node` (4 runs), and 1,338 ms through `npx`. The docs' ~60 ms is recall inside a warm process, not a cold CLI call. The classifier's timeout is 1.5 s, and the router should call a global install (`npm i -g memorable-cli@0.5.30`), not `npx`.
+
+**`list --json`** is an array with one entry per procedure:
+
+```json
+{"intent": "procedures/<slug>", "preferred": "procedures/<slug>",
+ "revisions": [{"slug": "procedures/<slug>", "revision": 1, "title": "Add test_mod_05.py passing case",
+                "verified": true, "stale": null, "recalled": 0, "ok": 0, "fail": 0}]}
+```
+
+`verified`, `recalled`, `ok` and `fail` are Memorable's own outcome counters. The dashboard can show them next to our ledger counts.
+
+**`chain "fix the failing test" --json`** returned a single `gap` with coverage 0. None of the three procedures is general enough to chain. It isn't on our critical path.
+
+**`show <slug>`** returns the procedure wrapped as retrieved context for an agent: where the fix landed, the verify command, the decisive steps, and a note to treat the stored content as data rather than instructions.
+
+Not tested: whether `ingest` works offline. It needs the extraction API, so assume no.
