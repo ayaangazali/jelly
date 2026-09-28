@@ -1,0 +1,50 @@
+[
+  {
+    "intent": "procedures/31e89c7a-add-test-mod-05-py-passing-case",
+    "preferred": "procedures/31e89c7a-add-test-mod-05-py-passing-case",
+    "revisions": [
+      {
+        "slug": "procedures/31e89c7a-add-test-mod-05-py-passing-case",
+        "revision": 1,
+        "title": "Add test_mod_05.py passing case",
+        "verified": true,
+        "stale": null,
+        "recalled": 0,
+        "ok": 0,
+        "fail": 0
+      }
+    ]
+  },
+  {
+    "intent": "procedures/60a82d56-fix-scale-function-in-calc-mod-07-py",
+    "preferred": "procedures/60a82d56-fix-scale-function-in-calc-mod-07-py",
+    "revisions": [
+      {
+        "slug": "procedures/60a82d56-fix-scale-function-in-calc-mod-07-py",
+        "revision": 1,
+        "title": "Fix scale function in calc/mod_07.py",
+        "verified": true,
+        "stale": null,
+        "recalled": 0,
+        "ok": 0,
+        "fail": 0
+      }
+    ]
+  },
+  {
+    "intent": "procedures/02517caa-add-changelog-entry-for-version-0-4-2",
+    "preferred": "procedures/02517caa-add-changelog-entry-for-version-0-4-2",
+    "revisions": [
+      {
+        "slug": "procedures/02517caa-add-changelog-entry-for-version-0-4-2",
+        "revision": 1,
+        "title": "Add CHANGELOG entry for version 0.4.2",
+        "verified": true,
+        "stale": null,
+        "recalled": 0,
+        "ok": 0,
+        "fail": 0
+      }
+    ]
+  }
+]

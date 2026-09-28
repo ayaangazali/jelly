@@ -1,0 +1,1 @@
+memorable: stored procedures/60a82d56-fix-scale-function-in-calc-mod-07-py, first recording of this task
