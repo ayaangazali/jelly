@@ -33,10 +33,13 @@ def turn(body):
     repo = re.search(r"Working directory: ([^\\\s\"]+)", msgs)
     path = str(Path(repo.group(1) if repo else ROOT / "demo-repo") / f"calc/mod_{n}.py")
     done = sum(m["role"] == "tool" for m in body["messages"])
+    claude = any(t.get("function", {}).get("name") == "Read" for t in body["tools"])
     if done == 0:
-        return "", ("read", {"filePath": path})
+        return "", ("Read", {"file_path": path}) if claude else ("read", {"filePath": path})
     if done == 1:
         old, new = BUGS[n]
+        if claude:
+            return "", ("Edit", {"file_path": path, "old_string": new, "new_string": old})
         return "", ("edit", {"filePath": path, "oldString": new, "newString": old})
     return "Fixed.", None
 
