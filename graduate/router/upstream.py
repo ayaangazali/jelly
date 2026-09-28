@@ -52,5 +52,9 @@ async def send(body):
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
+    # GPT-5 models reject OpenCode's `max_tokens`; every current chat model accepts this (#115).
+    if "max_tokens" in body:
+        body = dict(body)
+        body.setdefault("max_completion_tokens", body.pop("max_tokens"))
     request = client.build_request("POST", URL, json=body, headers=headers)
     return await client.send(request, stream=True)

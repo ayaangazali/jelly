@@ -52,6 +52,21 @@ def test_bearer_never_forwarded(router, stub, sid, workdir):
 
 
 @pytest.mark.parametrize("stream", [False, True])
+def test_max_tokens_sent_as_max_completion_tokens(router, stub, sid, stream):
+    """GPT-5 models reject `max_tokens` on turn 1, and OpenCode sends it (#115)."""
+    assert post(router, sid, stream=stream, max_tokens=100).status_code == 200
+    sent = stub.requests[-1][1]
+    assert sent["max_completion_tokens"] == 100 and "max_tokens" not in sent
+
+
+@pytest.mark.parametrize("extra", [{}, {"max_tokens": 100}])
+def test_max_completion_tokens_kept(router, stub, sid, extra):
+    post(router, sid, max_completion_tokens=50, **extra)
+    sent = stub.requests[-1][1]
+    assert sent["max_completion_tokens"] == 50 and "max_tokens" not in sent
+
+
+@pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("status", [400, 429, 500, 503])
 def test_upstream_errors_unchanged_and_unlogged(
     router, stub, sid, workdir, status, stream
@@ -264,3 +279,17 @@ def test_claude_code_messages_stream_through_the_same_path(router, stub, sid, wo
             r.status_code == 400
             and r.json()["error"]["type"] == "invalid_request_error"
         ), (bad, r.status_code)
+
+
+def test_truncated_metrics_line_is_skipped_and_the_next_record_survives(workdir):
+    good = example("fixtures/metrics.example.jsonl")
+    (workdir / "metrics.jsonl").write_text(json.dumps(good) + "\n" + '{"session_id": "sess-trunc", "tur', encoding="utf-8")
+    metrics._sessions.clear()
+    metrics._load()
+    assert metrics.get_session(good["session_id"])["turns"] == 1
+    later = dict(good, session_id="sess-later")
+    with open("metrics.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(later) + "\n")
+    metrics._sessions.clear()
+    metrics._load()
+    assert metrics.get_session("sess-later")["turns"] == 1
