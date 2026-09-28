@@ -27,7 +27,7 @@ function chat() {
 .oc-asst p{margin:0 0 8px;overflow-wrap:anywhere}.oc-asst code{color:#F5B94A}
 .oc-asst pre{margin:6px 0 10px;padding:8px 10px;background:#0C1019;border:1px solid #1B2130;border-radius:4px;overflow-x:auto;white-space:pre}
 .oc-asst pre code{color:#D6DBE5}.oc-asst .k{color:#C792EA}.oc-asst .s{color:#A5E075}.oc-asst .n{color:#F78C6C}.oc-asst .c{color:#6B7589}
-.oc-dim{color:#6B7589;margin:0}
+.oc-dim{color:#6B7589;margin:0}.oc-ok{color:var(--pass);margin:4px 0 0;font-weight:700}.oc-bad{color:var(--fail);margin:4px 0 0;font-weight:700}
 .oc-cursor{display:inline-block;width:.6em;background:#D6DBE5;animation:ocblink 1s steps(1) infinite}
 @keyframes ocblink{50%{opacity:0}}
 .oc-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #1B2130}
@@ -45,7 +45,7 @@ function chat() {
   const env = data.preset;
   if (!env) fetch("/api/chat-preset").then((r) => r.json()).then((p) => { data.preset = p; render(); }).catch(() => {});
   const pane = (id) => `<section class="oc-pane ${id}" id="chat-${id}"><header><b data-f="title">session</b><span data-f="model"></span></header>
-<div class="oc-body"><div class="oc-user" data-f="user"></div><div class="oc-asst" data-f="out"></div><p class="oc-dim" data-f="status"></p></div>
+<div class="oc-body"><div class="oc-user" data-f="user"></div><div class="oc-asst" data-f="out"></div><div class="oc-dim" data-f="status"></div></div>
 <footer class="oc-tiles"><div data-t="tokens"><b data-f="tokens">–</b><span>output tokens</span></div><div data-t="cost"><b data-f="cost">–</b><span>cost</span></div><div data-t="time"><b data-f="time">–</b><span>time to complete</span></div></footer></section>`;
   setTimeout(paintChat);
   return `<div class="oc">
@@ -89,7 +89,10 @@ function paintChat() {
     const body = el.querySelector(".oc-body"), atEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
     const changed = put("out", md(s.text) + (!s.done && !s.error && s.text ? `<span class="oc-cursor">&nbsp;</span>` : ""));
     if (changed && atEnd && !s.done) body.scrollTop = body.scrollHeight;
-    put("status", esc(s.error || (s.done ? (chatRun.own ? "" : "Proposed fix: not run against the tests on this page. The recorded races below are verified runs.") : s.text ? "" : `thinking… ${secs}s`)));
+    const v = s.verify, result = !v ? (s.done && !chatRun.own ? `<p class="oc-dim">applying the fix · running pytest…</p>` : "")
+      : v.exit_code === 0 ? `<p class="oc-ok">✓ after the fix · pytest: ${esc(v.summary)}</p>`
+      : v.exit_code == null ? `<p class="oc-dim">${esc(v.summary)}</p>` : `<p class="oc-bad">✗ still failing after the fix · ${esc(v.summary)}</p>`;
+    put("status", s.error ? esc(s.error) : s.done ? result : s.text ? "" : `thinking… ${secs}s`);
     tile("tokens", s.done ? String(s.done.output_tokens) : s.pieces ? `~${s.pieces}` : "–");
     tile("cost", s.done ? `$${s.done.cost_usd.toFixed(6)}` : "–");
     tile("time", s.error && !s.done ? "–" : `${secs}s`);
@@ -131,6 +134,7 @@ async function sendChat(own) {
         if (e.type === "start") s.model = e.model;
         else if (e.type === "delta") { s.text += e.text; s.pieces += 1; }
         else if (e.type === "done") s.done = e;
+        else if (e.type === "verify") s.verify = e;
         else if (e.type === "error") s.error = e.message;
       }
       paintChat();

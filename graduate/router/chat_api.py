@@ -111,6 +111,42 @@ def preset(pid):
 
 router = APIRouter()
 _lock = threading.Lock()
+_verify_lock = threading.Lock()  # one test run at a time
+CODE = re.compile(r"```(?:python|py)?[^\n]*\n(.*?)```", re.S)
+# Code that reaches outside the one source file is refused, not run: file, process and import-machinery access, or
+# any other path named in the code.
+OUTSIDE = re.compile(r"\bopen\s*\(|\bimport\s+(os|sys|subprocess|shutil|socket|pathlib|importlib)\b|\bfrom\s+(os|sys|subprocess|shutil|socket|pathlib|importlib)\b|__import__|\bexec\s*\(|\beval\s*\(|[\w./-]+\.(py|json|txt|cfg|toml|sh)\b")
+
+
+def verify(pid, answer):
+    """Apply a model's answer to a fresh copy of the preset's broken repo and run its test: `{exit_code, summary}`.
+
+    The first python code block replaces the preset's source file; pytest runs with a bare environment (PATH only, so
+    no key or other secret reaches it) and a 20 s timeout, in a fresh copy per run, one run at a time. No complete code
+    block (e.g. cut at the output cap), or code that reaches outside the source file: exit_code None, nothing run."""
+    import shutil
+    import subprocess
+    import sys
+    import tempfile
+
+    p = PRESETS[pid]
+    m = CODE.search(answer or "")
+    if not m or not m.group(1).strip():
+        return {"exit_code": None, "summary": "no complete fix returned"}
+    if OUTSIDE.search(m.group(1)):
+        return {"exit_code": None, "summary": f"the fix reaches outside {p['source']}, so it was not run"}
+    with _verify_lock, tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp) / "demo-repo"
+        shutil.copytree(ROOT / "demo-repo", repo, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+        (repo / p["source"]).write_text(m.group(1), encoding="utf-8")
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}  # nothing else: no key reaches the test run
+        try:
+            run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", p["test"]],
+                                 cwd=repo, env=env, capture_output=True, text=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            return {"exit_code": 124, "summary": "the test run timed out after 20 s"}
+    lines = [l for l in (run.stdout + run.stderr).splitlines() if l.strip()]
+    return {"exit_code": run.returncode, "summary": (lines[-1] if lines else f"exit {run.returncode}")[:300]}
 
 
 def _budget():
@@ -336,7 +372,22 @@ async def chat_compare(req: Request):
     # Both calls are scheduled before either runs, so they leave together.
     for side, model in (("big", BIG_MODEL), ("small", small)):
         q.put_nowait({"side": side, "type": "start", "t_ms": round((time.monotonic() - t0) * 1000), "model": model})
-    tasks = [asyncio.create_task(_big(prompt, sid, q.put)), asyncio.create_task(_small(prompt, sid, q.put, small))]
+    async def side(name, call):
+        """Run one side; for a preset, then test its answer and stream a `verify` event for that side."""
+        text = []
+
+        async def put(e):
+            if e.get("type") == "delta":
+                text.append(e.get("text") or "")
+            await q.put(e)
+
+        await call(put)
+        if pid in PRESETS and text:
+            v = await asyncio.to_thread(verify, pid, "".join(text))
+            await q.put({"side": name, "type": "verify", **v})
+
+    tasks = [asyncio.create_task(side("big", lambda put: _big(prompt, sid, put))),
+             asyncio.create_task(side("small", lambda put: _small(prompt, sid, put, small)))]
     for t in tasks:
         t.add_done_callback(lambda _: q.put_nowait(None))
 

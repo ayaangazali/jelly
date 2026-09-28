@@ -156,3 +156,29 @@ def test_the_preset_is_broken_state_09_with_its_real_failing_pytest(router):
     assert 'return " ".join(text.split())' in src and p["pytest"]["exit_code"] == 1
     assert "1 failed" in p["pytest"]["output"] and len(p["prompt"]) <= chat_api.MAX_PROMPT
     assert src in p["prompt"] and p["pytest"]["output"] in p["prompt"]
+
+
+FIXED_09 = 'def reverse_words(text):\n    return " ".join(reversed(text.split()))\n'
+
+
+def test_verify_runs_the_real_test_on_the_answer_s_code():
+    ok = chat_api.verify("broken-09", f"Here:\n```python\n{FIXED_09}```\nIt reversed nothing before.")
+    assert ok["exit_code"] == 0 and "1 passed" in ok["summary"]
+    bad = chat_api.verify("broken-09", '```python\ndef reverse_words(text):\n    return " ".join(text.split())\n```')
+    assert bad["exit_code"] == 1 and "failed" in bad["summary"]
+    none = chat_api.verify("broken-09", "Just change the join.")
+    assert none["exit_code"] is None and none["summary"] == "no complete fix returned"
+    cut = chat_api.verify("broken-09", f"```python\n{FIXED_09}")  # cut off at the output cap: no closing fence
+    assert cut["exit_code"] is None and cut["summary"] == "no complete fix returned"
+    for evil in ("import os\nos.remove('x')", "open('tests/test_mod_09.py', 'w')", "x = 1  # see ../secrets.json"):
+        refused = chat_api.verify("broken-09", f"```python\n{evil}\n```")
+        assert refused["exit_code"] is None and "not run" in refused["summary"]
+
+
+def test_a_preset_streams_one_verify_per_side_and_a_free_prompt_none(router, stub, river):
+    ev = events(router("POST", "/api/chat-compare", json={"preset": "broken-09"}))
+    verify = {e["side"]: e for e in ev if e.get("type") == "verify"}
+    assert set(verify) == {"big", "small"} and all(v["exit_code"] is None for v in verify.values())  # stubs send no code
+    assert ev[-1] == {"type": "end"}
+    ev = events(router("POST", "/api/chat-compare", json={"prompt": "say anything"}))
+    assert not [e for e in ev if e.get("type") == "verify"]
