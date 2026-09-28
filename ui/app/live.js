@@ -37,7 +37,7 @@ ${node("big", "Big model", "pay per token")}${node("yours", "Your model", "train
 <ol class="stepper" id="stepper"><li data-s="READY">Ready</li><li data-s="TRAINING">Training</li><li data-s="GRADUATED">Your model live</li></ol></section>
 <section class="panel p-race"><h2>Race</h2>${raceRow("big", "Big model")}${raceRow("yours", "Your model")}<p id="race-verdict" class="race-verdict"></p></section>
 <section class="panel p-log"><h2>Session log</h2><ol id="log" class="log"></ol></section>
-<section class="panel p-lanes"><h2>Agents · GBrain tips</h2><div id="lanes" class="lanes"></div></section>
+<section class="panel p-lanes"><h2>Agents · GBrain tips <button type="button" class="tip-i" id="agents-tip" hidden>i</button></h2><div id="lanes" class="lanes"></div></section>
 <footer class="sponsors">${SPONSORS.map(([id, name, role, st]) => `<div class="sp ${st}" id="sp-${id}"><i></i><b>${name}</b><span id="sp-${id}-role">${role}</span></div>`).join("")}</footer>
 </div>`;
 }
@@ -261,6 +261,8 @@ function facts() {
   oai.classList.toggle("on", gpt); oai.classList.toggle("off", !gpt);
   if (gpt) set("sp-openai-role", `the big model now: ${latest}`);
   const verified = rows.filter((r) => r.routed_to === "frontier" && r.exit_code === 0 && !r.escalated_from).length;
+  const tipEl = document.getElementById("agents-tip"), tip = agentsTip();
+  if (tipEl && tipEl.dataset.tip !== tip) { tipEl.dataset.tip = tip; tipEl.setAttribute("aria-label", tip); tipEl.hidden = !tip; }
   set("sp-memorable-role", `classifies each task by recalling past procedures · ${verified} learned from verified runs`);
   const riverT = Object.values(reg).find((t) => String(t.model || "").startsWith("river://"));
   const localT = Object.values(reg).find((t) => t.model && !String(t.model).startsWith("river://"));

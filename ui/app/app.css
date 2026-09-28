@@ -842,3 +842,13 @@ pre.term { max-height: 360px; overflow-y: auto; }
 .why-tasks { margin: 0 0 12px; } .why-tasks p { margin: 0 0 6px; }
 #race.oc-panes { font-family: "JetBrains Mono", ui-monospace, monospace; }
 #race .oc-asst p { margin: 0 0 6px; }
+/* (i) tooltips: hover, and tap or keyboard focus on phones */
+.tip-i { position: relative; display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 700 0.7em/1 Georgia, serif; text-transform: none; letter-spacing: 0; padding: 0; margin-left: 4px; vertical-align: middle; cursor: help; }
+.tip-i:hover, .tip-i:focus { color: var(--ink); border-color: var(--ink); outline: none; }
+.tip-i:hover::after, .tip-i:focus::after { content: attr(data-tip); position: absolute; top: 140%; right: 0; z-index: 20; width: max-content; max-width: min(340px, 80vw); padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); color: var(--ink); font: 400 13px/1.45 "Archivo", sans-serif; text-align: left; white-space: normal; box-shadow: none; }
+h1 .tip-i:hover::after, h1 .tip-i:focus::after { left: 0; right: auto; font-size: 14px; }
+.panel h2 { overflow: visible; }
+/* In a card title the tip spans the title row, so the card's edges never clip it. */
+.panel h2 { position: relative; }
+.panel h2 .tip-i { position: static; }
+.panel h2 .tip-i:hover::after, .panel h2 .tip-i:focus::after { top: 100%; left: 0; right: 0; width: auto; max-width: none; margin-top: 4px; }

@@ -98,13 +98,24 @@ function home() {
 </div>`;
 }
 
+// Why this many agents, from the swarm record only: one agent per task in the latest batch; how many ran at once
+// only if the record says (it may not), never a default written here.
+function agentsTip() {
+  const w = data.swarm || {}, list = w.agents || [];
+  if (!list.length) return "";
+  const tasks = [...new Set(list.map((a) => a.task).filter(Boolean))];
+  const k = w.concurrency || w.agents_at_once || w.max_workers;
+  return `One agent per task in the latest batch: ${tasks.length} task${tasks.length === 1 ? "" : "s"} (${tasks.join(", ")}) → ${list.length} agent${list.length === 1 ? "" : "s"}.${k ? ` Up to ${k} run at the same time; capped at 8 on this 8-core machine.` : ""}`;
+}
+const tipButton = (text) => (text ? `<button type="button" class="tip-i" aria-label="${esc(text)}" data-tip="${esc(text)}">i</button>` : "");
+
 function agents() {
   const w = data.swarm;
   if (!w) return `<h1>Agents</h1><p class="lede">Loading /api/swarm…</p>`;
   const list = w.agents || [];
   const flags = (a) => `${a.a2a_read ? `<span class="flag">read a note</span>` : ""}${a.a2a_write ? `<span class="flag">left a note</span>` : ""}`;
   const notes = [...(w.a2a || [])].reverse();
-  return `<h1>Agents</h1>
+  return `<h1>Agents ${tipButton(agentsTip())}</h1>
 ${w.error ? empty(esc(w.error)) : `<p class="muted"><code>${esc(w.swarm_id)}</code> · started ${esc((w.started || "").replace("T", " ").slice(0, 19))}Z · launcher ${esc(w.launcher)}</p>`}
 ${list.length ? `<div class="scroll"><table><thead><tr><th>Agent</th><th>Task</th><th>Task type</th><th>Status</th><th class="num">Exit</th><th class="num">Turns</th><th>Notes</th><th>Session</th></tr></thead><tbody>
 ${list.map((a) => `<tr><td><b>${esc(a.agent)}</b></td><td>${esc(a.task)}</td><td>${a.task_type ? `<code>${esc(a.task_type)}</code>` : `<span class="muted">not yet</span>`}</td><td>${stateTag(a.status)}</td><td class="num">${a.exit_code ?? "–"}</td><td class="num">${a.turns ?? "–"}</td><td>${flags(a)}</td><td><code class="muted">${esc((a.session_id || "–").slice(0, 13))}</code></td></tr>`).join("")}
