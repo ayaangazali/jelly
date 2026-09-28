@@ -143,6 +143,7 @@ if __name__ == "__main__":  # self-check: python -m graduate.router.metrics
 
     os.chdir(tempfile.mkdtemp())  # metrics.jsonl and trace.jsonl land in a scratch dir
     m._sessions.clear()
+    m.PRICES = json.loads((m.upstream._prices.parent / "prices.example.json").read_text())
     s = "sess-0123456789ab"
     req = {"model": "graduate", "messages": [{"role": "user", "content": "fix it"}]}
     calls = [
