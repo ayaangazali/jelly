@@ -206,6 +206,8 @@ def test_only_an_all_frontier_session_is_a_verified_frontier_run(repo, workdir, 
 
     monkeypatch.setattr(runner, "_router", router)
     monkeypatch.setattr(registry, "GRADUATE_N", 1)
+    monkeypatch.setattr(dataset, "renderer", lambda tokenizer=None: None)  # CI has no river_client; counts, not tokens
+    monkeypatch.setattr(dataset, "wire", lambda rend, chat: ({"input_ids": []}, False))
     agent = workdir / "agent"
     agent.write_text(AGENT.format(FIX))
     agent.chmod(0o755)
