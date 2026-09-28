@@ -231,7 +231,7 @@ Expect: READY within 2 s and the thread still alive. Today `_rows()` raises (`wa
 Setup: runner with task hint `fix-failing-test`, stub `fail = (429, …)` for every call.
 Expect: the row's `task_type == "fix-failing-test"` and `exit_code != 0`, so `failed_runs` counts it. Today it is `unknown` (`runner:134`).
 
-**LW-07 · A mixed-upstream session is not a verified frontier run.** R6, R8, R13 · integration · FAILS-ON-MAIN (C14)
+**LW-07 · A mixed-upstream session is not a verified frontier run.** R6, R8, R13 · integration · EXISTS: `tests/test_runner.py::test_only_an_all_frontier_session_is_a_verified_frontier_run` (#133: `routed_to: mixed`)
 Setup: task type GRADUATED; the fake backend raises on the 1st call and answers the 2nd, the 3rd call raises again (frontier serves it); verify passes.
 Expect: not verified in the VF sense (`verified_runs` unchanged, absent from `data/<t>.chat.jsonl`). Today `routed_to` is `frontier` (the last call's upstream) and it counts.
 
