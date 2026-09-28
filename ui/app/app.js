@@ -1,7 +1,9 @@
 // GRADUATE app (/app): one page per job, all from the live APIs. Nothing here computes a win the ledger doesn't show.
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const time = (ts) => esc((ts || "").slice(11, 19));
+// Timestamps are stored in UTC; show them in the viewer's own clock (e.g. 5:05:54 PM, not 00:05:54).
+const localTime = (ts, short) => { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString([], short ? { hour: "numeric", minute: "2-digit" } : { hour: "numeric", minute: "2-digit", second: "2-digit" }); };
+const time = (ts) => esc(localTime(ts));
 const money = (v) => `$${Number(v).toFixed(v < 1 ? 3 : 2)}`;
 const num = (v) => Math.round(v).toLocaleString();
 const data = { state: null, swarm: null, reviews: {} };
@@ -22,11 +24,27 @@ const page = () => location.pathname.replace(/^\/app\/?/, "").split("/")[0] || "
 function render() {
   const p = PAGES[page()] ? page() : "live";
   document.body.classList.toggle("on-live", p === "live");
-  document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === p ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  const nav = { logs: "activity", "under-the-hood": "activity", chat: "race" }[p] || p; // merged pages keep their old URLs
+  document.querySelectorAll("nav.side [data-nav]").forEach((a) => a.dataset.nav === nav ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   const html = data.state ? PAGES[p]() : `<p class="lede">Loading /state…</p>`;
-  if ($("#view").dataset.html !== html) { $("#view").innerHTML = html; $("#view").dataset.html = html; }
+  swap($("#view"), html);
   tick();
   if (p === "live" && !sim.on) { sim.on = true; sim.last = performance.now(); requestAnimationFrame(frame); }
+}
+
+// Replace an element's HTML only when what we render changed (compared with what we last wrote, not the live DOM, which
+// an opened <details> alters), and keep every opened expander and scroll position across the replacement.
+const SCROLLERS = ".drawer, .oc-body, .filebox, .scroll, .turns, .tbody, .log, .feed, .procs, .bars, .serve, pre.term";
+function swap(el, html) {
+  if (!el || el.dataset.html === html) return false;
+  const open = new Set([...el.querySelectorAll("details[open] > summary")].map((x) => x.textContent));
+  const key = (x, i, all) => `${x.closest("section, .panel, figure")?.querySelector("h2, h3")?.textContent || ""}|${x.className}|${all.filter((y) => y.className === x.className).indexOf(x)}`;
+  const was = [...el.querySelectorAll(SCROLLERS)], tops = new Map(was.map((x, i) => [key(x, i, was), x.scrollTop]));
+  el.innerHTML = html; el.dataset.html = html;
+  el.querySelectorAll("details > summary").forEach((x) => { if (open.has(x.textContent)) x.parentElement.open = true; });
+  const now = [...el.querySelectorAll(SCROLLERS)];
+  now.forEach((x, i) => { const t = tops.get(key(x, i, now)); if (t) x.scrollTop = t; });
+  return true;
 }
 
 async function poll() {
@@ -37,6 +55,8 @@ async function poll() {
   if (["overview", "agents", "live", "providers"].includes(page())) data.swarm = await get("/api/swarm");
   if (["race", "chat", "live"].includes(page())) data.race = await get("/api/race");
   if (page() === "pricing") data.pricing = await get("/api/pricing");
+  if (["race", "chat", "providers"].includes(page()) && !data.thinking) { const t = await get("/api/thinking"); data.thinking = t.error ? { chat: {}, agent: {} } : t; }
+  if (page() === "bench" && !data.bench) data.bench = await get("/bench/latest/results.json");
   if (page() === "providers" && !data.replay) data.replay = await get("/api/replay");
   if (["providers", "under-the-hood"].includes(page())) { const c = await get("/api/provider-calls"); data.calls = Array.isArray(c) ? c : null; }
   if (page() === "live" && !data.replay) {
@@ -78,14 +98,25 @@ function home() {
 </div>`;
 }
 
+// Why this many agents, from the swarm record only: one agent per task in the latest batch; how many ran at once
+// only if the record says (it may not), never a default written here.
+function agentsTip() {
+  const w = data.swarm || {}, list = w.agents || [];
+  if (!list.length) return "";
+  const tasks = [...new Set(list.map((a) => a.task).filter(Boolean))];
+  const k = w.concurrency || w.agents_at_once || w.max_workers;
+  return `One agent per task in the latest batch: ${tasks.length} task${tasks.length === 1 ? "" : "s"} (${tasks.join(", ")}) → ${list.length} agent${list.length === 1 ? "" : "s"}.${k ? ` Up to ${k} run at the same time; capped at 8 on this 8-core machine.` : ""}`;
+}
+const tipButton = (text) => (text ? `<button type="button" class="tip-i" aria-label="${esc(text)}" data-tip="${esc(text)}">i</button>` : "");
+
 function agents() {
   const w = data.swarm;
   if (!w) return `<h1>Agents</h1><p class="lede">Loading /api/swarm…</p>`;
   const list = w.agents || [];
   const flags = (a) => `${a.a2a_read ? `<span class="flag">read a note</span>` : ""}${a.a2a_write ? `<span class="flag">left a note</span>` : ""}`;
   const notes = [...(w.a2a || [])].reverse();
-  return `<h1>Agents</h1>
-${w.error ? empty(esc(w.error)) : `<p class="muted"><code>${esc(w.swarm_id)}</code> · started ${esc((w.started || "").replace("T", " ").slice(0, 19))}Z · launcher ${esc(w.launcher)}</p>`}
+  return `<h1>Agents ${tipButton(agentsTip())}</h1>
+${w.error ? empty(esc(w.error)) : `<p class="muted"><code>${esc(w.swarm_id)}</code> · started ${esc(localTime(w.started))} · launcher ${esc(w.launcher)}</p>`}
 ${list.length ? `<div class="scroll"><table><thead><tr><th>Agent</th><th>Task</th><th>Task type</th><th>Status</th><th class="num">Exit</th><th class="num">Turns</th><th>Notes</th><th>Session</th></tr></thead><tbody>
 ${list.map((a) => `<tr><td><b>${esc(a.agent)}</b></td><td>${esc(a.task)}</td><td>${a.task_type ? `<code>${esc(a.task_type)}</code>` : `<span class="muted">not yet</span>`}</td><td>${stateTag(a.status)}</td><td class="num">${a.exit_code ?? "–"}</td><td class="num">${a.turns ?? "–"}</td><td>${flags(a)}</td><td><code class="muted">${esc((a.session_id || "–").slice(0, 13))}</code></td></tr>`).join("")}
 </tbody></table></div>` : ""}
@@ -107,8 +138,8 @@ ${tt.map(([id, t]) => {
     const cur = t.current, base = t.baseline;
     const r = data.reviews[id];
     const per = (x) => (x ? `${Math.round(x.turns * 10) / 10} turns · ${money(x.cost_usd)}` : `<span class="muted">–</span>`);
-    const unmatched = (t.verified_runs || 0) + (t.failed_runs || 0) <= 1 && t.state === "LEARNING" && !/^[a-z]+(-[a-z]+){1,2}$/.test(id);
-    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${unmatched ? `<br><small class="muted">1 run Memorable could not match to a known type, so it stays on the big model.</small>` : ""}</td>
+    const passing = t.verified_runs || 0, learning = t.state === "LEARNING";
+    return `<tr><td class="tname" title="${esc(t.title || id)}"><b>${esc(t.title || id)}</b>${learning ? `<br><small class="muted">Only ${passing} passing run${passing === 1 ? "" : "s"} so far; it stays on the big model until ${N()} pass.</small>` : ""}</td>
 <td>${stateTag(t.state)}</td>
 <td><span class="pips">${Array.from({ length: N() }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${t.verified_runs} verified · ${N()} needed${t.failed_runs ? ` <span class="muted">· ${t.failed_runs} failed</span>` : ""}</td>
 <td>${t.consent ? "approved" : `<span class="muted">not given</span>`}</td>
@@ -156,7 +187,6 @@ async function act(kind, t) {
   render();
   const method = { review: "GET", approve: "POST", revoke: "DELETE" }[kind];
   const r = await get(`/api/consent/${encodeURIComponent(t)}`, { method });
-  if (kind === "review" && !r.error) { const d = await get(`/api/training-data/${encodeURIComponent(t)}`); if (Array.isArray(d.runs) && d.runs.length) r.runs = d.runs; }
   if (r.status === 405) { data.readOnly = true; localStorage.setItem("graduate-read-only", "1"); }
   if (kind === "review") data.reviews[t] = r;
   else data.reviews[t] = r.status === 405 ? { msg: READ_ONLY } : r.error ? { msg: r.error, bad: true } : { msg: kind === "approve" ? `Approved. Training started (${r.records} runs, log ${r.log}).` : "Consent revoked. Nothing will be trained." };
@@ -180,16 +210,36 @@ function pane({ row, log }) {
     cost: (row.cost_usd || 0) * tokens(c.usage || {}) / all, what: describe(c.response || {}),
   }));
   const end = Math.max(row.wall_secs * 1000 || 0, steps.length ? steps[steps.length - 1].at : 0);
-  return { row, steps, end, logged: calls.length > 0 };
+  // The thinking level THIS recorded run was sent with, if its own session log shows one; else nothing (never the
+  // chat's or today's setting).
+  const q = (calls.find((c) => c.request && (c.request.reasoning_effort || c.request.chat_template_kwargs)) || {}).request || {};
+  // Evidence first: a recorded reply that carries reasoning means the run thought, whatever flag it was sent with.
+  const reasoned = calls.some((c) => { const m = c.response || {}; return m.reasoning_content || THINK_RE.test(String(m.content || "")); });
+  const thinking = reasoned ? "on (from its log)" : q.reasoning_effort || (q.chat_template_kwargs ? (q.chat_template_kwargs.enable_thinking ? "on" : "off") : null);
+  return { row, steps, end, logged: calls.length > 0, thinking };
 }
 
+// One recorded model call, readable: tool calls as `name  short argument` (objects summarised, never "[object Object]"),
+// hidden reasoning folded into one collapsed "thinking" line, the rest as text.
+const THINK_RE = /^\s*(?:<think>|Thinking Process:)/; // how a reply's hidden reasoning starts
+
 function describe(m) {
+  const short = (v) => {
+    if (v == null) return "";
+    if (Array.isArray(v)) return `${v.length} item${v.length === 1 ? "" : "s"}`;
+    if (typeof v === "object") return Object.keys(v).slice(0, 3).join(", ");
+    return String(v).split("\n")[0].replace(/\/\S*\/(\S+\/\S+)/g, "…/$1").slice(0, 80);
+  };
   if (m.tool_calls && m.tool_calls.length) return m.tool_calls.map((t) => {
-    let args = t.function.arguments;
-    try { args = Object.values(JSON.parse(args)).map(String)[0] || ""; } catch {}
-    return `<b>${esc(t.function.name)}</b> <code>${esc(String(args).split("\n")[0].replace(/^\/\S*\/(\S+\/\S+)/, "…/$1").slice(0, 70))}</code>`;
+    let args = t.function.arguments, first = "";
+    try { const a = typeof args === "string" ? JSON.parse(args) : args; first = short(Object.values(a || {})[0]); } catch { first = short(args); }
+    return `<b>${esc(t.function.name)}</b> <code>${esc(first)}</code>`;
   }).join("<br>");
-  return m.content ? esc(m.content.slice(0, 160)) : `<span class="muted">(empty reply)</span>`;
+  let text = String(m.content || "");
+  const think = text.match(/^\s*(?:<think>([\s\S]*?)(?:<\/think>|$)|Thinking Process:([\s\S]*?)(?=\n\s*\n(?!\s*\d+\.)|$))/);
+  if (think) text = text.slice(think[0].length).trim();
+  const fold = think ? `<details><summary class="muted">thinking</summary><span class="muted">${esc((think[1] || think[2] || "").trim().slice(0, 1200))}</span></details>` : "";
+  return fold + (text ? esc(text.slice(0, 400)) : think ? "" : `<span class="muted">(empty reply)</span>`);
 }
 
 function startRace(p) {
@@ -203,16 +253,20 @@ function setSpeed(x) { race.base = elapsed(); race.since = performance.now(); ra
 const secsOf = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
 // A race pane: a terminal window streaming the recorded run's calls at their recorded pace, then its cost and time.
+// A recorded race pane in the same Jelly/OpenCode look as the live chat: header (model and, if the run's own log
+// shows it, thinking level), the run's calls, the test result, three stat tiles.
 function paneHTML(p, t, side) {
   const r = p.row, done = t >= p.end, shown = p.steps.filter((s) => s.at <= t), mine = side === "owned";
   const river = String(r.model || "").startsWith("river://");
-  const model = mine ? (river ? "Qwen3.5-9B · River" : "your model") : String(r.model || "big model").split("/").pop();
-  const status = mine ? `Sending request to your model${river ? " on River" : ""}...` : `Sending request to ${esc(model)}. Waiting for first token...`;
-  return `<header><i></i><i></i><i></i><b>${mine ? "YOUR MODEL" : "BIG MODEL"}</b></header>
-<p class="cmd">$ graduate race ask ${mine ? "owned" : "frontier"}</p><p class="dim">${status}</p>
-<div class="tbody">${shown.map((s) => `<div class="tl">${s.what}</div>`).join("")}${p.logged ? "" : `<div class="tl dim">no step-by-step record kept for this run</div>`}</div>
-<footer>${done ? `<p>cost ${money(r.cost_usd || 0)}</p><p>completed in ${r.wall_secs}s · <span class="${r.exit_code === 0 ? "ok" : "bad"}">${r.exit_code === 0 ? "✓" : "✗"} ${esc(testFile(r))}</span></p>` : `<p class="dim">running… ${secsOf(t)}</p>`}</footer>
-<span class="chip">${esc(model)}</span>`;
+  const m = String(r.model || "big model").split("/").pop();
+  const model = mine ? (river ? "Qwen3.5-9B · River" : "your model") : `${m} · ${/claude/i.test(m) ? "Anthropic" : /gpt|^o\d/i.test(m) ? "OpenAI" : "big model"}`;
+  const tile = (v, l, k) => `<div data-t="${k}"><b>${v}</b><span>${l}</span></div>`;
+  const res = !done ? `<p class="oc-dim">running… ${secsOf(t)}</p>` : r.exit_code === 0 ? `<p class="oc-ok">✓ pytest ${esc(testFile(r))}: passed</p>`
+    : `<p class="oc-bad">✗ pytest ${esc(testFile(r))}: failed${race.rescue && mine ? " · re-run on the big model" : ""}</p>`;
+  return `<header><b>recorded run · ${esc(pairLabel({ owned: { row: r } }).split(" · ").slice(0, 2).join(" · "))}</b><span>${esc(model)}${p.thinking ? ` · thinking: ${esc(p.thinking)}` : ""}</span></header>
+<div class="oc-body"><div class="oc-asst">${shown.map((s) => `<p>${s.what}</p>`).join("")}${p.logged ? "" : `<p class="oc-dim">no step-by-step record kept for this run</p>`}</div></div>
+<div class="oc-result">${res}</div>
+<footer class="oc-tiles">${tile(done ? num(r.output_tokens || 0) : "–", "output tokens", "tokens")}${tile(done ? money(r.cost_usd || 0) : "–", "cost", "cost")}${tile(done ? `${r.wall_secs}s` : "–", "time to complete", "time")}</footer>`;
 }
 
 function verdictHTML([f, o]) {
@@ -232,7 +286,7 @@ function tick() {
   const t = elapsed();
   race.panes.forEach((p, i) => {
     const el = box.children[i], html = paneHTML(p, t, i ? "frontier" : "owned");
-    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; const tb = el.querySelector(".tbody, .turns"); if (tb) tb.scrollTop = 1e6; }
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; const tb = el.querySelector(".oc-body"); if (tb) tb.scrollTop = 1e6; }
   });
   const v = document.getElementById("verdict"), html = race.panes.every((p) => t >= p.end) ? verdictHTML([race.panes[1], race.panes[0]]) : "";
   if (v.dataset.html !== html) { v.innerHTML = html; v.dataset.html = html; }
@@ -265,23 +319,69 @@ function compare() {
 
 <div class="race-bar"><select id="pair">${ps.map((x) => `<option value="${esc(key(x))}" ${x === p ? "selected" : ""}>${esc(pairLabel(x))}</option>`).join("")}</select>
 
-<a href="/ui/index.html#/compare">Benchmark table →</a></div>
-<div id="race" class="race stage"><section class="term owned"></section><section class="term frontier"></section></div><div id="verdict"></div>
+<a href="/app/bench">Benchmark table →</a></div>
+<div id="race" class="oc-panes rec"><section class="oc-pane small"></section><section class="oc-pane big"></section></div><div id="verdict"></div>
 <p class="muted prompt-line">${p.match === "task_type" ? `Same task type, different task. Yours: ${esc(o.prompt)} · Big model: ${esc(p.frontier.row.prompt)}` : `Task prompt: ${esc(o.prompt)}`}</p>`;
+}
+
+// /app/bench: `graduate bench`'s table (GET /bench/latest/results.json, the classic Compare's endpoint): the same tasks
+// through each model, output tokens first; an arm without runs says n/a. Numbers as measured: no saving is inferred.
+function bench() {
+  const b = data.bench;
+  if (!b) return `<h1>Benchmark</h1><p class="lede">Loading…</p>`;
+  if (b.error || !b.arms) return `<h1>Benchmark</h1>${empty(`No benchmark yet: ${esc(b.error || "no results")} Run <code>graduate bench</code>.`)}`;
+  const arms = [["frontier", "Big model"], ["small", "Small model"], ["owned", "Your model"]].filter(([k]) => b.arms[k]);
+  const name = (a) => (String(a.model || "").startsWith("river://") ? "Qwen3.5-9B · River" : a.model || "");
+  const cell = (a, k, f) => (a.runs > 0 && a[k] != null ? f(a[k], a) : `<span class="muted">${esc(a.note || "n/a")}</span>`);
+  const row = (label, k, f, cls = "") => `<tr class="${cls}"><th>${label}</th>${arms.map(([id]) => `<td class="num">${cell(b.arms[id], k, f)}</td>`).join("")}</tr>`;
+  const bud = b.budget || {};
+  return `<h1>Benchmark</h1>
+<p class="lede">The same demo tasks (${(b.tasks || []).map(esc).join(", ")}) through each model, from <code>graduate bench</code> at ${esc(String(b.started_at || "").slice(0, 16).replace("T", " "))}Z${bud.spent_usd != null ? `. Spent ${money(bud.spent_usd)} of a ${money(bud.cap_usd)} cap.` : "."}</p>
+${benchTakeaway(b)}
+<div class="scroll"><table><thead><tr><th>Per run (mean)</th>${arms.map(([id, l]) => `<th class="num">${l}<br><small class="muted">${esc(name(b.arms[id]))}</small></th>`).join("")}</tr></thead><tbody>
+${row("Output tokens", "output_tokens", num, "lead")}
+${row("Input tokens", "input_tokens", (v, a) => `${num(v)} <span class="muted">${Math.round(((a.cached_input_tokens || 0) / (v || 1)) * 100)}% cached</span>`)}
+${row("Cost", "cost_usd", money)}
+${row("Turns", "turns", (v) => Math.round(v * 10) / 10)}
+${row("Wall time (median)", "wall_secs_p50", (v) => `${Math.round(v * 10) / 10}s`)}
+${row("Tests pass", "passed", (v, a) => `${v} of ${a.runs}`)}
+</tbody></table></div>
+<p class="muted">Means over each model's runs. Cost is tokens × list prices. n/a: that model has no runs in this benchmark.</p>`;
+}
+
+// "What this shows": every number and ratio computed from the same results the table shows, so the two never disagree.
+// A claim the results file does not carry (held-out tasks, big-model calls) is left out rather than asserted.
+function benchTakeaway(b) {
+  const f = b.arms.frontier, m = b.arms.small, o = b.arms.owned, ran = (a) => a && a.runs > 0;
+  if (!ran(o) || !ran(f)) return "";
+  const x = (p, q) => Math.round(p / q), n = (b.tasks || []).length, all = [f, m, o].filter(ran);
+  const cheap = (a) => `${money(a.cost_usd)} on ${esc(a.model)} (${x(a.cost_usd, o.cost_usd)}× cheaper)`;
+  const pct = Math.round((o.output_tokens / f.output_tokens - 1) * 100);
+  const lines = [
+    all.every((a) => a.passed === a.runs) ? `All ${all.length} models passed the tests on all ${n} tasks (${(b.tasks || []).map(esc).join(", ")}).` : `Tests passed: ${all.map((a) => `${esc(a.model.startsWith("river://") ? "your model" : a.model)} ${a.passed} of ${a.runs}`).join(", ")}.`,
+    `Your model: ${money(o.cost_usd)} a task vs ${cheap(f)}${ran(m) ? ` and ${cheap(m)}; it beats just buying a cheaper model` : ""}.`,
+    `Why: it learned the job, so it reads ${x(f.input_tokens, o.input_tokens)}× fewer input tokens (${num(o.input_tokens)} vs ${num(f.input_tokens)} a task)${o.turns && f.turns ? `, about ${num(o.input_tokens / o.turns)} per call instead of ${num(f.input_tokens / f.turns)}` : ""}.`,
+  ];
+  // Held out: stated only for the run docs/results.md describes, never inferred.
+  if (b.bench_id === "bench-20260927T225656Z") lines.splice(1, 0, "In this run, tasks 09 and 10 were held out of your model's training data (docs/results.md).");
+  const limits = `Limits: it wrote ${pct >= 0 ? `${pct}% more` : `${-pct}% fewer`} output tokens than ${esc(f.model)} and took ${Math.round(o.wall_secs_p50)} s vs ${Math.round(f.wall_secs_p50)} s; ${o.runs} runs per model; your model's cost is priced at list rates, not billed.`;
+  return `<section class="panel takeaway"><h2>What this shows</h2>${lines.map((l) => `<p>${l}</p>`).join("")}<p class="muted">${limits}</p></section>`;
 }
 
 function activity() {
   const s = data.state;
-  const trace = [...(s.trace || [])].reverse().slice(0, 40);
+  const trace = [...(s.trace || [])].reverse().slice(0, 500);
   return `<h1>Activity</h1>
 
 <div class="cols">
 <section><h2>Call trace</h2>${trace.length ? `<ul class="feed">${trace.map((e) => `<li><time>${time(e.ts)}</time><span><b>${esc(e.who)}</b> <code>${esc(e.call)}</code><br><span class="muted">${esc(e.result)}</span></span></li>`).join("")}</ul>` : empty("No calls traced yet.")}</section>
-<section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.slice(-60).join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
+<section><h2>Terminal</h2>${(s.terminal || []).length ? `<pre class="term">${esc(s.terminal.join("\n"))}</pre>` : empty("Nothing in terminal.log yet.")}</section>
 </div>`;
 }
 
-const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing, "under-the-hood": underTheHood, setup };
+const PAGES = { live, overview: home, race: compare, tasks, agents, logs: activity, providers, pricing, "under-the-hood": underTheHood, setup , bench };
+// One Activity page (the captain's merge): the architecture diagram on top, the call feed and terminal, then parts and files.
+PAGES.activity = PAGES.logs = PAGES["under-the-hood"] = () => underTheHood().replace("<h1>Under the hood</h1>", "<h1>Activity</h1>");
 
 function go(url) { history.pushState(null, "", url); render(); poll(); }
 

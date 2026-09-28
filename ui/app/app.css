@@ -791,21 +791,27 @@ svg.arch { width: 100%; height: auto; max-height: 62vh; }
 .aedge.on path { stroke: var(--owned); stroke-width: 2.5; }
 .aedge.on text { fill: var(--owned); }
 .arch-fig figcaption { font-size: 0.8em; margin-top: 6px; }
-svg.notes-svg { width: 100%; height: auto; max-height: 60vh; }
-.notes-svg .nnode rect { fill: var(--sheet); stroke: var(--rule); }
-.notes-svg .nnode.hub rect { stroke: var(--owned); fill: var(--owned-wash); }
-.notes-svg .nnode.file rect { stroke-dasharray: 5 4; }
-.notes-svg .nnode text { fill: var(--ink); font: 700 14px "Archivo", sans-serif; text-anchor: middle; }
-.notes-svg .nnode text.sub { fill: var(--muted); font: 400 11px "JetBrains Mono", monospace; }
-.notes-svg path { fill: none; stroke-width: 1.8; }
-.notes-svg path.nw { stroke: var(--warn); }
-.notes-svg path.nr { stroke: var(--owned); }
-.notes-svg path.nf { stroke: var(--warn); stroke-dasharray: 6 5; }
-.notes-svg > text { fill: var(--muted); font: 400 12px "Archivo", sans-serif; text-anchor: middle; }
+.ntl-wrap { overflow-x: auto; max-width: 100%; }
+svg.ntl { display: block; width: 100%; height: auto; margin: 0 auto; }
+.ntl text { fill: var(--muted); font: 400 11px "Archivo", sans-serif; text-anchor: middle; }
+.ntl text.ntitle { font-size: 12px; text-anchor: start; }
+.ntl text.ntitle tspan { fill: var(--ink); font-family: "JetBrains Mono", monospace; }
+.ntl .nband { fill: var(--sheet); stroke: var(--owned); }
+.ntl .nfill { fill: var(--owned-wash); }
+.ntl text.ncount { fill: var(--ink); font-weight: 700; font-size: 12px; }
+.ntl .nbox { fill: var(--sheet); stroke: var(--rule); }
+.ntl text.nrun { fill: var(--ink); font-weight: 700; font-size: 13px; }
+.ntl text.nsub { font-family: "JetBrains Mono", monospace; }
+.ntl .ncol path { fill: none; stroke-width: 2; }
+.ntl path.nr { stroke: var(--owned); } .ntl text.nr { fill: var(--owned); }
+.ntl path.nw { stroke: var(--warn); } .ntl text.nw { fill: var(--warn); }
+.ntl path.nm { stroke: var(--muted); stroke-dasharray: 4 3; }
+.ntl .nbusy { fill: none; stroke: var(--muted); stroke-dasharray: 3 2; }
+.ntl .nhit { fill: transparent; }
+.ntl .ncol:hover .nbox { stroke: var(--owned); }
 .notes-cap { font-size: 0.8em; margin: 6px 0; }
+.notes-cap .nr { color: var(--owned); } .notes-cap .nw { color: var(--warn); } .notes-cap .nm { color: var(--muted); }
 details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
-.notes-svg .nnode.hub rect { width: 230px; } svg.notes-svg { max-height: 66vh; }
-.notes-svg > text { font-size: 11px; paint-order: stroke; stroke: var(--sheet); stroke-width: 3px; }
 .runs { display: grid; gap: 6px; }
 .run { border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
 .run summary { display: grid; grid-template-columns: 2em minmax(0, 1.4fr) 1fr 1fr 1fr; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: center; }
@@ -817,3 +823,32 @@ details summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
 .turn.sys b { display: inline; }
 .states-line { margin: -0.6em 0 1em; }
 .ttypes td.tname small { white-space: normal; }
+/* Lists show every row the data has, inside a fixed-height box that scrolls (the captain's rule). */
+.feed, .procs, .bars, .serve, .scroll.box, .gnotes { max-height: 360px; overflow-y: auto; }
+.scroll.box thead th { position: sticky; top: 0; background: var(--sheet); z-index: 1; }
+.live .log { overflow-y: auto; }
+pre.term { max-height: 360px; overflow-y: auto; }
+.cols .feed, .cols pre.term { max-height: 480px; }
+.takeaway { margin-bottom: 14px; } .takeaway p { margin: 0 0 6px; } .takeaway p:last-child { margin: 0; }
+.p-log .log, .p-lanes .lanes { overflow-y: auto !important; }
+.over-wrap { overflow-x: auto; overflow-y: hidden; flex: 1; min-height: 60px; }
+.over-wrap svg.over { height: 100%; min-width: 100%; }
+.barrow { grid-template-columns: minmax(0, 20em) minmax(0, 1fr) 5.5em 1.5em; }
+.blabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85em; }
+.why { font-style: normal; font-size: 0.8em; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid var(--rule); color: var(--muted); }
+.why.tr { color: var(--owned); border-color: var(--owned); } .why.cmp { color: var(--big); border-color: #6B4A10; }
+@media (max-width: 999px) { .barrow { grid-template-columns: minmax(0, 1fr) 6em 5em 1.2em; } }
+.feed li { grid-template-columns: 7.5em 1fr; } .p-log .log li { grid-template-columns: 7.5em 9.5em minmax(0, 1fr) 6em 7.5em; }
+.why-tasks { margin: 0 0 12px; } .why-tasks p { margin: 0 0 6px; }
+#race.oc-panes { font-family: "JetBrains Mono", ui-monospace, monospace; }
+#race .oc-asst p { margin: 0 0 6px; }
+/* (i) tooltips: hover, and tap or keyboard focus on phones */
+.tip-i { position: relative; display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--muted); font: italic 700 0.7em/1 Georgia, serif; text-transform: none; letter-spacing: 0; padding: 0; margin-left: 4px; vertical-align: middle; cursor: help; }
+.tip-i:hover, .tip-i:focus { color: var(--ink); border-color: var(--ink); outline: none; }
+.tip-i:hover::after, .tip-i:focus::after { content: attr(data-tip); position: absolute; top: 140%; right: 0; z-index: 20; width: max-content; max-width: min(340px, 80vw); padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); color: var(--ink); font: 400 13px/1.45 "Archivo", sans-serif; text-align: left; white-space: normal; box-shadow: none; }
+h1 .tip-i:hover::after, h1 .tip-i:focus::after { left: 0; right: auto; font-size: 14px; }
+.panel h2 { overflow: visible; }
+/* In a card title the tip spans the title row, so the card's edges never clip it. */
+.panel h2 { position: relative; }
+.panel h2 .tip-i { position: static; }
+.panel h2 .tip-i:hover::after, .panel h2 .tip-i:focus::after { top: 100%; left: 0; right: 0; width: auto; max-width: none; margin-top: 4px; }

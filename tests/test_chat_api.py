@@ -99,7 +99,7 @@ def test_caps_refuse_long_or_empty_prompts_and_a_spent_budget_in_plain_words(rou
     assert r.status_code == 400 and r.json()["error"] == "Keep it under 2,000 characters."
     r = router("POST", "/api/chat-compare", json={"prompt": "   "})
     assert r.status_code == 400 and "{" not in r.json()["error"]
-    chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 200, "cost_usd": 0.1}))
+    chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 1000, "cost_usd": 0.1}))
     r = router("POST", "/api/chat-compare", json={"prompt": "say anything"})
     assert r.status_code == 429 and r.json()["error"] == "Demo budget reached, try again later."
     chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 3, "cost_usd": 4.999}))
@@ -156,3 +156,76 @@ def test_the_preset_is_broken_state_09_with_its_real_failing_pytest(router):
     assert 'return " ".join(text.split())' in src and p["pytest"]["exit_code"] == 1
     assert "1 failed" in p["pytest"]["output"] and len(p["prompt"]) <= chat_api.MAX_PROMPT
     assert src in p["prompt"] and p["pytest"]["output"] in p["prompt"]
+
+
+FIXED_09 = 'def reverse_words(text):\n    return " ".join(reversed(text.split()))\n'
+
+
+def test_verify_runs_the_real_test_on_the_answer_s_code():
+    ok = chat_api.verify("broken-09", f"Here:\n```python\n{FIXED_09}```\nIt reversed nothing before.")
+    assert ok["exit_code"] == 0 and "1 passed" in ok["summary"]
+    bad = chat_api.verify("broken-09", '```python\ndef reverse_words(text):\n    return " ".join(text.split())\n```')
+    assert bad["exit_code"] == 1 and "failed" in bad["summary"]
+    none = chat_api.verify("broken-09", "Just change the join.")
+    assert none["exit_code"] is None and none["summary"] == "no complete fix returned"
+    cut = chat_api.verify("broken-09", f"```python\n{FIXED_09}")  # cut off at the output cap: no closing fence
+    assert cut["exit_code"] is None and cut["summary"] == "no complete fix returned"
+    for evil in ("import os\nos.remove('x')", "open('tests/test_mod_09.py', 'w')", "x = 1  # see ../secrets.json"):
+        refused = chat_api.verify("broken-09", f"```python\n{evil}\n```")
+        assert refused["exit_code"] is None and "not run" in refused["summary"]
+
+
+def test_a_preset_streams_one_verify_per_side_and_a_free_prompt_none(router, stub, river):
+    ev = events(router("POST", "/api/chat-compare", json={"preset": "broken-09"}))
+    verify = {e["side"]: e for e in ev if e.get("type") == "verify"}
+    assert set(verify) == {"big", "small"} and all(v["exit_code"] is None for v in verify.values())  # stubs send no code
+    assert ev[-1] == {"type": "end"}
+    ev = events(router("POST", "/api/chat-compare", json={"prompt": "say anything"}))
+    assert not [e for e in ev if e.get("type") == "verify"]
+
+
+def test_end_to_end_the_stream_reports_the_real_pytest_result_per_side(router, stub, river, monkeypatch):
+    """Through POST /api/chat-compare: the big model answers the right fix, your model a wrong one; each side's
+    verify event is what pytest really printed after that side's code replaced calc/mod_09.py."""
+    right = f"```python\n{FIXED_09}```\nIt joined the words without reversing them."
+    wrong = '```python\ndef reverse_words(text):\n    return text\n```\nDone.'
+    real = stub.chunks
+
+    def chunks():  # the stub's own stream, with its "Fixed." text swapped for the right fix
+        out = real()
+        for c in out:
+            for ch in c.get("choices") or []:
+                d = ch.get("delta") or {}
+                if d.get("content") == "Fi":
+                    d["content"] = right
+                elif d.get("content") == "xed.":
+                    d["content"] = ""
+        return out
+
+    monkeypatch.setattr(stub, "chunks", chunks)
+    body = json.dumps({"choices": [{"message": {"role": "assistant", "content": wrong}}], "usage": {"prompt_tokens": 12, "completion_tokens": 20}})
+    monkeypatch.setattr(river, "chat_complete_from_checkpoint", lambda messages, **kw: SimpleNamespace(status_code=200, response_json=body))
+    ev = events(router("POST", "/api/chat-compare", json={"preset": "broken-09"}))
+    v = {e["side"]: e for e in ev if e.get("type") == "verify"}
+    assert v["big"]["exit_code"] == 0 and "1 passed" in v["big"]["summary"]
+    assert v["small"]["exit_code"] == 1 and "1 failed" in v["small"]["summary"]
+    assert ev[-1] == {"type": "end"} and all(ev.index(v[s]) > next(i for i, e in enumerate(ev) if e.get("side") == s and e["type"] == "done") for s in v)
+
+
+def test_thinking_level_comes_from_the_settings_the_calls_send(router, stub, river, monkeypatch):
+    monkeypatch.delenv("OPENAI_EXTRA_BODY", raising=False)
+    ev = events(router("POST", "/api/chat-compare", json={"preset": "broken-09"}))
+    done = {e["side"]: e for e in ev if e.get("type") == "done"}
+    start = {e["side"]: e for e in ev if e.get("type") == "start"}
+    assert start["big"]["thinking"] == "none" and start["small"]["thinking"] == "off"
+    assert done["big"]["thinking"] == "none" and done["small"]["thinking"] == "off"
+    assert stub.requests[-1][1]["reasoning_effort"] == "none" and river.calls[-1][2]["chat_template_kwargs"] == {"enable_thinking": False}
+    monkeypatch.setenv("OPENAI_EXTRA_BODY", '{"service_tier": "priority", "reasoning_effort": "low"}')
+    assert router("GET", "/api/thinking").json() == {"chat": {"big": "low (fast)", "small": "off"}, "agent": {"big": "low (fast)", "small": "off"}}
+
+
+def test_the_request_cap_is_1000_so_the_5_dollar_total_is_the_real_limit(router, stub, river):
+    chat_api.BUDGET_PATH.write_text(json.dumps({"requests": 999, "cost_usd": 0.1}))
+    assert router("POST", "/api/chat-compare", json={"prompt": "say anything"}).status_code == 200
+    assert json.loads(chat_api.BUDGET_PATH.read_text())["requests"] == 1000
+    assert router("POST", "/api/chat-compare", json={"prompt": "again"}).status_code == 429

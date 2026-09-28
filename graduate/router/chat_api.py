@@ -11,7 +11,7 @@ Every event is `data: {"side": "big"|"small", "type": ...}`:
 Then one `{"type": "end"}`.
 
 Public-internet safety: presets only (the prompt is built here, <= 2,000 chars), <= 400 output tokens per side, and chat-budget.json caps the total
-at $5 and 200 requests; past either, a plain refusal. Each call goes through app.call_hooks, so metrics.jsonl (and
+at $5 and 1,000 requests; past either, a plain refusal. Each call goes through app.call_hooks, so metrics.jsonl (and
 the pricing logs) get it like any routed call.
 """
 
@@ -35,7 +35,7 @@ from graduate.router.app import app, call_hooks
 MAX_PROMPT = 2000
 MAX_OUT = 400
 MAX_USD = 5.0
-MAX_REQUESTS = 200
+MAX_REQUESTS = 1000  # a shared demo; the $5 total (MAX_USD) is the real limit
 BUDGET_PATH = Path("chat-budget.json")
 BIG_MODEL = os.environ.get("CHAT_BIG_MODEL", "gpt-5.5")
 OLD_SMALL = "river://9a2699b3-ce6f-4182-9da8-824a68de9c84/sampler_weights/fix-failing-test-v1"
@@ -111,6 +111,42 @@ def preset(pid):
 
 router = APIRouter()
 _lock = threading.Lock()
+_verify_lock = threading.Lock()  # one test run at a time
+CODE = re.compile(r"```(?:python|py)?[^\n]*\n(.*?)```", re.S)
+# Code that reaches outside the one source file is refused, not run: file, process and import-machinery access, or
+# any other path named in the code.
+OUTSIDE = re.compile(r"\bopen\s*\(|\bimport\s+(os|sys|subprocess|shutil|socket|pathlib|importlib)\b|\bfrom\s+(os|sys|subprocess|shutil|socket|pathlib|importlib)\b|__import__|\bexec\s*\(|\beval\s*\(|[\w./-]+\.(py|json|txt|cfg|toml|sh)\b")
+
+
+def verify(pid, answer):
+    """Apply a model's answer to a fresh copy of the preset's broken repo and run its test: `{exit_code, summary}`.
+
+    The first python code block replaces the preset's source file; pytest runs with a bare environment (PATH only, so
+    no key or other secret reaches it) and a 20 s timeout, in a fresh copy per run, one run at a time. No complete code
+    block (e.g. cut at the output cap), or code that reaches outside the source file: exit_code None, nothing run."""
+    import shutil
+    import subprocess
+    import sys
+    import tempfile
+
+    p = PRESETS[pid]
+    m = CODE.search(answer or "")
+    if not m or not m.group(1).strip():
+        return {"exit_code": None, "summary": "no complete fix returned"}
+    if OUTSIDE.search(m.group(1)):
+        return {"exit_code": None, "summary": f"the fix reaches outside {p['source']}, so it was not run"}
+    with _verify_lock, tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp) / "demo-repo"
+        shutil.copytree(ROOT / "demo-repo", repo, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+        (repo / p["source"]).write_text(m.group(1), encoding="utf-8")
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}  # nothing else: no key reaches the test run
+        try:
+            run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", p["test"]],
+                                 cwd=repo, env=env, capture_output=True, text=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            return {"exit_code": 124, "summary": "the test run timed out after 20 s"}
+    lines = [l for l in (run.stdout + run.stderr).splitlines() if l.strip()]
+    return {"exit_code": run.returncode, "summary": (lines[-1] if lines else f"exit {run.returncode}")[:300]}
 
 
 def _budget():
@@ -149,7 +185,16 @@ def _safe(text):
     return re.sub(r"(sk-|rk-|Bearer\s+)[\w\-]{6,}", "[key]", text)[:200]
 
 
-def _done(side, sid, request, response, usage, start, role, model):
+# The settings each side is called with; the thinking level shown in the app is read from these same dicts.
+CHAT_BIG = {"reasoning_effort": "none"}  # else hidden reasoning can spend all 400 tokens; OPENAI_EXTRA_BODY still wins
+RIVER_TEMPLATE = train.CHAT_TEMPLATE  # the same template the owned model is served with
+
+
+def _thinking_river(kwargs):
+    return "on" if kwargs.get("enable_thinking") else "off"
+
+
+def _done(side, sid, request, response, usage, start, role, model, thinking=None):
     ms = round((time.monotonic() - start) * 1000)
     call_hooks(sid, request, response, ms, role, model)
     tokens = {
@@ -169,6 +214,7 @@ def _done(side, sid, request, response, usage, start, role, model):
         "output_tokens": tokens["output_tokens"],
         "cost_usd": usd,
         "wall_ms": ms,
+        "thinking": thinking,
     }
 
 
@@ -179,7 +225,7 @@ async def _big(prompt, sid, put):
         "stream": True,
         "stream_options": {"include_usage": True},
         "max_completion_tokens": MAX_OUT,
-        "reasoning_effort": "none",  # else hidden reasoning can spend all 400 tokens; OPENAI_EXTRA_BODY still wins
+        **CHAT_BIG,
     }
     start = time.monotonic()
     chunks = []
@@ -220,7 +266,7 @@ async def _big(prompt, sid, put):
             }
         )
     usage = next((c["usage"] for c in reversed(chunks) if c.get("usage")), None) or {}
-    done = _done("big", sid, request, chunks, usage, start, "frontier", BIG_MODEL)
+    done = _done("big", sid, request, chunks, usage, start, "frontier", BIG_MODEL, upstream.thinking(request))
     trace.emit(
         "Router → OpenAI",
         "chat-compare",
@@ -242,7 +288,7 @@ def _river(prompt, model):
         base_model=rb.BASE,
         max_tokens=MAX_OUT,
         temperature=0,
-        chat_template_kwargs={"enable_thinking": False},  # a chat answer, not 400 tokens of "Thinking Process"
+        chat_template_kwargs=RIVER_TEMPLATE,  # thinking off: a chat answer, not 400 tokens of "Thinking Process"
     )
     if r.status_code >= 400:
         raise RuntimeError(f"River answered HTTP {r.status_code}")
@@ -293,7 +339,7 @@ async def _small(prompt, sid, put, model):
         ],
         "usage": usage,
     }
-    done = _done("small", sid, request, body, usage, start, "owned", model)
+    done = _done("small", sid, request, body, usage, start, "owned", model, _thinking_river(RIVER_TEMPLATE))
     trace.emit(
         "Router → River",
         "chat-compare",
@@ -304,6 +350,16 @@ async def _small(prompt, sid, put, model):
         sid,
     )
     await put(done)
+
+
+@router.get("/api/thinking")
+def thinking_levels():
+    """The thinking level each model runs with, from the same settings the calls send: the chat's big-model request,
+    the agent runs' frontier requests (OPENAI_EXTRA_BODY alone) and your model on River."""
+    return {
+        "chat": {"big": upstream.thinking(CHAT_BIG), "small": _thinking_river(RIVER_TEMPLATE)},
+        "agent": {"big": upstream.thinking({}), "small": _thinking_river(RIVER_TEMPLATE)},
+    }
 
 
 @router.get("/api/chat-preset")
@@ -334,9 +390,25 @@ async def chat_compare(req: Request):
     small = small_model()
     q = asyncio.Queue()
     # Both calls are scheduled before either runs, so they leave together.
+    think = {"big": upstream.thinking(CHAT_BIG), "small": _thinking_river(RIVER_TEMPLATE)}  # the dicts the calls send
     for side, model in (("big", BIG_MODEL), ("small", small)):
-        q.put_nowait({"side": side, "type": "start", "t_ms": round((time.monotonic() - t0) * 1000), "model": model})
-    tasks = [asyncio.create_task(_big(prompt, sid, q.put)), asyncio.create_task(_small(prompt, sid, q.put, small))]
+        q.put_nowait({"side": side, "type": "start", "t_ms": round((time.monotonic() - t0) * 1000), "model": model, "thinking": think[side]})
+    async def side(name, call):
+        """Run one side; for a preset, then test its answer and stream a `verify` event for that side."""
+        text = []
+
+        async def put(e):
+            if e.get("type") == "delta":
+                text.append(e.get("text") or "")
+            await q.put(e)
+
+        await call(put)
+        if pid in PRESETS and text:
+            v = await asyncio.to_thread(verify, pid, "".join(text))
+            await q.put({"side": name, "type": "verify", **v})
+
+    tasks = [asyncio.create_task(side("big", lambda put: _big(prompt, sid, put))),
+             asyncio.create_task(side("small", lambda put: _small(prompt, sid, put, small)))]
     for t in tasks:
         t.add_done_callback(lambda _: q.put_nowait(None))
 

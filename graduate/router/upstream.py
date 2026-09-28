@@ -66,6 +66,14 @@ def _extra_body():
     return {}
 
 
+def thinking(body):
+    """The thinking level a frontier request is sent with (its body merged with OPENAI_EXTRA_BODY, as `send` does):
+    `reasoning_effort` as given, 'fast' added when `service_tier` is priority; 'default' when neither is set."""
+    sent = {**body, **_extra_body()}
+    level = sent.get("reasoning_effort") or (sent.get("reasoning") or {}).get("effort") or "default"
+    return f"{level} (fast)" if sent.get("service_tier") == "priority" else str(level)
+
+
 async def send(body):
     """POST `body` to the frontier and return the response with its body still unread (stream it or `aread()` it).
     Without a key it answers 401 itself with the fix (#73), rather than sending `Bearer ` for httpx to reject."""

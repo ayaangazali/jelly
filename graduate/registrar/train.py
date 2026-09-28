@@ -29,6 +29,7 @@ from graduate.registrar import dataset
 
 DATA = Path("data")
 BASE_MODEL = os.environ.get("GRADUATE_LOCAL_MODEL", "Qwen/Qwen2.5-Coder-0.5B-Instruct")
+CHAT_TEMPLATE = {"enable_thinking": False}  # River serving: thinking off (the app shows this as "thinking: off")
 THREADS = int(
     os.environ.get("GRADUATE_TORCH_THREADS", "6")
 )  # the box is shared: leave cores for the router
@@ -377,7 +378,7 @@ class RiverBackend:
             base_model=self.BASE,  # required: River rejects an empty model name
             max_tokens=512,
             temperature=0,
-            chat_template_kwargs={"enable_thinking": False},
+            chat_template_kwargs=CHAT_TEMPLATE,
             **({"tools": short} if short else {}),
         )
         if r.status_code >= 400:
