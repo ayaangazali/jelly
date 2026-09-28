@@ -1,4 +1,4 @@
-# GRADUATE
+# Jelly
 
 **Your agent's repeated, verified work becomes a small model you own, and the frontier model stays on as the fallback.**
 
@@ -62,7 +62,7 @@ The repo is private, so these installs only work for collaborators with GitHub a
 uvx --from git+https://github.com/ayaangazali/jelly graduate up --demo
 ```
 
-Open http://localhost:4141/ to see the dashboard on fixture data, which it labels as sample data; Ctrl-C stops it. Or, from a clone: `docker build -t graduate . && docker run --rm -p 4141:4141 graduate`. `graduate up` always binds port 4141 and refuses to start if the port is taken.
+Open http://localhost:4141/app to see the Jelly app on fixture data, which it labels as sample data; Ctrl-C stops it. Or, from a clone: `docker build -t graduate . && docker run --rm -p 4141:4141 graduate`. `graduate up` always binds port 4141 and refuses to start if the port is taken.
 
 ## Run a real task
 
@@ -143,7 +143,7 @@ To contribute, start with [`AGENTS.md`](AGENTS.md): how to claim an issue, file 
 
 ## Hackathon context
 
-GRADUATE was built at the Own Your Intelligence Hackathon in San Francisco on Sunday 2026-09-27, hosted by River AI, GBrain, Memorable, QM, Superset and UFO. Builder: Ayaan Gazali, 42nights.
+Jelly was built at the Own Your Intelligence Hackathon in San Francisco on Sunday 2026-09-27, hosted by River AI, GBrain, Memorable, QM, Superset and UFO. Builder: Ayaan Gazali, 42nights.
 
 It merges two ideas from the brainstorm: **Graduate** (distill repeated, verified agent work into an owned small model) and **Exit Code RL** (the verify command's exit code as the reward).
 
