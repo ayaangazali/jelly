@@ -4,7 +4,7 @@ under hard caps enforced here. The estimate prints before any call.
     [E2E_CAP_USD=0.10] [E2E_CAP_CALLS=20] python -m graduate.e2e       (from the repo root)
 
 Exits 0 with `skipped: no key` when OPENAI_API_KEY is absent (environment or .env), and with `skipped: no credit`
-when a probe of 1 call and 1 output token answers 429 insufficient_quota (the free GET /v1/models says 200 either way).
+when a probe of 1 call and at most 16 output tokens answers 429 insufficient_quota (the free GET /v1/models says 200 either way).
 A watchdog reads the router's metrics.jsonl and stops the session (router and OpenCode) while the call in flight plus
 one more like the priciest so far still fit under both caps; then `CAP HIT`, exit 1. OPENAI_BASE_URL points it at a
 stub: scripts/corpus-dryrun.sh proves both caps offline. Everything it writes lands in backups/e2e-<time>/.
@@ -31,7 +31,7 @@ http = httpx.Client(timeout=30)
 
 
 def probe(key):
-    """One call for 1 output token (the free GET /v1/models says 200 without credit too): None when the key can spend,
+    """One call for at most 16 output tokens (the free GET /v1/models says 200 without credit too): None when the key can spend,
     else why not. scripts/live.sh refuses on it as well."""
     r = http.post(
         upstream.URL,
@@ -39,7 +39,7 @@ def probe(key):
         json={
             "model": MODEL,
             "messages": [{"role": "user", "content": "ok"}],
-            "max_completion_tokens": 1,
+            "max_completion_tokens": 16,  # 1 answers 400 on GPT-5.x: the output limit is hit first
         },
     )
     if r.status_code == 429 and "insufficient_quota" in r.text:
@@ -55,7 +55,7 @@ def main():
         f"plan   1 session, demo broken state {TASK}, {MODEL} via {upstream.BASE_URL}"
     )
     print(
-        f"est.   ${bench.estimate(MODEL, 'frontier'):.3f} + a 1-token credit probe  (caps ${CAP_USD:.2f}, {CAP_CALLS} calls)"
+        f"est.   ${bench.estimate(MODEL, 'frontier'):.3f} + a 16-token credit probe  (caps ${CAP_USD:.2f}, {CAP_CALLS} calls)"
     )
     key = os.environ.get("OPENAI_API_KEY")
     if not key:

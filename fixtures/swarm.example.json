@@ -1,0 +1,113 @@
+{
+  "swarm_id": "swarm-20260927T222000Z",
+  "started": "2026-09-27T22:20:00Z",
+  "launcher": "local",
+  "agents": [
+    {
+      "agent": "a1",
+      "task": "01",
+      "task_type": "fix-failing-test",
+      "session_id": "sess-3f1c9a2e-5b7d-4e1a-9c0f-1a2b3c4d5e61",
+      "status": "passed",
+      "exit_code": 0,
+      "turns": 4,
+      "a2a_read": false,
+      "a2a_write": true
+    },
+    {
+      "agent": "a2",
+      "task": "02",
+      "task_type": "fix-failing-test",
+      "session_id": "sess-8a2d4f6b-1c3e-4a5b-8d7f-2b3c4d5e6f72",
+      "status": "failed",
+      "exit_code": 1,
+      "turns": 7,
+      "a2a_read": false,
+      "a2a_write": false
+    },
+    {
+      "agent": "a3",
+      "task": "03",
+      "task_type": "fix-failing-test",
+      "session_id": "sess-c4e6a8b0-2d4f-4b6c-9e8a-3c4d5e6f7a83",
+      "status": "running",
+      "exit_code": null,
+      "turns": 2,
+      "a2a_read": true,
+      "a2a_write": false
+    },
+    {
+      "agent": "a4",
+      "task": "01",
+      "task_type": null,
+      "session_id": null,
+      "status": "queued",
+      "exit_code": null,
+      "turns": null,
+      "a2a_read": false,
+      "a2a_write": false
+    }
+  ],
+  "a2a": [
+    {
+      "ts": "2026-09-27T22:20:01Z",
+      "session_id": "sess-3f1c9a2e-5b7d-4e1a-9c0f-1a2b3c4d5e61",
+      "who": "Runner \u2192 GBrain",
+      "call": "a2a.get(\"fix-failing-test\")",
+      "result": "no note yet \u00b7 shared notes file (GBrain not installed)",
+      "issue": 8,
+      "nodes": [
+        "runner",
+        "gbrain"
+      ],
+      "edges": [
+        "a2a-read"
+      ]
+    },
+    {
+      "ts": "2026-09-27T22:20:01Z",
+      "session_id": "sess-8a2d4f6b-1c3e-4a5b-8d7f-2b3c4d5e6f72",
+      "who": "Runner \u2192 GBrain",
+      "call": "a2a.get(\"fix-failing-test\")",
+      "result": "no note yet \u00b7 shared notes file (GBrain not installed)",
+      "issue": 8,
+      "nodes": [
+        "runner",
+        "gbrain"
+      ],
+      "edges": [
+        "a2a-read"
+      ]
+    },
+    {
+      "ts": "2026-09-27T22:20:31Z",
+      "session_id": "sess-3f1c9a2e-5b7d-4e1a-9c0f-1a2b3c4d5e61",
+      "who": "Runner \u2192 GBrain",
+      "call": "a2a.put(\"fix-failing-test\", 2 files changed, pytest -q tests/test_mod_01.py green)",
+      "result": "wrote a2a/fix-failing-test.md \u00b7 shared notes file (GBrain not installed)",
+      "issue": 8,
+      "nodes": [
+        "runner",
+        "gbrain"
+      ],
+      "edges": [
+        "a2a-write"
+      ]
+    },
+    {
+      "ts": "2026-09-27T22:20:33Z",
+      "session_id": "sess-c4e6a8b0-2d4f-4b6c-9e8a-3c4d5e6f7a83",
+      "who": "Runner \u2192 GBrain",
+      "call": "a2a.get(\"fix-failing-test\")",
+      "result": "read a 212-character note from a1 \u00b7 shared notes file (GBrain not installed)",
+      "issue": 8,
+      "nodes": [
+        "runner",
+        "gbrain"
+      ],
+      "edges": [
+        "a2a-read"
+      ]
+    }
+  ]
+}

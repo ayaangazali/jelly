@@ -398,3 +398,69 @@ def test_trace_and_state_name_the_real_backend(router, stub, fake, monkeypatch, 
     assert s["config"]["backend"] == backend and f"Router → {says}" in said
     assert ("River" in said) == (backend == "river")
     assert s["terminal"] == ["1 passed", "[sess-x] link done"]
+
+
+def test_river_serves_the_compact_prompt_within_its_call_cap(monkeypatch):
+    """River gets what it was trained on (compact(), string tool arguments, the base model named) and RIVER_MAX_CALLS
+    stops the spend: past the cap complete() raises, so the frontier serves the call."""
+    sent = []
+
+    class Client:
+        def chat_complete_from_checkpoint(self, messages, **kw):
+            sent.append((messages, kw))
+            body = {"choices": [{"message": {"content": '<tool_call>{"name": "read", "arguments": {}}</tool_call>'}}]}
+            return type("R", (), {"status_code": 200, "response_json": json.dumps(body)})
+
+    b = train.RiverBackend()
+    monkeypatch.setattr(b, "_client", Client)
+    monkeypatch.setattr(train.RiverBackend, "calls", 0)
+    monkeypatch.setenv("RIVER_MAX_CALLS", "1")
+    ms = [{"role": "system", "content": "long opencode prompt"}, {"role": "user", "content": "fix it"},
+          {"role": "assistant", "content": "", "tool_calls": [CALL]}, {"role": "tool", "tool_call_id": "c1", "content": "x"}]
+    msg, _ = b.complete("river://run-x/weights/x-v1", ms, [{"type": "function", "function": {"name": "read", "parameters": {}}}])
+    messages, kw = sent[0]
+    assert msg["tool_calls"][0]["function"]["name"] == "read"
+    assert messages[0]["content"] == train.SYSTEM and json.loads(messages[2]["tool_calls"][0]["function"]["arguments"])
+    assert kw["base_model"] == b.BASE and kw["tools"][0]["function"]["name"] == "read"
+    with pytest.raises(RuntimeError, match="RIVER_MAX_CALLS=1"):
+        b.complete("river://run-x/weights/x-v1", ms, [])
+    assert len(sent) == 1
+
+
+def test_river_answer_filed_as_reasoning_with_qwen35_xml_call_becomes_a_tool_call(monkeypatch):
+    """Real River reply from the fine-tuned Qwen3.5-9B: empty content, the answer under reasoning_content, and the call in
+    Qwen3.5's XML form. It must reach OpenCode as a tool call, not an empty answer that ends the session."""
+    body = {"choices": [{"message": {"role": "assistant", "content": "", "reasoning_content":
+            "Let me look:\n\n<tool_call>\n<function=read>\n<parameter=filePath>\ntests/test_mod_07.py\n</parameter>\n"
+            "<parameter=limit>\n20\n</parameter>\n</function>\n</tool_call>"}}]}
+
+    class Client:
+        def chat_complete_from_checkpoint(self, messages, **kw):
+            return type("R", (), {"status_code": 200, "response_json": json.dumps(body)})
+
+    b = train.RiverBackend()
+    monkeypatch.setattr(b, "_client", Client)
+    monkeypatch.delenv("RIVER_MAX_CALLS", raising=False)
+    msg, _ = b.complete("river://run-x/weights/x-v1", [{"role": "user", "content": "fix it"}], [])
+    [call] = msg["tool_calls"]
+    assert call["function"]["name"] == "read"
+    assert json.loads(call["function"]["arguments"]) == {"filePath": "tests/test_mod_07.py", "limit": 20}
+    assert msg["content"] == "Let me look:"
+
+
+def test_owned_route_streams_through_the_messages_endpoint(router, stub, fake):
+    owned_call(router, fake, "sess-0000000000b1")
+    r = router(
+        "POST",
+        "/v1/messages",
+        headers={"x-api-key": "sess-0000000000b1"},
+        json={
+            "model": "claude-sonnet-4-5",
+            "stream": True,
+            "max_tokens": 64,
+            "tools": [{"name": "read", "input_schema": {"type": "object"}}],
+            "messages": [{"role": "user", "content": "The test tests/test_mod_09.py is failing."}],
+        },
+    )
+    assert r.status_code == 200 and "event: message_stop" in r.text
+    assert stub.requests == []
