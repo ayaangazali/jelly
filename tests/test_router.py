@@ -101,7 +101,8 @@ def test_call_logged_in_contract_shapes(router, stub, sid, workdir, stream, tool
         rec["cost_usd"],
     )
     assert router("GET", f"/api/sessions/{sid}/log").json() == [line]
-    assert {e["who"] for e in assert_trace()} == {
+    # Subset: routing (#20) adds its own Memorable and registry.json events.
+    assert {e["who"] for e in assert_trace()} >= {
         "Router → OpenAI",
         "Router → Metrics",
         "Router → Session log",
