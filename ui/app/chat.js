@@ -27,7 +27,7 @@ function chat() {
 .oc-asst p{margin:0 0 8px;overflow-wrap:anywhere}.oc-asst code{color:#F5B94A}
 .oc-asst pre{margin:6px 0 10px;padding:8px 10px;background:#0C1019;border:1px solid #1B2130;border-radius:4px;overflow-x:auto;white-space:pre}
 .oc-asst pre code{color:#D6DBE5}.oc-asst .k{color:#C792EA}.oc-asst .s{color:#A5E075}.oc-asst .n{color:#F78C6C}.oc-asst .c{color:#6B7589}
-.oc-dim{color:#6B7589;margin:0}.oc-ok{color:var(--pass);margin:4px 0 0;font-weight:700}.oc-bad{color:var(--fail);margin:4px 0 0;font-weight:700}
+.oc-dim{color:#6B7589;margin:0}.oc-result{padding:6px 12px;border-top:1px solid #1B2130;min-height:2.1em;font-size:.84em}.oc-result:empty{display:none}.oc-result p{margin:0}.oc-ok{color:var(--pass);margin:4px 0 0;font-weight:700}.oc-bad{color:var(--fail);margin:4px 0 0;font-weight:700}
 .oc-cursor{display:inline-block;width:.6em;background:#D6DBE5;animation:ocblink 1s steps(1) infinite}
 @keyframes ocblink{50%{opacity:0}}
 .oc-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #1B2130}
@@ -45,7 +45,8 @@ function chat() {
   const env = data.preset;
   if (!env) fetch("/api/chat-preset").then((r) => r.json()).then((p) => { data.preset = p; render(); }).catch(() => {});
   const pane = (id) => `<section class="oc-pane ${id}" id="chat-${id}"><header><b data-f="title">session</b><span data-f="model"></span></header>
-<div class="oc-body"><div class="oc-user" data-f="user"></div><div class="oc-asst" data-f="out"></div><div class="oc-dim" data-f="status"></div></div>
+<div class="oc-body"><div class="oc-user" data-f="user"></div><div class="oc-asst" data-f="out"></div></div>
+<div class="oc-result" data-f="status"></div>
 <footer class="oc-tiles"><div data-t="tokens"><b data-f="tokens">–</b><span>output tokens</span></div><div data-t="cost"><b data-f="cost">–</b><span>cost</span></div><div data-t="time"><b data-f="time">–</b><span>time to complete</span></div></footer></section>`;
   setTimeout(paintChat);
   return `<div class="oc">
@@ -107,7 +108,9 @@ function paintChat() {
   if (a && b) {
     const r = a.cost_usd > 0 ? b.cost_usd / a.cost_usd : 0;
     const x = r >= 1.1 ? ` · your model cost ${r.toFixed(1)}× less` : r > 0 && r <= 1 / 1.1 ? ` · your model cost ${(1 / r).toFixed(1)}× more` : r ? " · about the same cost" : "";
-    v.textContent = `your model ${a.output_tokens} tokens · $${a.cost_usd.toFixed(6)} · ${(a.wall_ms / 1000).toFixed(2)}s  |  big model ${b.output_tokens} tokens · $${b.cost_usd.toFixed(6)} · ${(b.wall_ms / 1000).toFixed(2)}s${x}`;
+    const va = chatRun.sides.small.verify, vb = chatRun.sides.big.verify, t = (v) => (!v ? "" : v.exit_code === 0 ? "test passed" : v.exit_code == null ? "no fix tested" : "test failed");
+    const tests = va || vb ? `  |  tests: your model ${t(va) || "running…"}, big model ${t(vb) || "running…"}` : "";
+    v.textContent = `your model ${a.output_tokens} tokens · $${a.cost_usd.toFixed(6)} · ${(a.wall_ms / 1000).toFixed(2)}s  |  big model ${b.output_tokens} tokens · $${b.cost_usd.toFixed(6)} · ${(b.wall_ms / 1000).toFixed(2)}s${x}${tests}`;
   } else if (chatRun.note) v.textContent = chatRun.note;
 }
 

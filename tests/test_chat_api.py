@@ -182,3 +182,31 @@ def test_a_preset_streams_one_verify_per_side_and_a_free_prompt_none(router, stu
     assert ev[-1] == {"type": "end"}
     ev = events(router("POST", "/api/chat-compare", json={"prompt": "say anything"}))
     assert not [e for e in ev if e.get("type") == "verify"]
+
+
+def test_end_to_end_the_stream_reports_the_real_pytest_result_per_side(router, stub, river, monkeypatch):
+    """Through POST /api/chat-compare: the big model answers the right fix, your model a wrong one; each side's
+    verify event is what pytest really printed after that side's code replaced calc/mod_09.py."""
+    right = f"```python\n{FIXED_09}```\nIt joined the words without reversing them."
+    wrong = '```python\ndef reverse_words(text):\n    return text\n```\nDone.'
+    real = stub.chunks
+
+    def chunks():  # the stub's own stream, with its "Fixed." text swapped for the right fix
+        out = real()
+        for c in out:
+            for ch in c.get("choices") or []:
+                d = ch.get("delta") or {}
+                if d.get("content") == "Fi":
+                    d["content"] = right
+                elif d.get("content") == "xed.":
+                    d["content"] = ""
+        return out
+
+    monkeypatch.setattr(stub, "chunks", chunks)
+    body = json.dumps({"choices": [{"message": {"role": "assistant", "content": wrong}}], "usage": {"prompt_tokens": 12, "completion_tokens": 20}})
+    monkeypatch.setattr(river, "chat_complete_from_checkpoint", lambda messages, **kw: SimpleNamespace(status_code=200, response_json=body))
+    ev = events(router("POST", "/api/chat-compare", json={"preset": "broken-09"}))
+    v = {e["side"]: e for e in ev if e.get("type") == "verify"}
+    assert v["big"]["exit_code"] == 0 and "1 passed" in v["big"]["summary"]
+    assert v["small"]["exit_code"] == 1 and "1 failed" in v["small"]["summary"]
+    assert ev[-1] == {"type": "end"} and all(ev.index(v[s]) > next(i for i, e in enumerate(ev) if e.get("side") == s and e["type"] == "done") for s in v)
