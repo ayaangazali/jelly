@@ -202,12 +202,16 @@ function pane({ row, log }) {
   // The thinking level THIS recorded run was sent with, if its own session log shows one; else nothing (never the
   // chat's or today's setting).
   const q = (calls.find((c) => c.request && (c.request.reasoning_effort || c.request.chat_template_kwargs)) || {}).request || {};
-  const thinking = q.reasoning_effort || (q.chat_template_kwargs ? (q.chat_template_kwargs.enable_thinking ? "on" : "off") : null);
+  // Evidence first: a recorded reply that carries reasoning means the run thought, whatever flag it was sent with.
+  const reasoned = calls.some((c) => { const m = c.response || {}; return m.reasoning_content || THINK_RE.test(String(m.content || "")); });
+  const thinking = reasoned ? "on (from its log)" : q.reasoning_effort || (q.chat_template_kwargs ? (q.chat_template_kwargs.enable_thinking ? "on" : "off") : null);
   return { row, steps, end, logged: calls.length > 0, thinking };
 }
 
 // One recorded model call, readable: tool calls as `name  short argument` (objects summarised, never "[object Object]"),
 // hidden reasoning folded into one collapsed "thinking" line, the rest as text.
+const THINK_RE = /^\s*(?:<think>|Thinking Process:)/; // how a reply's hidden reasoning starts
+
 function describe(m) {
   const short = (v) => {
     if (v == null) return "";
