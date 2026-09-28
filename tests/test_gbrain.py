@@ -1,3 +1,4 @@
+import json
 import shutil
 
 from conftest import ROOT, jsonl
@@ -13,4 +14,13 @@ def test_graduation_writes_graduated_md_and_fails_open(workdir, monkeypatch):
     assert "- update-changelog:" in md and "bump-dependency" not in md
     registry.transition("update-changelog", "PROBATION")
     assert "update-changelog" not in (workdir / "GRADUATED.md").read_text()
+    assert jsonl(workdir / "trace.jsonl")[-1]["result"].startswith("skipped:")
+
+
+def test_graduation_survives_a_malformed_registry_entry(workdir):
+    shutil.copy(ROOT / "registry.example.json", workdir / "registry.json")
+    reg = registry.load()
+    del reg["task_types"]["update-changelog"]["graduated_at"]
+    (workdir / "registry.json").write_text(json.dumps(reg))
+    assert registry.transition("fix-lint", "GRADUATED")["state"] == "GRADUATED"
     assert jsonl(workdir / "trace.jsonl")[-1]["result"].startswith("skipped:")
